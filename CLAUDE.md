@@ -33,14 +33,10 @@ go test -race -v -run TestName ./pkg/gowebserver/
 
 ```bash
 cmd/                      # CLI entry points
-├── gowebserver/          # Main web server binary
-├── certtool/             # Certificate generation tool
-└── httpprobe/            # HTTP health checker
+└── gowebserver/          # Main web server binary
 
 pkg/                      # Public libraries
-├── gowebserver/          # Core server implementation
-├── certtool/             # Certificate generation library
-└── httpprobe/            # HTTP probe library
+└── gowebserver/          # Core server implementation
 
 internal/gowebserver/testing/  # Test utilities and embedded test archives
 ```

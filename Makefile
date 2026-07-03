@@ -44,9 +44,7 @@ MAN_PAGE_NAME=${BINARY_NAME}.1
 REPOSITORY_ROOT := $(patsubst %/,%,$(dir $(abspath Makefile)))
 
 REGISTRY = docker.io/jeremyje
-CERTTOOL_IMAGE = $(REGISTRY)/certtool
 GOWEBSERVER_IMAGE = $(REGISTRY)/gowebserver
-HTTPPROBE_IMAGE = $(REGISTRY)/httpprobe
 
 GO_TOOLCHAIN_DIR = $(dir $(abspath golang.mk))bin/toolchain
 
@@ -75,7 +73,7 @@ TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.xz
 TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.lz4
 WASM_ASSETS = install/wasm/wasm_exec.js install/wasm/wasm_exec.html install/wasm/gowebserver.wasm
 ASSETS = $(TEST_ARCHIVES) internal/gowebserver/testing/nested-testassets.zip internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
-ALL_APPS = gowebserver certtool httpprobe
+ALL_APPS = gowebserver
 
 ALL_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(ALL_PLATFORMS),bin/go/$(platform)/$(app)$(if $(findstring windows_,$(platform)),.exe,)))
 WINDOWS_VERSIONS = 1709 1803 1809 1903 1909 2004 20H2 ltsc2022 ltsc2025
@@ -114,65 +112,11 @@ bin/go/%: $(ASSETS)
 		cmd/$(basename $(notdir $@))/$(basename $(notdir $@)).go
 	touch $@
 
-SHORT_APP_NAMES = server httpprobe certtool
+SHORT_APP_NAMES = server
 RELEASE_BINARY_SUFFIXES = amd64 arm arm64 386 arm amd64-darwin arm64-darwin amd64.exe 386.exe
 RELEASE_BINARIES = $(foreach appname,$(SHORT_APP_NAMES),$(foreach relbin,$(RELEASE_BINARY_SUFFIXES),bin/release/$(appname)-$(relbin)))
 
 release-binaries: $(RELEASE_BINARIES)
-
-bin/release/certtool-amd64: bin/go/linux_amd64/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-arm: bin/go/linux_arm_v7/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-arm64: bin/go/linux_arm64/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-386: bin/go/linux_386/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-amd64-darwin: bin/go/darwin_amd64/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-arm64-darwin: bin/go/darwin_arm64/certtool
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-amd64.exe: bin/go/windows_amd64/certtool.exe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-386.exe: bin/go/windows_386/certtool.exe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/certtool-arm64.exe: bin/go/windows_arm64/certtool.exe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-amd64: bin/go/linux_amd64/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-arm: bin/go/linux_arm_v7/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-arm64: bin/go/linux_arm64/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-386: bin/go/linux_386/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-amd64-darwin: bin/go/darwin_amd64/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-arm64-darwin: bin/go/darwin_arm64/httpprobe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-amd64.exe: bin/go/windows_amd64/httpprobe.exe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-386.exe: bin/go/windows_386/httpprobe.exe
-	mkdir -p bin/release/ && cp $< $@
-
-bin/release/httpprobe-arm64.exe: bin/go/windows_arm64/httpprobe.exe
-	mkdir -p bin/release/ && cp $< $@
 
 bin/release/server-amd64: bin/go/linux_amd64/gowebserver
 	mkdir -p bin/release/ && cp $< $@
@@ -314,13 +258,11 @@ deps:
 ensure-builder:
 	-$(DOCKER) buildx create --name $(BUILDX_BUILDER)
 
-ALL_IMAGES = $(GOWEBSERVER_IMAGE) $(CERTTOOL_IMAGE) $(HTTPPROBE_IMAGE)
+ALL_IMAGES = $(GOWEBSERVER_IMAGE)
 # https://github.com/docker-library/official-images#architectures-other-than-amd64
 images: DOCKER_PUSH = --push
 images: linux-images windows-images
 	-$(DOCKER) manifest rm $(GOWEBSERVER_IMAGE):$(TAG)
-	-$(DOCKER) manifest rm $(CERTTOOL_IMAGE):$(TAG)
-	-$(DOCKER) manifest rm $(HTTPPROBE_IMAGE):$(TAG)
 
 	for image in $(ALL_IMAGES) ; do \
 		$(DOCKER) manifest create $$image:$(TAG) $(foreach winver,$(WINDOWS_VERSIONS),$${image}:$(TAG)-windows_amd64-$(winver)) $(foreach platform,$(LINUX_PLATFORMS),$${image}:$(TAG)-$(platform)) ; \
@@ -337,26 +279,14 @@ gowebserver-image: bin/go/linux_amd64/gowebserver
 ALL_LINUX_IMAGES = $(foreach app,$(ALL_APPS),$(foreach platform,$(LINUX_PLATFORMS),linux-image-$(app)-$(platform)))
 linux-images: $(ALL_LINUX_IMAGES)
 
-linux-image-certtool-%: bin/go/%/certtool ensure-builder
-	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform $(subst _,/,$*) --build-arg BINARY_PATH=$< -f cmd/certtool/Dockerfile -t $(CERTTOOL_IMAGE):$(TAG)-$* . $(DOCKER_PUSH)
-
 linux-image-gowebserver-%: bin/go/%/gowebserver ensure-builder
 	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform $(subst _,/,$*) --build-arg BINARY_PATH=$< -f cmd/gowebserver/Dockerfile -t $(GOWEBSERVER_IMAGE):$(TAG)-$* . $(DOCKER_PUSH)
-
-linux-image-httpprobe-%: bin/go/%/httpprobe ensure-builder
-	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform $(subst _,/,$*) --build-arg BINARY_PATH=$< -f cmd/httpprobe/Dockerfile -t $(HTTPPROBE_IMAGE):$(TAG)-$* . $(DOCKER_PUSH)
 
 ALL_WINDOWS_IMAGES = $(foreach app,$(ALL_APPS),$(foreach winver,$(WINDOWS_VERSIONS),windows-image-$(app)-$(winver)))
 windows-images: $(ALL_WINDOWS_IMAGES)
 
-windows-image-certtool-%: bin/go/windows_amd64/certtool.exe ensure-builder
-	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform windows/amd64 -f cmd/certtool/Dockerfile.windows --build-arg WINDOWS_VERSION=$* -t $(CERTTOOL_IMAGE):$(TAG)-windows_amd64-$* . $(DOCKER_PUSH)
-
 windows-image-gowebserver-%: bin/go/windows_amd64/gowebserver.exe ensure-builder
 	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform windows/amd64 -f cmd/gowebserver/Dockerfile.windows --build-arg WINDOWS_VERSION=$* -t $(GOWEBSERVER_IMAGE):$(TAG)-windows_amd64-$* . $(DOCKER_PUSH)
-
-windows-image-httpprobe-%: bin/go/windows_amd64/httpprobe.exe ensure-builder
-	$(DOCKER) buildx build $(DOCKER_BUILDER_FLAG) --platform windows/amd64 -f cmd/httpprobe/Dockerfile.windows --build-arg WINDOWS_VERSION=$* -t $(HTTPPROBE_IMAGE):$(TAG)-windows_amd64-$* . $(DOCKER_PUSH)
 
 presubmit: clean check coverage all release-binaries images
 

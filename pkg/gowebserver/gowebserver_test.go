@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudfra/certtool/pkg/certtool"
 	gomainTesting "github.com/jeremyje/gomain/testing"
-	"github.com/jeremyje/gowebserver/v2/pkg/certtool"
 )
 
 func TestBuildCertificateHostnames(t *testing.T) {

@@ -144,24 +144,6 @@ jobs:
           files: |
             LICENSE
             bin/release.tar.gz
-            bin/release/certtool-386
-            bin/release/certtool-386.exe
-            bin/release/certtool-amd64
-            bin/release/certtool-amd64-darwin
-            bin/release/certtool-amd64.exe
-            bin/release/certtool-arm
-            bin/release/certtool-arm64
-            bin/release/certtool-arm64-darwin
-            bin/release/certtool-arm64.exe
-            bin/release/httpprobe-386
-            bin/release/httpprobe-386.exe
-            bin/release/httpprobe-amd64
-            bin/release/httpprobe-amd64-darwin
-            bin/release/httpprobe-amd64.exe
-            bin/release/httpprobe-arm
-            bin/release/httpprobe-arm64
-            bin/release/httpprobe-arm64-darwin
-            bin/release/httpprobe-arm64.exe
             bin/release/server-386
             bin/release/server-386.exe
             bin/release/server-amd64

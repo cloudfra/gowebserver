@@ -59,13 +59,9 @@ sc.exe start gowebserver
 ## Docker Images
 
 * [gowebserver](https://hub.docker.com/r/jeremyje/gowebserver/tags)
-* [certtool](https://hub.docker.com/r/jeremyje/certtool/tags)
-* [httpprobe](https://hub.docker.com/r/jeremyje/httpprobe/tags)
 
 ```bash
 docker pull docker.io/jeremyje/gowebserver
-docker pull docker.io/jeremyje/certtool
-docker pull docker.io/jeremyje/httpprobe
 ```
 
 ## Build
