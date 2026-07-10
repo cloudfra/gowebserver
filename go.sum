@@ -71,8 +71,8 @@ github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XL
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloudflare/circl v1.6.4 h1:pOXuDTCEYyzydgUpQ0CQz3LsinKjiSk6nNP5Lt5K64U=
 github.com/cloudflare/circl v1.6.4/go.mod h1:YxarevkLlbaHuWsxG6vmYNWBEsSp4pnp7j+4VljMavY=
-github.com/cloudfra/certtool v0.2.0 h1:6RkBOGVTAHyI0mHHqGvgYcGvbYHBHXGNhcVYthTvVgs=
-github.com/cloudfra/certtool v0.2.0/go.mod h1:/WPKIl05OJNTHhaew5U648SLsESEQgWaPQqSyp7xnHk=
+github.com/cloudfra/certtool v0.2.2 h1:9XzV6uOVUv8osH+Nrw+i17MwOsrrjjQiuSHeynj4F6Y=
+github.com/cloudfra/certtool v0.2.2/go.mod h1:/WPKIl05OJNTHhaew5U648SLsESEQgWaPQqSyp7xnHk=
 github.com/cloudfra/ufs v0.9.0 h1:5O+LRFKklD8AnKujpnlyPYY8TtaaQeaOa1D1DPD2jEc=
 github.com/cloudfra/ufs v0.9.0/go.mod h1:0UoqxvnotBAUH1N8GnXAE5nW+oDZfnkO7leLLfZbQV8=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
