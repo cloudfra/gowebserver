@@ -1,4 +1,4 @@
-# Copyright 2019 Jeremy Edwards
+# Copyright 2019 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,3 +82,17 @@ __debug_bin
 temp/
 *.wasm
 *.db
+
+# Note: intentionally does not match .terraform.lock.hcl, which should be
+# committed to pin provider versions/hashes for reproducible builds.
+.terraform/
+.terraformrc
+*.coverage
+*.log
+*.pt
+/web.cert
+/web.key
+benchmark.html
+build/
+gha-creds-*.json
+output/

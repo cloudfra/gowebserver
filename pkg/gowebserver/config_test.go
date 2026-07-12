@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -221,7 +221,7 @@ func writeTempFile(content string) (*os.File, error) {
 	if err != nil {
 		return fp, err
 	}
-	err = os.WriteFile(fp.Name(), []byte(content), os.FileMode(0644))
+	err = os.WriteFile(fp.Name(), []byte(content), os.FileMode(0o644))
 	return fp, err
 }
 

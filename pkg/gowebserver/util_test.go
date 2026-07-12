@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ func TestDownloadFileOnLocalFile(t *testing.T) {
 	})
 
 	path := f.Name()
-	err = os.WriteFile(path, []byte("ok"), os.FileMode(0644))
+	err = os.WriteFile(path, []byte("ok"), os.FileMode(0o644))
 	if err != nil {
 		t.Error(err)
 	}
@@ -114,7 +114,7 @@ func TestDownloadFileOnLocalFile(t *testing.T) {
 }
 
 func TestDownloadFileOnHttpsFile(t *testing.T) {
-	remotePath := "https://raw.githubusercontent.com/jeremyje/gowebserver/main/Makefile"
+	remotePath := "https://raw.githubusercontent.com/cloudfra/gowebserver/main/Makefile"
 	localPath, cleanup, err := downloadFile(remotePath)
 	if err != nil {
 		t.Error(err)
@@ -218,7 +218,7 @@ func TestExecuteTemplate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			w := &bytes.Buffer{}
-			var params = struct {
+			params := struct {
 				TestString string
 			}{"test-string"}
 			if err := executeTemplate(tc.input, params, w); err != nil {
@@ -237,8 +237,7 @@ func TestExecuteTemplate(t *testing.T) {
 	}
 }
 
-type angryReader struct {
-}
+type angryReader struct{}
 
 func (a *angryReader) Read(p []byte) (n int, err error) {
 	return 0, fmt.Errorf("failure")

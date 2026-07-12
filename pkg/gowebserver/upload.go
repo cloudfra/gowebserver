@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package gowebserver
 // http://sanatgersappa.blogspot.com/2013/03/handling-multiple-file-uploads-in-go.html
 import (
 	"crypto/md5"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -30,19 +31,15 @@ import (
 	"strings"
 	"time"
 
-	_ "embed"
-
+	"github.com/cloudfra/gowebserver/internal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
-var (
-
-	//go:embed upload.html
-	uploadHTML []byte
-)
+//go:embed upload.html
+var uploadHTML []byte
 
 const (
 	uploadFileFormName = "gowebserveruploadfile[]"
@@ -79,12 +76,12 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(h, strconv.FormatInt(crutime, 10))
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
-		var params = struct {
+		params := struct {
 			UploadHTTPPath     string
 			UploadToken        string
 			UploadFileFormName string
 			ApplicationVersion string
-		}{uh.uploadHTTPPath, token, uploadFileFormName, version}
+		}{uh.uploadHTTPPath, token, uploadFileFormName, internal.Version()}
 
 		if err := uh.tmpl.Execute(w, params); err != nil {
 			logger.With("error", err).Error("cannot execute upload.html template.")

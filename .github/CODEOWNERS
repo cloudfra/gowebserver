@@ -1,4 +1,4 @@
-# Copyright 2022 Cloudfra
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# https://helm.sh/docs/topics/charts/#values-files
-gowebserver:
-  name: gowebserver
-  image:
-    registry: "docker.io"
-    repository: "cloudfra/gowebserver"
-    tag: "v3.6.0"
-    pullPolicy: "Always"
-  replicas: 3
-  portType: ClusterIP
-  http:
-    port: 8080
-  https:
-    port: 8443
+# Default owner for everything in this repo.
+# TODO: switch to @cloudfra/maintainers once that team exists in the org
+# (currently `gh api orgs/cloudfra/teams` returns no teams).
+* @jeremyje

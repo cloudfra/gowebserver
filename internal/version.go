@@ -1,4 +1,4 @@
-// Copyright 2022 Cloudfra
+// Copyright 2026 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build plan9 || js || aix
+// Package internal exposes build-time version metadata injected via ldflags.
+package internal
 
-package gowebserver
-
-import (
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+var (
+	version    = "UNKNOWN"
+	buildstamp = "UNKNOWN"
 )
 
-func newTraceProvider(m Monitoring, r *resource.Resource, sp sdktrace.SpanProcessor) (*sdktrace.TracerProvider, error) {
-	return nil, nil
+// Version of the package.
+func Version() string {
+	return version
+}
+
+// Buildstamp of the package.
+func Buildstamp() string {
+	return buildstamp
 }

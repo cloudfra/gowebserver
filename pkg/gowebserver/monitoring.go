@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"net/http/pprof"
 	"time"
 
+	"github.com/cloudfra/gowebserver/internal"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -54,7 +55,7 @@ func setupMonitoring(m Monitoring) (*monitoringContext, error) {
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("gowebserver"),
-			semconv.ServiceVersionKey.String(version),
+			semconv.ServiceVersionKey.String(internal.Version()),
 		),
 	)
 	if err != nil {

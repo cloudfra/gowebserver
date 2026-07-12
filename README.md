@@ -5,7 +5,7 @@ It can host a local directory or contents of a zip file.
 
 ```bash
 # Download (linux amd64, see Downloads for other builds)
-curl -o gowebserver -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-amd64; chmod +x gowebserver
+curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64; chmod +x gowebserver
 
 # Host the current directory.
 ./gowebserver
@@ -14,10 +14,10 @@ curl -o gowebserver -O -L https://github.com/jeremyje/gowebserver/releases/downl
 ./gowebserver --path=${HOME}
 
 # Host a zip file from the internet.
-./gowebserver --path=https://github.com/jeremyje/gowebserver/archive/v3.6.0.zip
+./gowebserver --path=https://github.com/cloudfra/gowebserver/archive/v3.6.0.zip
 
 # Install in your Kubernetes Cluster.
-kubectl apply -f https://raw.githubusercontent.com/jeremyje/gowebserver/main/install/kubernetes.yaml
+kubectl apply -f https://raw.githubusercontent.com/cloudfra/gowebserver/main/install/kubernetes.yaml
 ```
 
 ## Windows Service
@@ -49,24 +49,24 @@ sc.exe start gowebserver
 
 |   OS   | Arch  | Link
 |--------|-------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-|Linux   | amd64 | `curl -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-amd64`
-|Linux   | arm   | `curl -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-arm`
-|Linux   | arm64 | `curl -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-arm64`
-|Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-amd64.exe" -OutFile "server-amd64.exe" -UseBasicParsing`
-|macOS   | amd64 | `curl -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-amd64-darwin`
-|macOS   | arm64 | `curl -O -L https://github.com/jeremyje/gowebserver/releases/download/v3.6.0/server-arm64-darwin`
+|Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64`
+|Linux   | arm   | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm`
+|Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm64`
+|Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64.exe" -OutFile "server-amd64.exe" -UseBasicParsing`
+|macOS   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64-darwin`
+|macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm64-darwin`
 
 ## Docker Images
 
-* [gowebserver](https://hub.docker.com/r/jeremyje/gowebserver/tags)
+* [gowebserver](https://hub.docker.com/r/cloudfra/gowebserver/tags)
 
 ```bash
-docker pull docker.io/jeremyje/gowebserver
+docker pull docker.io/cloudfra/gowebserver
 ```
 
 ## Build
 
-![example workflow](https://github.com/jeremyje/gowebserver/actions/workflows/deploy.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/jeremyje/gowebserver)](https://goreportcard.com/report/github.com/jeremyje/gowebserver) [![Go Reference](https://pkg.go.dev/badge/github.com/jeremyje/gowebserver.svg)](https://pkg.go.dev/github.com/jeremyje/gowebserver) [![codecov](https://codecov.io/gh/jeremyje/gowebserver/branch/main/graph/badge.svg)](https://codecov.io/gh/jeremyje/gowebserver)
+![example workflow](https://github.com/cloudfra/gowebserver/actions/workflows/deploy.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/cloudfra/gowebserver)](https://goreportcard.com/report/github.com/cloudfra/gowebserver) [![Go Reference](https://pkg.go.dev/badge/github.com/cloudfra/gowebserver.svg)](https://pkg.go.dev/github.com/cloudfra/gowebserver) [![codecov](https://codecov.io/gh/cloudfra/gowebserver/branch/main/graph/badge.svg)](https://codecov.io/gh/cloudfra/gowebserver)
 
 Install [Go 1.24 or newer](https://golang.org/dl/).
 
@@ -86,7 +86,7 @@ sudo apt-get -y -q install lz4 p7zip-full rar unrar
 
 ```bash
 # Clone the Codebase
-git clone git@github.com:jeremyje/gowebserver.git
+git clone git@github.com:cloudfra/gowebserver.git
 # Build the Code
 make -j$(nproc)
 ```
@@ -107,7 +107,7 @@ Sample code for embedding a HTTP/HTTPS server in your application.
 package main
 
 import (
-  "github.com/jeremyje/gowebserver/v2/pkg/gowebserver"
+  "github.com/cloudfra/gowebserver/pkg/gowebserver"
   "go.uber.org/zap"
 )
 

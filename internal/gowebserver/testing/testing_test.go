@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var (
-	defaultFileData = []byte("ok")
-)
+var defaultFileData = []byte("ok")
 
 func TestCreateTempFile(t *testing.T) {
 	testCases := []struct {

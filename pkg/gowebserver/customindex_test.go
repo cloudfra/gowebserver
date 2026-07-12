@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/cloudfra/ufs"
 	"github.com/google/go-cmp/cmp"
-	gowsTesting "github.com/jeremyje/gowebserver/v2/internal/gowebserver/testing"
 )
 
 func TestDirEntryString(t *testing.T) {

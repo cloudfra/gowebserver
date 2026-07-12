@@ -1,4 +1,4 @@
-# Copyright 2021 Jeremy Edwards
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ FROM --platform=$BUILDPLATFORM gcr.io/distroless/static:nonroot
 
 ARG BUILD_DATE
 ARG VCS_REF
-ARG BUILD_TIME
 ARG BUILD_VERSION
 ARG BINARY_NAME
 ARG BINARY_PATH
@@ -26,31 +25,30 @@ WORKDIR /app/
 COPY --chown=nonroot $BINARY_PATH /app/gowebserver
 COPY --chown=nonroot LICENSE /app/LICENSE
 
-EXPOSE 80
 ENTRYPOINT ["/app/gowebserver"]
 
 # Standardized Docker Image Labels
 # https://github.com/opencontainers/image-spec/blob/master/annotations.md
 LABEL \
-    org.opencontainers.image.created="${BUILD_TIME}" \
-    org.opencontainers.image.authors="Jeremyje <jeremyje@googlegroups.com>" \
-    org.opencontainers.image.url="https://github.com/jeremyje/gowebserver" \
-    org.opencontainers.image.documentation="https://github.com/jeremyje/gowebserver" \
-    org.opencontainers.image.source="https://github.com/jeremyje/gowebserver" \
+    org.opencontainers.image.created="${BUILD_DATE}" \
+    org.opencontainers.image.authors="Cloudfra <cloudfra@googlegroups.com>" \
+    org.opencontainers.image.url="https://github.com/cloudfra/gowebserver" \
+    org.opencontainers.image.documentation="https://github.com/cloudfra/gowebserver" \
+    org.opencontainers.image.source="https://github.com/cloudfra/gowebserver" \
     org.opencontainers.image.version="${BUILD_VERSION}" \
-    org.opencontainers.image.revision="1" \
-    org.opencontainers.image.vendor="Jeremy Edwards" \
+    org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.vendor="Cloudfra" \
     org.opencontainers.image.licenses="Apache-2.0" \
     org.opencontainers.image.ref.name="" \
     org.opencontainers.image.title="${BINARY_NAME}" \
     org.opencontainers.image.description="A simple, convenient, reliable, well tested HTTP/HTTPS web server to host static files." \
     org.label-schema.schema-version="1.0" \
     org.label-schema.build-date=$BUILD_DATE \
-    org.label-schema.url="https://github.com/jeremyje/gowebserver" \
-    org.label-schema.vcs-url="https://github.com/jeremyje/gowebserver" \
+    org.label-schema.url="https://github.com/cloudfra/gowebserver" \
+    org.label-schema.vcs-url="https://github.com/cloudfra/gowebserver" \
     org.label-schema.version=$BUILD_VERSION \
     org.label-schema.vcs-ref=$VCS_REF \
-    org.label-schema.vendor="Jeremy Edwards" \
+    org.label-schema.vendor="Cloudfra" \
     org.label-schema.name="${BINARY_NAME}" \
     org.label-schema.description="A simple, convenient, reliable, well tested HTTP/HTTPS web server to host static files." \
-    org.label-schema.usage="https://github.com/jeremyje/gowebserver"
+    org.label-schema.usage="https://github.com/cloudfra/gowebserver"

@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package main
 
 import (
-	"github.com/jeremyje/gowebserver/v2/pkg/gowebserver"
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 )
 
 func main() {

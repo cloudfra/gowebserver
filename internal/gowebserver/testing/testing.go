@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"testing"
 )
 
-const testFileMode = os.FileMode(0644)
+const testFileMode = os.FileMode(0o644)
 
 var (
 	//go:embed nodir-testassets.zip

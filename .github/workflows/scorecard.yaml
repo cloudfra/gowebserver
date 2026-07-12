@@ -1,0 +1,73 @@
+# Copyright 2026 Cloudfra
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Scorecard analysis workflow
+
+on:
+  push:
+    # Only the default branch is supported.
+    branches: ["main"]
+  schedule:
+    # Weekly on Saturdays.
+    - cron: "30 1 * * 6"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # https://github.com/ossf/scorecard-action#additional-permissions-for-private-repositories
+    # security-events:write/id-token:write (needed for publish_results/Code
+    # Scanning upload) are omitted below - this repo is private without
+    # GitHub Advanced Security, so neither is usable. These read scopes just
+    # let Scorecard query commits/SAST config without hitting "Resource not
+    # accessible by integration" errors.
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        # https://github.com/ossf/scorecard-action
+        uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # publish_results (badge/api.scorecard.dev) and Code Scanning
+          # upload both require a public repo, or GitHub Advanced Security on
+          # a private one, which this repo doesn't have - run in degraded
+          # mode and keep the results as a build artifact below instead.
+          publish_results: false
+
+      - name: Upload results artifact
+        # https://docs.github.com/en/actions/advanced-guides/storing-workflow-data-as-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 30

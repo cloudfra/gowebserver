@@ -1,4 +1,4 @@
-module github.com/jeremyje/gowebserver/v2
+module github.com/cloudfra/gowebserver
 
 go 1.26.2
 
@@ -131,4 +131,9 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.7.3 // indirect
+)
+
+ignore (
+	./build
+	./third_party
 )

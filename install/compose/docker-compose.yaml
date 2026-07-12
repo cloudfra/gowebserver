@@ -1,4 +1,4 @@
-# Copyright 2026 Jeremy Edwards
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 version: '3.9'
 services:
   gowebserver:
-    image: docker.io/jeremyje/gowebserver:v3.6.0
+    image: docker.io/cloudfra/gowebserver:v3.6.0
     container_name: gowebserver
     hostname: gowebserver
     networks:

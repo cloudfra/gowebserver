@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,10 +25,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	//go:embed template-index.html
-	templateIndexHTML []byte
-)
+//go:embed template-index.html
+var templateIndexHTML []byte
 
 type indexHTTPHandler struct {
 	page []byte

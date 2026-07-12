@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
+	"github.com/cloudfra/gowebserver/internal"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -138,7 +139,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			FilePath:           filePath,
 			ParentPath:         parentPath,
 			RawURL:             rawURL,
-			ApplicationVersion: version,
+			ApplicationVersion: internal.Version(),
 			Oversized:          true,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -210,7 +211,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		AvailableThemes:    richViewThemes,
 		ChromaCSS:          template.CSS(cssBuilder.String()),
 		HighlightedHTML:    template.HTML(htmlBuf.String()),
-		ApplicationVersion: version,
+		ApplicationVersion: internal.Version(),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

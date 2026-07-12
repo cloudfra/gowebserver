@@ -1,4 +1,4 @@
-# Copyright 2026 Jeremy Edwards
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 verbose: true
 serve:
-  - source: https://github.com/jeremyje/gowebserver.git
+  - source: https://github.com/cloudfra/gowebserver.git
     endpoint: /gowebserver
   - source: /gowebserver/upload
     endpoint: /uploaded
