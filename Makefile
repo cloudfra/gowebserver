@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include Makefile_testassets.mk
+
 prefix = /usr
 bindir = $(prefix)/bin
 sharedir = $(prefix)/share
@@ -63,16 +65,8 @@ PLAN9_PLATFORMS = # plan9_386 plan9_amd64 plan9_arm_v5 plan9_arm_v6 plan9_arm_v7
 SOLARIS_PLATFORMS = solaris_amd64
 NICHE_PLATFORMS = js_wasm illumos_amd64 aix_ppc64 $(ANDROID_PLATFORMS) $(DARWIN_PLATFORMS) $(IOS_PLATFORMS) $(DRAGONFLY_PLATFORMS) $(FREEBSD_PLATFORMS) $(NETBSD_PLATFORMS) $(OPENBSD_PLATFORMS) $(PLAN9_PLATFORMS) $(SOLARIS_PLATFORMS)
 ALL_PLATFORMS = $(LINUX_PLATFORMS) $(WINDOWS_PLATFORMS) $(NICHE_PLATFORMS)
-TEST_ARCHIVES = internal/gowebserver/testing/testassets.zip
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.rar
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.gz
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.bz2
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.7z
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.xz
-TEST_ARCHIVES += internal/gowebserver/testing/testassets.tar.lz4
 WASM_ASSETS = install/wasm/wasm_exec.js install/wasm/wasm_exec.html install/wasm/gowebserver.wasm
-ASSETS = $(TEST_ARCHIVES) internal/gowebserver/testing/nested-testassets.zip internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
+ASSETS = $(TEST_ARCHIVES)
 ALL_APPS = gowebserver
 
 ALL_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(ALL_PLATFORMS),bin/go/$(platform)/$(app)$(if $(findstring windows_,$(platform)),.exe,)))
@@ -178,42 +172,6 @@ install/wasm/wasm_exec.html:
 	mkdir -p $(dir $@)
 	cp -f $(shell go env GOROOT)/misc/wasm/wasm_exec.html $@
 	sed -i 's/..\/..\/lib\/wasm\///g' $@
-
-internal/gowebserver/testing/nodir-testassets.zip: $(TEST_ARCHIVES) internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nested-testassets.zip
-	cd internal/gowebserver/testing/testassets; $(ZIP) -qr9 ../../nodir-testassets.zip index.html assets/1.txt assets/2.txt bytype/archive.rar bytype/text.txt site.js "weird #1.txt" weird#.txt weird$$.txt assets/more/3.txt assets/four/4.txt assets/fivesix/5.txt assets/fivesix/6.txt
-	mv internal/gowebserver/nodir-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
-
-internal/gowebserver/testing/single-testassets.zip: $(TEST_ARCHIVES)
-	cd internal/gowebserver/testing/; $(ZIP) -qr9 ../single-testassets.zip testassets/
-	mv internal/gowebserver/single-testassets.zip internal/gowebserver/testing/single-testassets.zip
-
-internal/gowebserver/testing/nested-testassets.zip: $(TEST_ARCHIVES) internal/gowebserver/testing/single-testassets.zip
-	cd internal/gowebserver/testing/; $(ZIP) -qr9 ../nested-testassets.zip *
-	mv internal/gowebserver/nested-testassets.zip internal/gowebserver/testing/nested-testassets.zip
-
-internal/gowebserver/testing/testassets.zip:
-	cd internal/gowebserver/testing/testassets/; $(ZIP) -qr9 ../testassets.zip *
-
-internal/gowebserver/testing/testassets.rar:
-	cd internal/gowebserver/testing/testassets/; $(RAR) a ../testassets.rar *
-
-internal/gowebserver/testing/testassets.tar.gz:
-	cd internal/gowebserver/testing/testassets/; $(TAR) -I 'gzip -9' -cf ../testassets.tar.gz *
-
-internal/gowebserver/testing/testassets.tar.bz2:
-	cd internal/gowebserver/testing/testassets/; BZIP=-9 $(TAR) cjf ../testassets.tar.bz2 *
-
-internal/gowebserver/testing/testassets.tar.xz:
-	cd internal/gowebserver/testing/testassets/; $(TAR) cJf ../testassets.tar.xz *
-
-internal/gowebserver/testing/testassets.tar.lz4:
-	cd internal/gowebserver/testing/testassets/; $(TAR) cf ../testassets.tar.lz4 -I 'lz4' *
-
-internal/gowebserver/testing/testassets.tar:
-	cd internal/gowebserver/testing/testassets/; $(TAR) cf ../testassets.tar *
-
-internal/gowebserver/testing/testassets.7z:
-	cd internal/gowebserver/testing/testassets/; $(SEVENZIP) a ../testassets.7z *
 
 test: $(ASSETS)
 	$(GO) test -race ${SOURCE_DIRS}
