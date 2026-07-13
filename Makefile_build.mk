@@ -75,19 +75,19 @@ windows-binaries: $(WINDOWS_BINARIES)
 
 build/packages/%-binaries.zip: $(ALL_BINARIES)
 	mkdir -p "$(dir $@)"
-	(cd build/bin/$*/; zip -qr9 "$(REPOSITORY_ROOT)/$@" *)
+	(cd "$(REPOSITORY_ROOT)build/bin/$*/"; zip -qr9 "$(REPOSITORY_ROOT)/$@" *)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 release-binaries: $(RELEASE_BINARIES)
 
 build/packages/release.tar.gz: $(RELEASE_BINARIES)
 	mkdir -p "$(dir $@)"
-	cd build/release/; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
+	cd "$(REPOSITORY_ROOT)/build/release/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/packages/all-binaries.tar.gz: $(ALL_BINARIES)
 	mkdir -p "$(dir $@)"
-	cd build/bin/; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
+	cd "$(REPOSITORY_ROOT)build/bin/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
 	touch "$(REPOSITORY_ROOT)/$@"
 
 ifeq ($(CODESIGN_CERT)|$(CODESIGN_KEY),build/certs/codesign.crt|build/certs/codesign.key)
@@ -97,7 +97,7 @@ build/certs/codesign.crt build/certs/codesign.key &: $(CERTTOOL)
 endif
 
 build/bin/%: $(ASSETS)
-	GOOS=$(word 3, $(subst /, ,$(dir $@))) GOARCH=$(word 4, $(subst /, ,$(dir $@))) GOARM=$(subst v,,$(word 5, $(subst /, ,$(dir $@)))) CGO_ENABLED=0 $(GO) build -ldflags="-X '$(GO_PACKAGE)/internal.version=$(VERSION)' -X '$(GO_PACKAGE)/internal.buildstamp=$(BUILD_DATE)'" -o $@ cmd/$(basename $(notdir $@))/$(basename $(notdir $@)).go
+	GOOS=$(word 3, $(subst /, ,$(dir $@))) GOARCH=$(word 4, $(subst /, ,$(dir $@))) GOARM=$(subst v,,$(word 5, $(subst /, ,$(dir $@)))) CGO_ENABLED=0 $(GO) build -ldflags="-X '$(GO_PACKAGE)/internal.version=$(VERSION)' -X '$(GO_PACKAGE)/internal.buildstamp=$(BUILD_DATE)'" -o "$(REPOSITORY_ROOT)/$@" cmd/$(basename $(notdir $@))/$(basename $(notdir $@)).go
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/bin/js/wasm/%.html: build/bin/js/wasm/% build/bin/js/wasm/wasm_exec.js
@@ -108,7 +108,7 @@ build/bin/js/wasm/%.html: build/bin/js/wasm/% build/bin/js/wasm/wasm_exec.js
 
 build/bin/js/wasm/wasm_exec.js:
 	mkdir -p "$(dir $@)"
-	cp -f $(shell go env GOROOT)/lib/wasm/wasm_exec.js "$(REPOSITORY_ROOT)/$@"
+	cp -f "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" "$(REPOSITORY_ROOT)/$@"
 
 wasm-binaries: $(WASM_BINARIES)
 
@@ -124,7 +124,7 @@ lint-terraform: build/toolchain/bin/terraform$(EXE) build/toolchain/bin/tflint$(
 	# trivy config (successor to the now-maintenance-mode tfsec, folded into
 	# trivy) covers that instead, reusing the same tool already pinned for
 	# image scanning rather than adding a second, redundant IaC scanner.
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 install/terraform
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 "$(REPOSITORY_ROOT)/install/terraform"
 else
 lint-terraform:
 endif
@@ -188,7 +188,7 @@ coverage.txt: $(ASSETS)
 	sed -i '2,$${/mode: /d;}' $@
 
 coverage.xml: coverage.txt build/toolchain/bin/gocover-cobertura$(EXE)
-	$(REPOSITORY_ROOT)/build/toolchain/bin/gocover-cobertura$(EXE) < $< > $@
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/gocover-cobertura$(EXE)" < $< > $@
 
 deps:
 	$(GO_WITH_PROXY) get -u ./...
@@ -221,7 +221,7 @@ scan-images: $(ALL_SCAN_IMAGES)
 # independent of the release push pipeline.
 scan-image-%: build/bin/linux/amd64/% build/toolchain/bin/trivy$(EXE) ensure-builder
 	$(DOCKER) buildx build $(DOCKER_EXTRA_FLAGS) --platform linux/amd64 --build-arg BINARY_PATH=$< $(DOCKER_LABEL_ARGS) --build-arg BINARY_NAME=$* -f cmd/$*/Dockerfile -t $(REGISTRY)/$*:$(TAG)-scan --load .
-	build/toolchain/bin/trivy$(EXE) image --severity HIGH,CRITICAL --exit-code 1 $(REGISTRY)/$*:$(TAG)-scan
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" image --severity HIGH,CRITICAL --exit-code 1 $(REGISTRY)/$*:$(TAG)-scan
 
 ALL_IMAGES = $(foreach app,$(ALL_APPS),$(REGISTRY)/$(app))
 # https://github.com/docker-library/official-images#architectures-other-than-amd64
