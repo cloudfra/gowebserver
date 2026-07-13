@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ func checkError(err error) {
 	}
 }
 
-const fsDirMode = os.FileMode(0777)
+const fsDirMode = os.FileMode(0o777)
 
 func createDirectory(path string) error {
 	return os.MkdirAll(dirPath(path), fsDirMode)
@@ -65,7 +65,6 @@ func stageRemoteFile(maybeRemoteFilePath string) (string, string, func() error, 
 
 func createTempDirectory() (string, func(), error) {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "gowebserver")
-
 	if err != nil {
 		return "", nilFunc, fmt.Errorf("cannot create temp directory, %w", err)
 	}
@@ -144,18 +143,16 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 	return os.Chtimes(filePath, createdTime, modifiedTime)
 }
 
-var (
-	validChars = map[rune]interface{}{
-		'.':  nil,
-		'-':  nil,
-		'_':  nil,
-		' ':  nil,
-		'\\': nil,
-		'/':  nil,
-		'$':  nil,
-		'#':  nil,
-	}
-)
+var validChars = map[rune]interface{}{
+	'.':  nil,
+	'-':  nil,
+	'_':  nil,
+	' ':  nil,
+	'\\': nil,
+	'/':  nil,
+	'$':  nil,
+	'#':  nil,
+}
 
 func ensureDirs(fileName string) error {
 	absFullPath, err := filepath.Abs(filepath.Clean(fileName))
@@ -164,7 +161,7 @@ func ensureDirs(fileName string) error {
 	}
 
 	fullBaseDir := filepath.Dir(absFullPath)
-	return os.MkdirAll(fullBaseDir, 0766)
+	return os.MkdirAll(fullBaseDir, 0o766)
 }
 
 func sanitizeFileName(fileName string) string {

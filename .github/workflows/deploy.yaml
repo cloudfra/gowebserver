@@ -1,0 +1,249 @@
+# Copyright 2026 Cloudfra
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: CI
+
+on:
+  push:
+    tags: ["v*"]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: "Build Linux"
+    runs-on: ["self-hosted", "linux", "large"]
+    permissions:
+      contents: write
+      packages: write
+      checks: write
+      # Required by actions/upload-code-coverage below.
+      # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage
+      code-quality: write
+    timeout-minutes: 60
+    steps:
+      - name: Fix mod cache permissions
+        run: |
+          chmod -R u+w "$GITHUB_WORKSPACE/build/toolchain" 2>/dev/null || true
+      - name: Checkout code
+        # https://github.com/actions/checkout
+        uses: actions/checkout@v7
+      - name: Setup Go
+        # https://github.com/actions/setup-go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+      - name: System Information
+        run: make system-info
+      # - name: Container Fix
+      #   run: git config --system --add safe.directory /__w/
+
+      # - name: Install Signing Dependencies
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get -y -q install osslsigncode binutils openssl
+      - name: Install Prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt -y -q install software-properties-common
+          sudo add-apt-repository universe
+          sudo apt-get update
+          sudo apt-get -y -q install lz4 p7zip-full rar unrar
+      - name: Clean
+        run: make clean
+      - name: Download Dependencies
+        run: make deps
+      - name: Install Toolchain
+        run: make tools -j"$(nproc)"
+
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test
+      - name: Test (Deflake)
+        run: make test-deflake
+      - name: Coverage
+        run: make coverage.txt coverage.xml
+      - name: Push Code Coverage
+        # https://github.com/codecov/codecov-action
+        uses: codecov/codecov-action@v7
+        with:
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.txt
+          flags: unittests
+          fail_ci_if_error: true
+          verbose: true
+      - name: Upload Coverage Report
+        # https://github.com/actions/upload-code-coverage
+        # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage#step-2-upload-the-coverage-report
+        # Requires: code-quality: write
+        if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !startsWith(github.ref, 'refs/tags/')
+        continue-on-error: true
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.xml
+          language: Go
+          label: code-coverage/gotest
+
+      - name: Benchmark
+        run: make benchmark.html
+      - name: Publish Benchmark (7 Days)
+        # https://github.com/actions/upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-linux.html
+          path: |
+            benchmark.html
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Build Binaries
+        run: make all -j"$(nproc)"
+
+      - name: Set up Docker Buildx (Scan)
+        # https://github.com/docker/setup-buildx-action
+        # Runs unconditionally (including on pull requests), unlike the
+        # push-pipeline Buildx setup below - vulnerability scanning needs to
+        # catch issues before merge, not just before a release push.
+        uses: docker/setup-buildx-action@v4
+
+      - name: Scan Container Image
+        # Builds a local single-arch image with --load purely so trivy has
+        # something to scan; independent of the multi-arch push pipeline
+        # further down, which never loads images into the local daemon.
+        run: make scan-images
+
+      - name: Release Package
+        run: make build/packages/release.tar.gz
+
+      - name: Attach Ephemeral Binaries
+        # https://github.com/actions/upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          retention-days: ${{ github.ref_type == 'tag' && 1 || github.event_name == 'push' && 7 || 1 }}
+          path: |
+            build/release/gowebserver-darwin_arm64
+            build/release/gowebserver-linux_amd64
+            build/release/gowebserver-linux_arm64
+            build/release/gowebserver-windows_amd64.exe
+            build/release/gowebserver-windows_arm64.exe
+
+      - name: Create Release
+        # https://github.com/softprops/action-gh-release
+        uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            LICENSE
+            build/packages/release.tar.gz
+            build/release/gowebserver-darwin_arm64
+            build/release/gowebserver-linux_amd64
+            build/release/gowebserver-linux_arm64
+            build/release/gowebserver-windows_amd64.exe
+            build/release/gowebserver-windows_arm64.exe
+
+      - name: Login to GitHub Container Registry
+        # https://github.com/docker/login-action#github-packages-docker-registry
+        uses: docker/login-action@v4
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        # https://github.com/docker/login-action#github-packages-docker-registry
+        uses: docker/login-action@v4
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Set up QEMU
+        # https://github.com/docker/setup-qemu-action
+        uses: docker/setup-qemu-action@v4
+        if: ${{ github.event_name != 'pull_request' }}
+
+      - name: Set up Docker Buildx
+        # https://github.com/docker/setup-buildx-action
+        uses: docker/setup-buildx-action@v4
+        if: ${{ github.event_name != 'pull_request' }}
+
+      - name: Push Images (Commit)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request' }}
+        run: |
+          make DOCKER_PUSH="" REGISTRY=docker.io/cloudfra linux-images windows-images
+
+      - name: Push Images (Release)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          make DOCKER_PUSH=--push REGISTRY=docker.io/cloudfra images
+          make DOCKER_PUSH=--push REGISTRY=ghcr.io/cloudfra images
+
+  build-windows:
+    name: "Build Windows"
+    runs-on: ["self-hosted", "windows", "large"]
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+          
+      - name: System Information
+        run: make system-info
+
+      - name: Clean
+        run: make clean
+      - name: Download Dependencies
+        run: make deps
+      - name: Install Toolchain
+        run: make tools -j"$(nproc)"
+
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test -j6
+      - name: Test (Deflake)
+        run: make GO_TEST_COUNT=5 test-deflake
+      - name: Coverage
+        run: make coverage.txt coverage.xml
+
+      - name: Benchmark
+        run: make benchmark.html
+      - name: Publish Benchmark (7 Days)
+        # https://github.com/actions/upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-windows.html
+          path: |
+            benchmark.html
+          retention-days: 7
+          if-no-files-found: error

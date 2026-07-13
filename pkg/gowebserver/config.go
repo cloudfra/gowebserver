@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,8 +61,6 @@ var (
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
 	debugFlag        = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
-
-	version = "UNKNOWN"
 )
 
 // HTTP holds the configuration for HTTP serving.

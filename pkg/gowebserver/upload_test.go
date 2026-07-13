@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
-	gowsTesting "github.com/jeremyje/gowebserver/v2/internal/gowebserver/testing"
 	"go.uber.org/zap"
 )
 

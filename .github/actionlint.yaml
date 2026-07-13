@@ -1,4 +1,4 @@
-# Copyright 2022 Cloudfra
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# https://helm.sh/docs/topics/charts/#values-files
-gowebserver:
-  name: gowebserver
-  image:
-    registry: "docker.io"
-    repository: "cloudfra/gowebserver"
-    tag: "v3.6.0"
-    pullPolicy: "Always"
-  replicas: 3
-  portType: ClusterIP
-  http:
-    port: 8080
-  https:
-    port: 8443
+self-hosted-runner:
+  # Custom labels used by this repo's self-hosted runners (see
+  # .github/workflows/deploy.yaml). Declared here so actionlint doesn't flag
+  # them as unknown GitHub-hosted runner labels.
+  labels:
+    - large
+    - root
+
+paths:
+  "**/*.yaml":
+    ignore:
+      - 'unknown permission scope "code-quality"'

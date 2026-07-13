@@ -1,4 +1,4 @@
-// Copyright 2026 Jeremy Edwards
+// Copyright 2026 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -140,5 +140,11 @@ func TestIsRichViewable(t *testing.T) {
 				t.Errorf("isRichViewable(%q) = %v, want %v", tt.iconClass, got, tt.want)
 			}
 		})
+	}
+}
+
+func BenchmarkIsRichViewable(b *testing.B) {
+	for b.Loop() {
+		isRichViewable("folder")
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"facette.io/natsort"
+	"github.com/cloudfra/gowebserver/internal"
 	"github.com/cloudfra/ufs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -150,15 +151,16 @@ func (d *DirEntry) String() string {
 }
 
 type CustomIndexReport struct {
-	Root               string
-	RootName           string
-	DirEntries         []*DirEntry
-	SortBy             string
-	UseTimestamp       bool
-	HasNonMediaEntry   bool
-	HasImage           bool
-	HasVideo           bool
-	ApplicationVersion string
+	Root                  string
+	RootName              string
+	DirEntries            []*DirEntry
+	SortBy                string
+	UseTimestamp          bool
+	HasNonMediaEntry      bool
+	HasImage              bool
+	HasVideo              bool
+	ApplicationVersion    string
+	ApplicationBuildstamp string
 }
 
 type customIndexHandler struct {
@@ -252,12 +254,13 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				params := &CustomIndexReport{
-					Root:               path,
-					RootName:           strings.TrimSuffix(filepath.Base(path), nestedDirSuffix),
-					DirEntries:         []*DirEntry{},
-					SortBy:             sortBy,
-					UseTimestamp:       strings.Contains(sortBy, "date"),
-					ApplicationVersion: version,
+					Root:                  path,
+					RootName:              strings.TrimSuffix(filepath.Base(path), nestedDirSuffix),
+					DirEntries:            []*DirEntry{},
+					SortBy:                sortBy,
+					UseTimestamp:          strings.Contains(sortBy, "date"),
+					ApplicationVersion:    internal.Version(),
+					ApplicationBuildstamp: internal.Buildstamp(),
 				}
 
 				allFiles := map[string]any{}

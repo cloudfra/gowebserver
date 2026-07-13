@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ func newTraceProvider(m Monitoring, r *resource.Resource, sp sdktrace.SpanProces
 		return nil, nil
 	}
 
-	exp, err := otlptracehttp.New(context.Background(),
+	exp, err := otlptracehttp.New(
+		context.Background(),
 		otlptracehttp.WithEndpointURL(m.Trace.URI),
 	)
 	if err != nil {

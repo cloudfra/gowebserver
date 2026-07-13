@@ -1,4 +1,4 @@
-# Copyright 2022 Jeremy Edwards
+# Copyright 2022 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ keywords:
   - archive
 home: The URL of this projects home page (optional)
 sources:
-  - https://github.com/jeremyje/gowebserver
+  - https://github.com/cloudfra/gowebserver
 maintainers:
-  - name: Jeremy Edwards
-    email: jeremyje@googlegroups.com
-    url: https://github.com/jeremyje
+  - name: Cloudfra
+    email: cloudfra@googlegroups.com
+    url: https://github.com/cloudfra
 icon: A URL to an SVG or PNG image to be used as an icon (optional).
 appVersion: "2.5.7"
 deprecated: false

@@ -1,4 +1,4 @@
-# Copyright 2019 Jeremy Edwards
+# Copyright 2019 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,37 +24,48 @@ TEST_BASE_ARCHIVES += internal/gowebserver/testing/testassets.tar.lz4
 TEST_ARCHIVES = $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/nested-testassets.zip internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
 
 internal/gowebserver/testing/nodir-testassets.zip: $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nested-testassets.zip
+	mkdir -p $(dir $@)
 	cd internal/gowebserver/testing/testassets; zip -qr9 ../../nodir-testassets.zip index.html assets/1.txt assets/2.txt bytype/archive.rar bytype/text.txt site.js "weird #1.txt" weird#.txt weird$$.txt assets/more/3.txt assets/four/4.txt assets/fivesix/5.txt assets/fivesix/6.txt
-	mv internal/gowebserver/nodir-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
+	mv internal/gowebserver/nodir-testassets.zip $(REPOSITORY_ROOT)/$@
 
 internal/gowebserver/testing/single-testassets.zip: $(TEST_BASE_ARCHIVES)
+	mkdir -p $(dir $@)
 	cd internal/gowebserver/testing/; zip -qr9 ../single-testassets.zip testassets/
-	mv internal/gowebserver/single-testassets.zip internal/gowebserver/testing/single-testassets.zip
+	mv internal/gowebserver/single-testassets.zip $(REPOSITORY_ROOT)/$@
 
 internal/gowebserver/testing/nested-testassets.zip: $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/single-testassets.zip
+	mkdir -p $(dir $@)
 	cd internal/gowebserver/testing/; zip -qr9 ../nested-testassets.zip *
-	mv internal/gowebserver/nested-testassets.zip internal/gowebserver/testing/nested-testassets.zip
+	mv internal/gowebserver/nested-testassets.zip $(REPOSITORY_ROOT)/$@
 
 internal/gowebserver/testing/testassets.zip:
-	cd internal/gowebserver/testing/testassets/; zip -qr9 ../testassets.zip *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; zip -qr9 $(REPOSITORY_ROOT)/$@ *
 
 internal/gowebserver/testing/testassets.rar:
-	cd internal/gowebserver/testing/testassets/; rar a ../testassets.rar *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; rar a $(REPOSITORY_ROOT)/$@ *
 
 internal/gowebserver/testing/testassets.tar.gz:
-	cd internal/gowebserver/testing/testassets/; tar -I 'gzip -9' -cf ../testassets.tar.gz *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; tar -cvf - * | gzip -9 - > $(REPOSITORY_ROOT)/$@
 
 internal/gowebserver/testing/testassets.tar.bz2:
-	cd internal/gowebserver/testing/testassets/; BZIP=-9 tar cjf ../testassets.tar.bz2 *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; BZIP=-9 tar cjf $(REPOSITORY_ROOT)/$@ *
 
 internal/gowebserver/testing/testassets.tar.xz:
-	cd internal/gowebserver/testing/testassets/; tar cJf ../testassets.tar.xz *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; tar cJf $(REPOSITORY_ROOT)/$@ *
 
 internal/gowebserver/testing/testassets.tar.lz4:
-	cd internal/gowebserver/testing/testassets/; tar cf ../testassets.tar.lz4 -I 'lz4' *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; tar cf - * | lz4 > $(REPOSITORY_ROOT)/$@
 
 internal/gowebserver/testing/testassets.tar:
-	cd internal/gowebserver/testing/testassets/; tar cf ../testassets.tar *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; tar cf $(REPOSITORY_ROOT)/$@ *
 
 internal/gowebserver/testing/testassets.7z:
-	cd internal/gowebserver/testing/testassets/; 7z a ../testassets.7z *
+	mkdir -p $(dir $@)
+	cd internal/gowebserver/testing/testassets/; 7z a $(REPOSITORY_ROOT)/$@ *

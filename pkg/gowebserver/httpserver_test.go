@@ -1,4 +1,4 @@
-// Copyright 2022 Jeremy Edwards
+// Copyright 2022 Cloudfra
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 
 	_ "embed"
 
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 	gomainTesting "github.com/jeremyje/gomain/testing"
-	gowsTesting "github.com/jeremyje/gowebserver/v2/internal/gowebserver/testing"
 )
 
 var (
@@ -195,13 +195,13 @@ func TestWebServer_Serve(t *testing.T) {
 			paths:  []string{"/"},
 		},
 		{
-			source: "https://github.com/jeremyje/gowebserver.git",
+			source: "https://github.com/cloudfra/gowebserver.git",
 			paths:  []string{"/", "/README.md"},
 		},
 		/*
 			TODO: This breaks because of https://github.com/go-git/go-git/issues/143.
 			{
-				source: "git@github.com:jeremyje/gowebserver.git",
+				source: "git@github.com:cloudfra/gowebserver.git",
 				paths:  []string{"/", "/README.md"},
 			},
 		*/

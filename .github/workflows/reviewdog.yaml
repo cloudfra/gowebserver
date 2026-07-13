@@ -1,0 +1,137 @@
+# Copyright 2026 Cloudfra
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: reviewdog
+on: [pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # https://github.com/marketplace/actions/run-misspell-with-reviewdog
+  misspell:
+    name: runner / misspell
+    runs-on: ubuntu-latest
+    # Default reviewdog reporter (github-pr-check) posts via the Checks API.
+    permissions:
+      contents: read
+      checks: write
+    timeout-minutes: 10
+    steps:
+      - name: Check out code.
+        uses: actions/checkout@v7
+      - name: misspell
+        # https://github.com/reviewdog/action-misspell
+        uses: reviewdog/action-misspell@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          locale: "US"
+          ignore: "KeyPair"
+          exclude: |
+            ./go.sum
+            ./go.mod
+            ./.git/*
+            ./.cache/*
+            ./third_party/*
+
+  # https://github.com/marketplace/actions/run-hadolint-with-reviewdog
+  hadolint:
+    name: runner / hadolint
+    runs-on: ubuntu-latest
+    # reporter: github-pr-review below posts inline PR review comments.
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+      - name: hadolint
+        # https://github.com/reviewdog/action-hadolint
+        uses: reviewdog/action-hadolint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review  # Default is github-pr-check
+
+  # plettich/action-codespell is unmaintained (last updated 2024-12) and its
+  # Dockerfile floats on `alpine:latest`, which broke `pip install codespell`
+  # once Alpine picked up a PEP 668 externally-managed Python. Use the
+  # actively maintained official action instead.
+  # https://github.com/codespell-project/actions-codespell
+  codespell:
+    name: runner / codespell
+    runs-on: ubuntu-latest
+    # Just runs and exits non-zero on hits; no PR annotations, no API calls.
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out code.
+        uses: actions/checkout@v7
+      - name: codespell
+        uses: codespell-project/actions-codespell@v2.2
+        with:
+          # third_party is vendored upstream proto sources we don't maintain;
+          # codespell's dictionary is broad enough to flag real typos in it
+          # that aren't ours to fix.
+          skip: "./.git,./go.sum,./go.mod,./third_party"
+
+  # https://github.com/marketplace/actions/run-yamllint-with-reviewdog
+  yamllint:
+    name: runner / yamllint
+    runs-on: ubuntu-latest
+    # reporter: github-pr-review below posts inline PR review comments.
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 10
+    steps:
+      - name: Check out code.
+        uses: actions/checkout@v7
+      - name: yamllint
+        # https://github.com/reviewdog/action-yamllint
+        uses: reviewdog/action-yamllint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review  # Default is github-pr-check
+          # Workflow/dependabot/actionlint config - the YAML this repo owns
+          # and maintains. third_party is vendored upstream sources, same
+          # exclusion the misspell/codespell jobs above already apply.
+          yamllint_flags: ".github/"
+
+  # https://github.com/actions/dependency-review-action
+  # Full functionality (failing the job on vulnerable/incompatible deps)
+  # requires either a public repo or a private repo with GitHub Advanced
+  # Security licensed. This repo is private without GHAS (confirmed via API
+  # - same wall as branch protection), so the dependency-graph lookup this
+  # action needs hard-errors with "Dependency review is not supported on
+  # this repository" - not a soft warning, so without the guard below this
+  # job fails on every single PR regardless of the actual dependency change.
+  # `continue-on-error` is keyed off `github.event.repository.private` so
+  # this asserts degraded (non-blocking) mode automatically while private,
+  # and full (blocking) mode with zero further changes once the repo goes
+  # public or GHAS gets licensed.
+  dependency-review:
+    name: runner / dependency-review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code.
+        uses: actions/checkout@v7
+      - name: dependency-review
+        uses: actions/dependency-review-action@v5
+        continue-on-error: ${{ github.event.repository.private }}
