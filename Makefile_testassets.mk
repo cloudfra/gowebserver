@@ -24,48 +24,52 @@ TEST_BASE_ARCHIVES += internal/gowebserver/testing/testassets.tar.lz4
 TEST_ARCHIVES = $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/nested-testassets.zip internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nodir-testassets.zip
 
 internal/gowebserver/testing/nodir-testassets.zip: $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/single-testassets.zip internal/gowebserver/testing/nested-testassets.zip
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets; zip -qr9 ../../nodir-testassets.zip index.html assets/1.txt assets/2.txt bytype/archive.rar bytype/text.txt site.js "weird #1.txt" weird#.txt weird$$.txt assets/more/3.txt assets/four/4.txt assets/fivesix/5.txt assets/fivesix/6.txt
-	mv internal/gowebserver/nodir-testassets.zip $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets"; zip -qr9 ../../nodir-testassets.zip index.html assets/1.txt assets/2.txt bytype/archive.rar bytype/text.txt site.js "weird #1.txt" weird#.txt weird$$.txt assets/more/3.txt assets/four/4.txt assets/fivesix/5.txt assets/fivesix/6.txt
+	mv "$(REPOSITORY_ROOT)/internal/gowebserver/nodir-testassets.zip" "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/single-testassets.zip: $(TEST_BASE_ARCHIVES)
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/; zip -qr9 ../single-testassets.zip testassets/
-	mv internal/gowebserver/single-testassets.zip $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/"; zip -qr9 ../single-testassets.zip testassets/
+	mv "$(REPOSITORY_ROOT)/internal/gowebserver/single-testassets.zip" "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/nested-testassets.zip: $(TEST_BASE_ARCHIVES) internal/gowebserver/testing/single-testassets.zip
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/; zip -qr9 ../nested-testassets.zip *
-	mv internal/gowebserver/nested-testassets.zip $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/"; zip -qr9 ../nested-testassets.zip *
+	mv "$(REPOSITORY_ROOT)/internal/gowebserver/nested-testassets.zip" "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/testassets.zip:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; zip -qr9 $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; zip -qr9 "$(REPOSITORY_ROOT)/$@" *
 
 internal/gowebserver/testing/testassets.rar:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; rar a $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; rar a "$(REPOSITORY_ROOT)/$@" *
 
 internal/gowebserver/testing/testassets.tar.gz:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; tar -cvf - * | gzip -9 - > $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/testassets.tar.bz2:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; BZIP=-9 tar cjf $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar -cvf - * | bzip2 -9 - > "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/testassets.tar.xz:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; tar cJf $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar cJf "$(REPOSITORY_ROOT)/$@" *
 
 internal/gowebserver/testing/testassets.tar.lz4:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; tar cf - * | lz4 > $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar cf - * | lz4 > "$(REPOSITORY_ROOT)/$@"
 
 internal/gowebserver/testing/testassets.tar:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; tar cf $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	# cd internal/gowebserver/testing/testassets/; tar cf $(REPOSITORY_ROOT)/$@ *
+	# cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar cf "$(REPOSITORY_ROOT)/$@" *
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar cf "$(REPOSITORY_ROOT)/$@" *
+	tar tvf "$(REPOSITORY_ROOT)/$@"
+	#cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; tar -C "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets" -cf "$(REPOSITORY_ROOT)/$@" *
 
 internal/gowebserver/testing/testassets.7z:
-	mkdir -p $(dir $@)
-	cd internal/gowebserver/testing/testassets/; 7z a $(REPOSITORY_ROOT)/$@ *
+	mkdir -p "$(dir $@)"
+	cd "$(REPOSITORY_ROOT)/internal/gowebserver/testing/testassets/"; 7z a "$(REPOSITORY_ROOT)/$@" *
