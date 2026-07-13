@@ -74,41 +74,41 @@ protos: $(PROTOS)
 windows-binaries: $(WINDOWS_BINARIES)
 
 build/packages/%-binaries.zip: $(ALL_BINARIES)
-	mkdir -p $(dir $@)
-	(cd build/bin/$*/; zip -qr9 $(REPOSITORY_ROOT)/$@ *)
-	touch $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	(cd build/bin/$*/; zip -qr9 "$(REPOSITORY_ROOT)/$@" *)
+	touch "$(REPOSITORY_ROOT)/$@"
 
 release-binaries: $(RELEASE_BINARIES)
 
 build/packages/release.tar.gz: $(RELEASE_BINARIES)
-	mkdir -p $(dir $@)
-	cd build/release/; tar -cvf - * | gzip -9 - > $(REPOSITORY_ROOT)/$@
-	touch $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd build/release/; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
+	touch "$(REPOSITORY_ROOT)/$@"
 
 build/packages/all-binaries.tar.gz: $(ALL_BINARIES)
-	mkdir -p $(dir $@)
-	cd build/bin/; tar -cvf - * | gzip -9 - > $(REPOSITORY_ROOT)/$@
-	touch $(REPOSITORY_ROOT)/$@
+	mkdir -p "$(dir $@)"
+	cd build/bin/; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
+	touch "$(REPOSITORY_ROOT)/$@"
 
 ifeq ($(CODESIGN_CERT)|$(CODESIGN_KEY),build/certs/codesign.crt|build/certs/codesign.key)
 build/certs/codesign.crt build/certs/codesign.key &: $(CERTTOOL)
-	mkdir -p $(dir $(CODESIGN_CERT))
-	$(TOOLCHAIN_BIN)/certtool$(EXE) --code-sign --target=linux --public-certificate=$(CODESIGN_CERT) --private-key=$(CODESIGN_KEY)
+	mkdir -p "$(dir $(CODESIGN_CERT))"
+	"$(TOOLCHAIN_BIN)/certtool$(EXE)" --code-sign --target=linux --public-certificate="$(CODESIGN_CERT)" --private-key="$(CODESIGN_KEY)"
 endif
 
 build/bin/%: $(ASSETS)
 	GOOS=$(word 3, $(subst /, ,$(dir $@))) GOARCH=$(word 4, $(subst /, ,$(dir $@))) GOARM=$(subst v,,$(word 5, $(subst /, ,$(dir $@)))) CGO_ENABLED=0 $(GO) build -ldflags="-X '$(GO_PACKAGE)/internal.version=$(VERSION)' -X '$(GO_PACKAGE)/internal.buildstamp=$(BUILD_DATE)'" -o $@ cmd/$(basename $(notdir $@))/$(basename $(notdir $@)).go
-	touch $@
+	touch "$(REPOSITORY_ROOT)/$@"
 
 build/bin/js/wasm/%.html: build/bin/js/wasm/% build/bin/js/wasm/wasm_exec.js
-	mkdir -p $(dir $@)
-	cp -f $(shell go env GOROOT)/misc/wasm/wasm_exec.html $@
-	sed -i 's/..\/..\/lib\/wasm\///g' $@
-	sed -i 's/test\.wasm/$*/g' $@
+	mkdir -p "$(dir $@)"
+	cp -f "$(shell go env GOROOT)/misc/wasm/wasm_exec.html" "$(REPOSITORY_ROOT)/$@"
+	sed -i 's/..\/..\/lib\/wasm\///g' "$(REPOSITORY_ROOT)/$@"
+	sed -i 's/test\.wasm/$*/g' "$(REPOSITORY_ROOT)/$@"
 
 build/bin/js/wasm/wasm_exec.js:
-	mkdir -p $(dir $@)
-	cp -f $(shell go env GOROOT)/lib/wasm/wasm_exec.js $@
+	mkdir -p "$(dir $@)"
+	cp -f $(shell go env GOROOT)/lib/wasm/wasm_exec.js "$(REPOSITORY_ROOT)/$@"
 
 wasm-binaries: $(WASM_BINARIES)
 
@@ -116,15 +116,15 @@ lint: lint-go lint-terraform lint-docker lint-yaml lint-shell lint-vuln
 
 ifneq ($(wildcard install/terraform),)
 lint-terraform: build/toolchain/bin/terraform$(EXE) build/toolchain/bin/tflint$(EXE) build/toolchain/bin/trivy$(EXE)
-	(cd install/terraform; $(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE) fmt .)
-	$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE) --init --chdir install/terraform
-	$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE) --chdir install/terraform
+	(cd "$(REPOSITORY_ROOT)/install/terraform"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" fmt .)
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --init --chdir install/terraform
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --chdir install/terraform
 	# tflint covers style/correctness, not security misconfigurations (overly
 	# permissive IAM, public storage buckets, missing encryption, etc.) -
 	# trivy config (successor to the now-maintenance-mode tfsec, folded into
 	# trivy) covers that instead, reusing the same tool already pinned for
 	# image scanning rather than adding a second, redundant IaC scanner.
-	$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE) config --severity HIGH,CRITICAL --exit-code 1 install/terraform
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 install/terraform
 else
 lint-terraform:
 endif
@@ -132,25 +132,25 @@ endif
 lint-go: build/toolchain/bin/golangci-lint$(EXE) build/toolchain/bin/gofumpt$(EXE) build/toolchain/bin/revive$(EXE)
 	$(GO) fmt ./...
 	$(GO) mod verify
-	build/toolchain/bin/gofumpt$(EXE) -l -w .
-	build/toolchain/bin/golangci-lint$(EXE) fmt ./...
-	-build/toolchain/bin/golangci-lint$(EXE) run ./...
-	-build/toolchain/bin/revive$(EXE) -set_exit_status -exclude=build/... ./...
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/gofumpt$(EXE)" -l -w .
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" fmt ./...
+	-"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" run ./...
+	-"$(REPOSITORY_ROOT)/build/toolchain/bin/revive$(EXE)" -set_exit_status -exclude=build/... ./...
 
 lint-docker: build/toolchain/bin/hadolint$(EXE)
-	$(FIND) cmd -iname 'Dockerfile*' -exec build/toolchain/bin/hadolint$(EXE) {} +
+	$(FIND) cmd -iname 'Dockerfile*' -exec "$(REPOSITORY_ROOT)/build/toolchain/bin/hadolint$(EXE)" {} +
 
 lint-yaml: build/toolchain/bin/actionlint$(EXE) build/toolchain/bin/shellcheck$(EXE)
-	build/toolchain/bin/actionlint$(EXE) -shellcheck=$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE) -config-file $(REPOSITORY_ROOT)/.github/actionlint.yaml
+	"$(REPOSITORY_ROOT)/build/toolchain/bin/actionlint$(EXE)" -shellcheck="$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" -config-file "$(REPOSITORY_ROOT)/.github/actionlint.yaml"
 
 lint-shell: build/toolchain/bin/shellcheck$(EXE)
 	@scripts="$$($(FIND) . -name '*.sh' -not -path './third_party/*' -not -path './build/*' -not -path '*/testassets/*')"; \
 	shellcheck_exclude=""; \
 	if [ "$(OS)" = "Windows_NT" ]; then shellcheck_exclude="--exclude=SC1009,SC1017,SC1044,SC1072,SC1073"; fi; \
-	if [ -n "$$scripts" ]; then build/toolchain/bin/shellcheck$(EXE) $$shellcheck_exclude $$scripts; fi
+	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
 
 lint-vuln: build/toolchain/bin/govulncheck$(EXE)
-	-build/toolchain/bin/govulncheck$(EXE) ./...
+	-"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
 
 bench: $(TEST_ASSETS)
 	$(GO) test -bench=. -benchmem -tags testing ${SOURCE_DIRS}
@@ -168,8 +168,8 @@ test-tf: build/toolchain/bin/terraform$(EXE) $(TEST_ASSETS)
 	# -backend=false: main.tftest.hcl mocks the providers and never touches
 	# real state, so there's no need to configure the (real, per-environment)
 	# GCS backend just to run tests.
-	(cd install/terraform/; $(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE) init -backend=false)
-	(cd install/terraform/; $(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE) test)
+	(cd "$(REPOSITORY_ROOT)install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" init -backend=false)
+	(cd "$(REPOSITORY_ROOT)install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" test)
 else
 test-tf:
 endif
@@ -277,8 +277,8 @@ LINUX_OBJCOPY_SIGNABLE_PLATFORMS = linux_386 linux_amd64
 
 build/release/%: $$(call rel2bin,$$*) $(CODESIGN_CERT) $(CODESIGN_KEY)
 	@mkdir -p $(@D)
-	cp $< $@
-	touch $@
+	cp "$<" "$@"
+	touch "$(REPOSITORY_ROOT)/$@"
 	$(if $(findstring windows,$(call platform,$*)),osslsigncode sign -certs $(CODESIGN_CERT) -key $(CODESIGN_KEY) -in $@ -out $@.signed && mv $@.signed $@ && chmod +x $@,)
 	$(if $(filter $(LINUX_OBJCOPY_SIGNABLE_PLATFORMS),$(call platform,$*)),openssl cms -sign -binary -in $@ -signer $(CODESIGN_CERT) -inkey $(CODESIGN_KEY) -outform DER -out $@.sig && objcopy --add-section .cloudfra_signature=$@.sig --set-section-flags .cloudfra_signature=noload$(COMMA)readonly $@ && rm -f $@.sig,)
 
