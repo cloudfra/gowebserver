@@ -64,6 +64,7 @@ func TestUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer gowsTesting.DeferClose(t, fp)
 
 	ctx := context.Background()
 	req, err := newUploadFormRequest(ctx, baseURL+"/upload", "test.zip", fp, map[string]string{})
