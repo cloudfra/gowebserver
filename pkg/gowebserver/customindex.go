@@ -40,12 +40,6 @@ var (
 	nestedDirSuffix = ".d"
 )
 
-func logError(err error) {
-	if err != nil {
-		zap.S().Errorf("%s", err)
-	}
-}
-
 func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
@@ -78,17 +72,17 @@ func cleanPath(path string) string {
 	return strings.ReplaceAll(filepath.Clean(path), "\\", "/")
 }
 
-type EntryList struct {
+type entryList struct {
 	Entries    map[string]*DirEntry
 	EntryOrder []string
 	sortBy     string
 }
 
-func (l *EntryList) Len() int {
+func (l *entryList) Len() int {
 	return len(l.Entries)
 }
 
-func (l *EntryList) Less(i, j int) bool {
+func (l *entryList) Less(i, j int) bool {
 	iElem := l.Entries[l.EntryOrder[i]]
 	jElem := l.Entries[l.EntryOrder[j]]
 	if iElem.IsDir != jElem.IsDir {
@@ -112,23 +106,24 @@ func (l *EntryList) Less(i, j int) bool {
 	}
 }
 
-func (l *EntryList) Swap(i, j int) {
+func (l *entryList) Swap(i, j int) {
 	l.EntryOrder[i], l.EntryOrder[j] = l.EntryOrder[j], l.EntryOrder[i]
 }
 
-func (l *EntryList) add(entry *DirEntry) {
+func (l *entryList) add(entry *DirEntry) {
 	l.Entries[entry.Name] = entry
 	l.EntryOrder = append(l.EntryOrder, entry.Name)
 }
 
-func newEntryList(sortBy string) *EntryList {
-	return &EntryList{
+func newEntryList(sortBy string) *entryList {
+	return &entryList{
 		sortBy:     sortBy,
 		Entries:    map[string]*DirEntry{},
 		EntryOrder: []string{},
 	}
 }
 
+// DirEntry represents a directory item's metadata.
 type DirEntry struct {
 	Name       string
 	Size       uint64
@@ -139,10 +134,12 @@ type DirEntry struct {
 	IconClass  string
 }
 
+// NameForSorting returns the value for sorting this item in the template rendering.
 func (d *DirEntry) NameForSorting() string {
 	return strings.ToLower(d.Name)
 }
 
+// String returns the string representation of the metadata.
 func (d *DirEntry) String() string {
 	if d == nil {
 		return "<nil>"
@@ -150,7 +147,7 @@ func (d *DirEntry) String() string {
 	return fmt.Sprintf("%s: dir= %t, archive= %t iconClass= %q", d.Name, d.IsDir, d.IsArchive, d.IconClass)
 }
 
-type CustomIndexReport struct {
+type customIndexReport struct {
 	Root                  string
 	RootName              string
 	DirEntries            []*DirEntry
@@ -253,7 +250,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				params := &CustomIndexReport{
+				params := &customIndexReport{
 					Root:                  path,
 					RootName:              strings.TrimSuffix(filepath.Base(path), nestedDirSuffix),
 					DirEntries:            []*DirEntry{},

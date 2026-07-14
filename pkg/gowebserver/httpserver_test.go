@@ -39,33 +39,33 @@ var (
 )
 
 func TestServeAndDie(t *testing.T) {
-	baseURL, close := serveAsync(t, &Config{Debug: true})
-	defer close()
+	baseURL, closer := serveAsync(t, &Config{Debug: true})
+	defer closer()
 
-	resp, err := http.Get(baseURL + "/diediedie")
-	if err == nil || resp != nil {
+	if resp, err := http.Get(baseURL + "/diediedie"); err == nil || resp != nil {
 		t.Errorf("got response when server should be dead., Response: %v, Err: %s", resp, err)
 	}
 
-	resp, err = http.Get(baseURL)
-	if err == nil || resp != nil {
+	if resp, err := http.Get(baseURL); err == nil || resp != nil {
 		t.Errorf("got response when server should be dead., Response: %v, Err: %s", resp, err)
 	}
 }
 
 func TestDieDieDieDisabled(t *testing.T) {
-	baseURL, close := serveAsync(t, &Config{})
-	defer close()
+	baseURL, closer := serveAsync(t, &Config{})
+	defer closer()
 
 	resp, err := http.Get(baseURL + "/diediedie")
 	if resp.StatusCode != http.StatusOK || err != nil {
 		t.Errorf("got error response, Response: %v, Err: %s", resp, err)
 	}
+	defer gowsTesting.DeferClose(t, resp.Body)
 
 	resp, err = http.Get(baseURL)
 	if resp.StatusCode != http.StatusOK || err != nil {
 		t.Errorf("server should still be alive, Response: %v, Err: %s", resp, err)
 	}
+	defer gowsTesting.DeferClose(t, resp.Body)
 }
 
 func TestServe(t *testing.T) {
@@ -76,10 +76,10 @@ func TestServe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	close := gomainTesting.Main(httpServer.Serve)
+	closer := gomainTesting.Main(httpServer.Serve)
 	go func() {
 		time.Sleep(time.Second)
-		ch <- close()
+		ch <- closer()
 	}()
 
 	if err := <-ch; err != nil {
@@ -111,8 +111,8 @@ func TestWebServer_Serve_Multi(t *testing.T) {
 		},
 	}
 
-	baseURL, close := serveAsync(t, cfg)
-	defer close()
+	baseURL, closer := serveAsync(t, cfg)
+	defer closer()
 
 	testCases := []struct {
 		url  string
@@ -140,6 +140,7 @@ func TestWebServer_Serve_Multi(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			} else {
+				defer gowsTesting.DeferClose(t, resp.Body)
 				got, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Error(err)
@@ -221,8 +222,8 @@ func TestWebServer_Serve(t *testing.T) {
 				},
 			}
 
-			baseURL, close := serveAsync(t, cfg)
-			defer close()
+			baseURL, closer := serveAsync(t, cfg)
+			defer closer()
 
 			for _, path := range tc.paths {
 				resp, err := http.Get(baseURL + path)
@@ -249,7 +250,7 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 		tb.Fatalf("WebServer is not of type *webServerImpl, %+v", ws)
 	}
 
-	close := gomainTesting.Main(wsi.Serve)
+	closer := gomainTesting.Main(wsi.Serve)
 
 	var httpPort int
 	for i := 0; i < 600; i++ {
@@ -269,7 +270,7 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 	}
 
 	return baseURL, func() {
-		close()
+		closer()
 	}
 }
 
@@ -295,7 +296,7 @@ func TestNew(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(fmt.Sprintf("%+v", tc.config), func(t *testing.T) {
-			//t.Parallel()
+			// t.Parallel()
 			got, err := New(tc.config)
 			if err != nil {
 				t.Fatal(err)

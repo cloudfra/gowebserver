@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package gowebserver is a simple, convenient, reliable, well tested HTTP/HTTPS web server to host static files.
 package gowebserver
 
 import (
@@ -26,6 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Run is the entry point for the gowebserver application that can run as a terminal application or Windows Service.
 func Run() {
 	_, syncFunc := configLogger(true)
 	defer syncFunc()

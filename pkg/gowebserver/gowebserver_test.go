@@ -120,23 +120,23 @@ func TestBuildCertificateHostnames(t *testing.T) {
 
 func TestConfigLogger(t *testing.T) {
 	for _, verbose := range []bool{false, true} {
-		logger, close := configLogger(verbose)
+		logger, closer := configLogger(verbose)
 		if logger == nil {
 			t.Error("logger is nil")
 		}
-		close()
+		closer()
 	}
 }
 
 func TestRunApplication(t *testing.T) {
 	httpPortFlag = new(int)
 	httpsPortFlag = new(int)
-	close := gomainTesting.Main(runApplication)
+	closer := gomainTesting.Main(runApplication)
 
 	ch := make(chan error)
 	go func() {
 		time.Sleep(time.Second)
-		ch <- close()
+		ch <- closer()
 	}()
 	err := <-ch
 	if err != nil {
@@ -213,8 +213,8 @@ func ExampleWebServer_Serve() {
 		termCh <- nil
 	}()
 
-	close := gomainTesting.Main(httpServer.Serve)
-	close()
+	closer := gomainTesting.Main(httpServer.Serve)
+	closer()
 	// Output:
 }
 
@@ -259,8 +259,8 @@ func TestWebServerFull(t *testing.T) {
 		logger.Sugar().Fatal(err)
 	}
 
-	close := gomainTesting.Main(httpServer.Serve)
+	closer := gomainTesting.Main(httpServer.Serve)
 	time.Sleep(time.Second)
-	close()
+	closer()
 	// Output:
 }

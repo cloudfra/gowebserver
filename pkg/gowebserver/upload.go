@@ -70,7 +70,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger := zap.S().With("url", r.URL)
 
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := md5.New()
 		io.WriteString(h, strconv.FormatInt(crutime, 10))
@@ -90,7 +90,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var resp uploadResponse
 
 		if !isSameOrigin(r) {
-			resp.Error = fmt.Errorf("Forbidden: cross-origin upload requests are not allowed")
+			resp.Error = fmt.Errorf("forbidden: cross-origin upload requests are not allowed")
 			writeUploadResponse(w, resp, http.StatusForbidden, logger, span)
 			return
 		}
