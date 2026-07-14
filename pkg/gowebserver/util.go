@@ -83,16 +83,6 @@ func tryDeleteDirectory(path string) {
 	}
 }
 
-func tryDeleteFile(path string) {
-	if !exists(path) {
-		return
-	}
-
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		zap.S().With("error", err, "file", path).Error("cannot delete file")
-	}
-}
-
 func downloadFile(path string) (string, func() error, error) {
 	if strings.HasPrefix(strings.ToLower(path), "http") {
 		cleanup := nilFuncWithError
@@ -182,7 +172,11 @@ func sanitizeFileName(fileName string) string {
 		}
 	}
 
-	return filepath.Clean(strings.Join(sanitizedParts, string(filepath.Separator)))
+	result := strings.Join(sanitizedParts, "/")
+	if result == "" {
+		return "."
+	}
+	return result
 }
 
 func nilFunc() {

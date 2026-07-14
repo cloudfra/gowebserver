@@ -17,8 +17,14 @@ package testing
 
 import (
 	_ "embed"
+	"io"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 const testFileMode = os.FileMode(0o644)
@@ -48,97 +54,106 @@ var (
 	tarLz4Assets []byte
 )
 
-// MustCreateTempFile creates a temp file for testing.
-func MustCreateTempFile(tb testing.TB) *os.File {
-	f, err := os.CreateTemp(os.TempDir(), "tempfile")
-	fatalOnFail(tb, err)
-
-	cleanupFile(tb, f.Name())
-	return f
+// RemoveLineFeed normalizes Windows newlines to Linux style newlines.
+func RemoveLineFeed(content string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ReplaceAll(content, "\r\n", "\n")
+	}
+	return content
 }
 
-// MustWriteTempFile writes the contents to a file for testing.
-func MustWriteTempFile(tb testing.TB, content string) *os.File {
-	fp := MustCreateTempFile(tb)
+// IgnoreCarriageReturns normalizes Windows newlines to Linux style newlines.
+func IgnoreCarriageReturns() cmp.Option {
+	return cmp.Transformer("IgnoreCarriageReturns", func(s string) string {
+		return RemoveLineFeed(s)
+	})
+}
 
-	fatalOnFail(tb, os.WriteFile(fp.Name(), []byte(content), testFileMode))
-	return fp
+// DeferClose returns an error checked close that's deferred at the end of the test.
+func DeferClose(tb testing.TB, closer io.Closer) func() {
+	return func() {
+		if err := closer.Close(); err != nil {
+			tb.Fatalf("error closing file: %s", err)
+		}
+	}
+}
+
+// MustFile writes a file with the contents to the file system.
+func MustFile(tb testing.TB, filename string, content []byte) {
+	fatalOnFail(tb, os.WriteFile(filename, content, testFileMode))
 }
 
 // MustNoDirZipFilePath gets the .zip test asset file without explicit directory lists.
 func MustNoDirZipFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, "-nodir.zip"), nodirZipAssets)
+	return mustWriteTempFileWithName(tb, "archive-nodir.zip", nodirZipAssets)
 }
 
 // MustSingleZipFilePath gets the .zip test asset file.
 func MustSingleZipFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, "-single.zip"), singleZipAssets)
+	return mustWriteTempFileWithName(tb, "archive-single.zip", singleZipAssets)
 }
 
 // MustNestedZipFilePath gets the .zip test asset file.
 func MustNestedZipFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, "-nested.zip"), nestedZipAssets)
+	return mustWriteTempFileWithName(tb, "archive-nested.zip", nestedZipAssets)
 }
 
 // MustZipFilePath gets the .zip test asset file.
 func MustZipFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".zip"), zipAssets)
+	return mustWriteTempFileWithName(tb, "archive.zip", zipAssets)
 }
 
 // MustRarFilePath gets the .rar test asset file.
 func MustRarFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".rar"), rarAssets)
+	return mustWriteTempFileWithName(tb, "archive.rar", rarAssets)
 }
 
 // MustSevenZipFilePath gets the .7z test asset file.
 func MustSevenZipFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".7z"), sevenZipAssets)
+	return mustWriteTempFileWithName(tb, "archive.7z", sevenZipAssets)
 }
 
 // MustTarFilePath gets the .tar test asset file.
 func MustTarFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".tar"), tarAssets)
+	return mustWriteTempFileWithName(tb, "archive.tar", tarAssets)
 }
 
 // MustTarGzFilePath gets the .tar.gz test asset file.
 func MustTarGzFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".tar.gz"), tarGzAssets)
+	return mustWriteTempFileWithName(tb, "archive.tar.gz", tarGzAssets)
 }
 
 // MustTarBzip2FilePath gets .tar.bz2 test asset file.
 func MustTarBzip2FilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".tar.bz2"), tarBzip2Assets)
+	return mustWriteTempFileWithName(tb, "archive.tar.bz2", tarBzip2Assets)
 }
 
 // MustTarXzFilePath gets .tar.xz test asset file.
 func MustTarXzFilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".tar.xz"), tarXzAssets)
+	return mustWriteTempFileWithName(tb, "archive.tar.xz", tarXzAssets)
 }
 
 // MustTarLz4FilePath gets .tar.lz4 test asset file.
 func MustTarLz4FilePath(tb testing.TB) string {
-	return mustWriteData(tb, mustCreateTempArchive(tb, ".tar.lz4"), tarLz4Assets)
+	return mustWriteTempFileWithName(tb, "archive.tar.lz4", tarLz4Assets)
 }
 
-func mustCreateTempArchive(tb testing.TB, suffix string) string {
-	tf := MustCreateTempFile(tb)
-	return tf.Name() + suffix
+func mustWriteTempFileWithName(tb testing.TB, filename string, content []byte) string {
+	dir := tb.TempDir()
+	name := filepath.Join(dir, filename)
+
+	fatalOnFail(tb, os.WriteFile(name, content, testFileMode))
+	return name
 }
 
-func mustWriteData(tb testing.TB, path string, data []byte) string {
-	fatalOnFail(tb, os.WriteFile(path, data, testFileMode))
-	return path
-}
-
-func cleanupFile(tb testing.TB, name string) {
-	tb.Cleanup(func() {
-		if name != "" {
-			err := os.Remove(name)
-			if err != nil {
-				tb.Errorf("cannot delete '%s', %s", name, err)
-			}
-		}
-	})
+func assertFile(tb testing.TB, filename string, want []byte) {
+	got, err := os.ReadFile(filename)
+	if err != nil {
+		tb.Error(err)
+	}
+	if diff := cmp.Diff(got, want); diff != "" {
+		tb.Errorf("assertFile() mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func fatalOnFail(tb testing.TB, err error) {

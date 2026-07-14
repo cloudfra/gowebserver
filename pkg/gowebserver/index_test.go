@@ -15,14 +15,13 @@
 package gowebserver
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	_ "embed"
-
+	wsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -74,27 +73,8 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 
 				t.Errorf("Wanted:\n%s", string(tc.want))
 				t.Errorf("Got:\n%s", string(data))
-				writeTestFile(t, data, tc.sourceFile)
+				wsTesting.MustFile(t, tc.sourceFile, data)
 			}
 		})
-	}
-}
-
-func writeTestFile(tb testing.TB, data []byte, filename string) {
-	f, err := os.CreateTemp("", "test-output")
-	if err != nil {
-		tb.Fatal(err)
-	}
-	tb.Logf("writing content to %q", f.Name())
-	if filename != "" {
-		tb.Logf("Overwrite command: mv %s %s", f.Name(), filename)
-	}
-	if n, err := f.Write(data); err != nil {
-		tb.Fatal(err)
-	} else if n != len(data) {
-		tb.Errorf("cannot write contents of data with len:%d got:%d", len(data), n)
-	}
-	if err := f.Close(); err != nil {
-		tb.Errorf("cannot close temp file, %v", err)
 	}
 }

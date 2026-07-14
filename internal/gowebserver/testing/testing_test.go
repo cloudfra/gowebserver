@@ -16,6 +16,8 @@ package testing
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -23,56 +25,33 @@ import (
 
 var defaultFileData = []byte("ok")
 
-func TestCreateTempFile(t *testing.T) {
-	testCases := []struct {
-		name string
-		f    func(testing.TB) (string, error)
-	}{
-		{
-			name: "MustCreateTempFile",
-			f: func(tb testing.TB) (string, error) {
-				fp := MustCreateTempFile(tb)
-				n, err := fp.Write(defaultFileData)
-				if err != nil {
-					return "", err
-				}
-				if n != len(defaultFileData) {
-					t.Errorf("bytes written, got %d, want %d", n, len(defaultFileData))
-				}
+type memCloser struct{}
 
-				if err := fp.Close(); err != nil {
-					return "", err
-				}
-				return fp.Name(), nil
-			},
-		},
-		{
-			name: "MustWriteTempFile",
-			f: func(tb testing.TB) (string, error) {
-				fp := MustWriteTempFile(tb, string(defaultFileData))
-				return fp.Name(), nil
-			},
-		},
+func (memCloser) Close() error {
+	return nil
+}
+
+func TestMustFile(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "filename")
+	MustFile(t, filename, defaultFileData)
+	assertFile(t, filename, defaultFileData)
+}
+
+func TestDeferClose(t *testing.T) {
+	f := DeferClose(t, memCloser{})
+	f()
+	f()
+}
+
+func TestRemoveLineFeed(t *testing.T) {
+	want := "abc\r\n123"
+	got := RemoveLineFeed(want)
+	if runtime.GOOS == "windows" {
+		want = "abc\n123"
 	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			name, err := tc.f(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			data, err := os.ReadFile(name)
-			if err != nil {
-				t.Error(err)
-			}
-			if diff := cmp.Diff(data, defaultFileData); diff != "" {
-				t.Errorf("ExpandHostnames() mismatch (-want +got):\n%s", diff)
-			}
-		})
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("RemoveLineFeed() mismatch (-want +got):\n%s", diff)
 	}
 }
 

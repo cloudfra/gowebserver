@@ -16,15 +16,17 @@ package gowebserver
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	_ "embed"
-
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -74,26 +76,13 @@ func TestCreateTempDirectory(t *testing.T) {
 }
 
 func TestDownloadFileOnLocalFile(t *testing.T) {
-	f, err := os.CreateTemp(os.TempDir(), "gowebserver")
-	if err != nil {
-		t.Error(err)
-	}
+	tmpDir := t.TempDir()
+	sourceFilename := filepath.Join(tmpDir, "gowebserver")
+	gowsTesting.MustFile(t, sourceFilename, []byte("ok"))
 
-	t.Cleanup(func() {
-		if err := os.Remove(f.Name()); err != nil {
-			t.Errorf("cannot cleanup temp file, %s, %s", f.Name(), err)
-		}
-	})
-
-	path := f.Name()
-	err = os.WriteFile(path, []byte("ok"), os.FileMode(0o644))
-	if err != nil {
-		t.Error(err)
-	}
-
-	localPath, cleanup, err := downloadFile(path)
-	if localPath != path {
-		t.Errorf("want: %v, got: %v", path, localPath)
+	localPath, cleanup, err := downloadFile(sourceFilename)
+	if localPath != sourceFilename {
+		t.Errorf("want: %v, got: %v", sourceFilename, localPath)
 	}
 
 	if err != nil {
@@ -244,6 +233,10 @@ func (a *angryReader) Read(p []byte) (n int, err error) {
 }
 
 func TestCopyFileErrors(t *testing.T) {
+	notExistMsg := "no such file or directory"
+	if runtime.GOOS == "windows" {
+		notExistMsg = "The system cannot find the path specified."
+	}
 	testCases := []struct {
 		filePath string
 		r        io.Reader
@@ -252,7 +245,7 @@ func TestCopyFileErrors(t *testing.T) {
 		{
 			filePath: "dir-does-not-exist/target-file.txt",
 			r:        &angryReader{},
-			wantErr:  "cannot create target file dir-does-not-exist/target-file.txt, open dir-does-not-exist/target-file.txt: no such file or directory",
+			wantErr:  "cannot create target file dir-does-not-exist/target-file.txt, open dir-does-not-exist/target-file.txt: " + notExistMsg,
 		},
 		{
 			filePath: "target-file.txt",

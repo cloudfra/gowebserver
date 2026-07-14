@@ -15,12 +15,12 @@
 package gowebserver
 
 import (
-	"os"
+	_ "embed"
+	"path/filepath"
 	"testing"
 	"time"
 
-	_ "embed"
-
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -36,7 +36,7 @@ var (
 func TestEmptyConfig(t *testing.T) {
 	conf := &Config{}
 
-	if diff := cmp.Diff(emptyConfigYaml, conf.String()); diff != "" {
+	if diff := cmp.Diff(emptyConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config.String() mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -82,7 +82,7 @@ func TestPopulatedConfig(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(populatedConfigYaml, conf.String()); diff != "" {
+	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config.String() mismatch (-want +got):\n%s", diff)
 		t.Log(populatedConfigYaml)
 		t.Log(conf.String())
@@ -90,15 +90,13 @@ func TestPopulatedConfig(t *testing.T) {
 }
 
 func TestNoDefaultConfig(t *testing.T) {
-	fp, err := writeTempFile(noDefaultsConfigFile)
-	defer os.Remove(fp.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "config.yaml")
+	gowsTesting.MustFile(t, filename, []byte(noDefaultsConfigFile))
 
 	got := &Config{}
-	err = loadWithConfigFile(fp.Name(), got)
-	if err != nil {
+
+	if err := loadWithConfigFile(filename, got); err != nil {
 		t.Fatal(err)
 	}
 
@@ -145,21 +143,19 @@ func TestNoDefaultConfig(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
 }
 
 func TestPopulatedYamlConfig(t *testing.T) {
-	fp, err := writeTempFile(populatedConfigYaml)
-	defer os.Remove(fp.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "config.yaml")
+	gowsTesting.MustFile(t, filename, []byte(populatedConfigYaml))
 
 	got := &Config{}
-	err = loadWithConfigFile(fp.Name(), got)
-	if err != nil {
+
+	if err := loadWithConfigFile(filename, got); err != nil {
 		t.Fatal(err)
 	}
 
@@ -207,22 +203,9 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
-}
-
-func createTempFile() (*os.File, error) {
-	return os.CreateTemp(os.TempDir(), "tempfile")
-}
-
-func writeTempFile(content string) (*os.File, error) {
-	fp, err := createTempFile()
-	if err != nil {
-		return fp, err
-	}
-	err = os.WriteFile(fp.Name(), []byte(content), os.FileMode(0o644))
-	return fp, err
 }
 
 func TestDefaultConfiguration(t *testing.T) {
@@ -276,7 +259,7 @@ func TestDefaultConfiguration(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config mismatch (-want +got):\n%s", diff)
 	}
 }
