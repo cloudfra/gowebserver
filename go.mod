@@ -6,7 +6,7 @@ require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/cloudfra/certtool v0.4.1
-	github.com/cloudfra/ufs v0.9.3
+	github.com/cloudfra/ufs v0.9.5
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-cmp v0.7.0
 	github.com/jeremyje/gomain v0.12.1
