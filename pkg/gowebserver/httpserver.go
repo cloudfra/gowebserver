@@ -257,6 +257,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	return nil
 }
 
+// New creates a new [WebServer] with the specified [Config].
 func New(conf *Config) (WebServer, error) {
 	if conf == nil {
 		conf = &Config{}

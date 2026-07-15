@@ -29,7 +29,7 @@ func makeRichViewHandler(t *testing.T, files map[string][]byte) *richViewHandler
 	for name, content := range files {
 		testFS[name] = &fstest.MapFile{Data: content}
 	}
-	base := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("raw"))
 	})
 	mc := &monitoringContext{}
@@ -41,18 +41,19 @@ func makeRichViewHandler(t *testing.T, files map[string][]byte) *richViewHandler
 }
 
 func TestRichViewHandler_PassThrough(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"hello.go": []byte("package main\n"),
 	})
 
 	var called bool
-	base := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.Write([]byte("raw content"))
 	})
 	h.baseHandler = base
 
-	req := httptest.NewRequest("GET", "/hello.go", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/hello.go", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -65,11 +66,12 @@ func TestRichViewHandler_PassThrough(t *testing.T) {
 }
 
 func TestRichViewHandler_TextFile(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"hello.go": []byte("package main\n\nfunc main() {}\n"),
 	})
 
-	req := httptest.NewRequest("GET", "/hello.go?view=rich", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/hello.go?view=rich", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -90,6 +92,7 @@ func TestRichViewHandler_TextFile(t *testing.T) {
 }
 
 func TestRichViewHandler_BinaryFile(t *testing.T) {
+	ctx := t.Context()
 	// PNG magic bytes — detected as image/png by http.DetectContentType
 	pngBytes := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDRfakedata")
 	h := makeRichViewHandler(t, map[string][]byte{
@@ -97,12 +100,12 @@ func TestRichViewHandler_BinaryFile(t *testing.T) {
 	})
 
 	var calledBase bool
-	h.baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h.baseHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calledBase = true
 		w.Write([]byte("binary"))
 	})
 
-	req := httptest.NewRequest("GET", "/image.png?view=rich", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/image.png?view=rich", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -112,11 +115,12 @@ func TestRichViewHandler_BinaryFile(t *testing.T) {
 }
 
 func TestRichViewHandler_Directory(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"subdir/file.txt": []byte("hello"),
 	})
 
-	req := httptest.NewRequest("GET", "/subdir?view=rich", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/subdir?view=rich", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -126,12 +130,13 @@ func TestRichViewHandler_Directory(t *testing.T) {
 }
 
 func TestRichViewHandler_OversizedFile(t *testing.T) {
+	ctx := t.Context()
 	largeContent := bytes.Repeat([]byte("x"), richViewMaxFileSize+1)
 	h := makeRichViewHandler(t, map[string][]byte{
 		"large.txt": largeContent,
 	})
 
-	req := httptest.NewRequest("GET", "/large.txt?view=rich", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/large.txt?view=rich", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -145,11 +150,12 @@ func TestRichViewHandler_OversizedFile(t *testing.T) {
 }
 
 func TestRichViewHandler_ThemeOverride(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"hello.go": []byte("package main\n"),
 	})
 
-	req := httptest.NewRequest("GET", "/hello.go?view=rich&theme=dracula", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/hello.go?view=rich&theme=dracula", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -164,7 +170,7 @@ func TestRichViewHandler_HashInFileName(t *testing.T) {
 		"weird#1.txt": []byte("hello world\n"),
 	})
 
-	req := httptest.NewRequest("GET", "/placeholder?view=rich", nil)
+	req := httptest.NewRequest(http.MethodGet, "/placeholder?view=rich", nil)
 	req.URL.Path = "/weird#1.txt"
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -186,7 +192,7 @@ func TestRichViewHandler_InvalidTheme(t *testing.T) {
 		"hello.go": []byte("package main\n"),
 	})
 
-	req := httptest.NewRequest("GET", "/hello.go?view=rich&theme=notavalidthemexyz", nil)
+	req := httptest.NewRequest(http.MethodGet, "/hello.go?view=rich&theme=notavalidthemexyz", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 

@@ -21,7 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	wsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
+	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -61,7 +61,7 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer resp.Body.Close()
+			defer gowsTesting.DeferClose(t, resp.Body)
 
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -73,7 +73,7 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 
 				t.Errorf("Wanted:\n%s", string(tc.want))
 				t.Errorf("Got:\n%s", string(data))
-				wsTesting.MustFile(t, tc.sourceFile, data)
+				gowsTesting.MustFile(t, tc.sourceFile, data)
 			}
 		})
 	}

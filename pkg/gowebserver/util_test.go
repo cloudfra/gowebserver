@@ -30,7 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestCheckError(t *testing.T) {
+func TestCheckError(_ *testing.T) {
 	checkError(nil)
 }
 
@@ -228,7 +228,7 @@ func TestExecuteTemplate(t *testing.T) {
 
 type angryReader struct{}
 
-func (a *angryReader) Read(p []byte) (n int, err error) {
+func (a *angryReader) Read(_ []byte) (n int, err error) {
 	return 0, fmt.Errorf("failure")
 }
 

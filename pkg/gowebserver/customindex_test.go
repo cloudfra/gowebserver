@@ -50,7 +50,7 @@ func TestCustomIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer nFS.Close()
+	defer gowsTesting.DeferClose(t, nFS)
 
 	mc := &monitoringContext{}
 	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc.getTraceProvider(), true)
@@ -71,32 +71,39 @@ func TestCustomIndex(t *testing.T) {
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images/", []string{"ocean.jpg", "nature.jpg"})
 }
 
-func verifyCustomIndex(t *testing.T, hc *http.Client, u string, substrs []string) {
+func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []string) {
+	ctx := tb.Context()
 	if len(substrs) == 0 {
-		t.Error("must have at least 1 substring to check")
+		tb.Error("must have at least 1 substring to check")
 		return
 	}
-	res, err := hc.Get(u)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		t.Errorf("cannot GET %s, %s", u, err)
+		tb.Fatalf("cannot create request for %q, %s", u, err)
+	}
+	res, err := hc.Do(req)
+	if err != nil {
+		tb.Errorf("cannot GET %s, %s", u, err)
 		return
 	}
+	defer gowsTesting.DeferClose(tb, res.Body)
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if err != nil {
-		t.Errorf("cannot read response from %s, %s", u, err)
+		tb.Errorf("cannot read response from %s, %s", u, err)
 		return
 	}
 	body := string(bodyBytes)
 	missingSubstr := true
 	for _, substr := range substrs {
 		if !strings.Contains(body, substr) {
-			t.Errorf("%s does not contain string '%s'", u, substr)
+			tb.Errorf("%s does not contain string '%s'", u, substr)
 			missingSubstr = true
 		}
 	}
 	if missingSubstr {
-		t.Logf("--- GET: %s\n\n%s", u, body)
+		tb.Logf("--- GET: %s\n\n%s", u, body)
 	}
 }

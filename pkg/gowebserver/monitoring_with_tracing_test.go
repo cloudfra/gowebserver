@@ -32,7 +32,7 @@ import (
 func fakeOTLPServer(t *testing.T) (*httptest.Server, <-chan struct{}) {
 	t.Helper()
 	received := make(chan struct{}, 16)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		received <- struct{}{}
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -51,6 +51,7 @@ func TestNewTraceProvider_NoURI(t *testing.T) {
 }
 
 func TestNewTraceProvider_ExportsSpans(t *testing.T) {
+	ctx := t.Context()
 	srv, received := fakeOTLPServer(t)
 
 	m := Monitoring{Trace: Trace{URI: srv.URL}}
@@ -61,12 +62,12 @@ func TestNewTraceProvider_ExportsSpans(t *testing.T) {
 	if tp == nil {
 		t.Fatal("expected non-nil trace provider")
 	}
-	defer tp.Shutdown(context.Background())
+	defer tp.Shutdown(ctx)
 
-	_, span := tp.Tracer("test").Start(context.Background(), "export-test")
+	_, span := tp.Tracer("test").Start(ctx, "export-test")
 	span.End()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := tp.ForceFlush(ctx); err != nil {
 		t.Fatal(err)
@@ -84,6 +85,7 @@ func TestNewTraceProvider_ExportsSpans(t *testing.T) {
 // passed to newTraceProvider is actually wired into the tracer provider via
 // sdktrace.WithSpanProcessor.
 func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
+	ctx := t.Context()
 	srv, _ := fakeOTLPServer(t)
 
 	recorder := tracetest.NewSpanRecorder()
@@ -95,9 +97,9 @@ func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
 	if tp == nil {
 		t.Fatal("expected non-nil trace provider")
 	}
-	defer tp.Shutdown(context.Background())
+	defer tp.Shutdown(ctx)
 
-	_, span := tp.Tracer("test").Start(context.Background(), "recorded-span")
+	_, span := tp.Tracer("test").Start(ctx, "recorded-span")
 	span.End()
 
 	ended := recorder.Ended()
@@ -115,6 +117,7 @@ func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
 //  2. The zpages SpanProcessor is wired into the tracer provider so that spans
 //     created through that provider appear on the /tracez page.
 func TestSetupMonitoring_WithTrace(t *testing.T) {
+	ctx := t.Context()
 	srv, _ := fakeOTLPServer(t)
 
 	m := Monitoring{
@@ -139,11 +142,11 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 
 	// Create a span through the monitored provider so the zpages processor sees it.
 	tracer := mc.getTraceProvider().Tracer("test")
-	_, span := tracer.Start(context.Background(), "zpages-test-span")
+	_, span := tracer.Start(ctx, "zpages-test-span")
 	span.End()
 
 	// Render the tracez page and verify the span name is present.
-	req, _ := http.NewRequest(http.MethodGet, "/debug/tracez", nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/debug/tracez", nil)
 	rr := httptest.NewRecorder()
 	tracezHandler.ServeHTTP(rr, req)
 
@@ -156,6 +159,7 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 // DebugEndpoint is empty, newTraceProvider is called with a nil SpanProcessor
 // and still produces a working provider.
 func TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint(t *testing.T) {
+	ctx := t.Context()
 	srv, _ := fakeOTLPServer(t)
 
 	m := Monitoring{
@@ -180,6 +184,6 @@ func TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint(t *testing.T) {
 	}
 
 	// Verify spans can still be created without panicking.
-	_, span := mc.getTraceProvider().Tracer("test").Start(context.Background(), "no-debug-span")
+	_, span := mc.getTraceProvider().Tracer("test").Start(ctx, "no-debug-span")
 	span.End()
 }

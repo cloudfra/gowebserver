@@ -38,12 +38,13 @@ func TestUploadHTML(t *testing.T) {
 }
 
 func TestUpload(t *testing.T) {
+	ctx := t.Context()
 	zipPath := gowsTesting.MustZipFilePath(t)
-	tmpDir, close, err := createTempDirectory()
+	tmpDir, closer, err := createTempDirectory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer close()
+	defer closer()
 
 	cfg := &Config{
 		Serve: []Serve{
@@ -58,15 +59,14 @@ func TestUpload(t *testing.T) {
 		},
 	}
 
-	baseURL, close := serveAsync(t, cfg)
-	defer close()
+	baseURL, closer := serveAsync(t, cfg)
+	defer closer()
 	fp, err := os.Open(zipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer gowsTesting.DeferClose(t, fp)
 
-	ctx := context.Background()
 	req, err := newUploadFormRequest(ctx, baseURL+"/upload", "test.zip", fp, map[string]string{})
 	if err != nil {
 		t.Error(err)
@@ -106,12 +106,13 @@ func TestUpload(t *testing.T) {
 }
 
 func TestUpload_CrossOriginRejected(t *testing.T) {
+	ctx := t.Context()
 	zipPath := gowsTesting.MustZipFilePath(t)
-	tmpDir, close, err := createTempDirectory()
+	tmpDir, closer, err := createTempDirectory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer close()
+	defer closer()
 
 	cfg := &Config{
 		Serve: []Serve{
@@ -126,15 +127,14 @@ func TestUpload_CrossOriginRejected(t *testing.T) {
 		},
 	}
 
-	baseURL, close := serveAsync(t, cfg)
-	defer close()
+	baseURL, closer := serveAsync(t, cfg)
+	defer closer()
 	fp, err := os.Open(zipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer fp.Close()
+	defer gowsTesting.DeferClose(t, fp)
 
-	ctx := context.Background()
 	req, err := newUploadFormRequest(ctx, baseURL+"/upload", "evil.zip", fp, map[string]string{})
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestUpload_CrossOriginRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer gowsTesting.DeferClose(t, resp.Body)
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("http status code is '%d', want %d", resp.StatusCode, http.StatusForbidden)

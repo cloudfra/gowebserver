@@ -39,17 +39,17 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	}
 	w := &bytes.Buffer{}
 
-	entries := []*DirEntry{}
-	for _, servePath := range servePaths {
-		entries = append(entries, &DirEntry{
+	entries := make([]*DirEntry, len(servePaths))
+	for idx, servePath := range servePaths {
+		entries[idx] = &DirEntry{
 			Name:      strings.Trim(servePath, "/"),
 			IsDir:     true,
 			IsArchive: false,
 			IconClass: "folder",
 			ModTime:   time.Time{},
-		})
+		}
 	}
-	params := &CustomIndexReport{
+	params := &customIndexReport{
 		Root:             "/",
 		RootName:         "/",
 		DirEntries:       entries,
@@ -68,7 +68,7 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	}, nil
 }
 
-func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 	if _, err := w.Write(h.page); err != nil {
 		zap.S().With("error", err).Warn("cannot write index response")

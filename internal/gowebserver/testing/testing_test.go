@@ -82,7 +82,7 @@ func TestMustFilePath(t *testing.T) {
 			if name == "" {
 				t.Error("file name is empty")
 			}
-			data, err := os.ReadFile(name)
+			data, err := os.ReadFile(filepath.Clean(name))
 			if err != nil {
 				t.Error(err)
 			}

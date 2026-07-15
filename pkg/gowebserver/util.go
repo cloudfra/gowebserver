@@ -37,32 +37,6 @@ func checkError(err error) {
 	}
 }
 
-const fsDirMode = os.FileMode(0o777)
-
-func createDirectory(path string) error {
-	return os.MkdirAll(dirPath(path), fsDirMode)
-}
-
-func stageRemoteFile(maybeRemoteFilePath string) (string, string, func() error, error) {
-	localFilePath, fileCleanup, err := downloadFile(maybeRemoteFilePath)
-	if err != nil {
-		fileCleanup()
-		return "", "", nilFuncWithError, fmt.Errorf("cannot download file %s, %w", maybeRemoteFilePath, err)
-	}
-
-	tmpDir, cleanup, err := createTempDirectory()
-	if err != nil {
-		logError(fileCleanup())
-		cleanup()
-		return "", "", nilFuncWithError, fmt.Errorf("cannot create temp directory, %w", err)
-	}
-
-	return tmpDir, localFilePath, func() error {
-		cleanup()
-		return fileCleanup()
-	}, nil
-}
-
 func createTempDirectory() (string, func(), error) {
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "gowebserver")
 	if err != nil {
@@ -249,18 +223,18 @@ func isEven(v int) bool {
 	return v%2 == 0
 }
 
-func stepBegin(val int, step int, max int) bool {
+func stepBegin(val int, step int, _ int) bool {
 	if step == 0 {
 		return true
 	}
 	return val%step == 0
 }
 
-func stepEnd(val int, step int, max int) bool {
+func stepEnd(val int, step int, maxVal int) bool {
 	if step == 0 {
 		return true
 	}
-	return val%step == step-1 || val+1 == max
+	return val%step == step-1 || val+1 == maxVal
 }
 
 func urlEncode(u string) string {

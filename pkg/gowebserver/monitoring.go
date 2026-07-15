@@ -117,7 +117,7 @@ func setupMonitoring(m Monitoring) (*monitoringContext, error) {
 	return mc, nil
 }
 
-func newPrometheusExporter(m Monitoring, r *resource.Resource) (*otelprom.Exporter, *sdkmetric.MeterProvider, http.Handler, error) {
+func newPrometheusExporter(_ Monitoring, _ *resource.Resource) (*otelprom.Exporter, *sdkmetric.MeterProvider, http.Handler, error) {
 	registry := prometheus.NewRegistry()
 	if err := registry.Register(collectors.NewBuildInfoCollector()); err != nil {
 		return nil, nil, nil, err
