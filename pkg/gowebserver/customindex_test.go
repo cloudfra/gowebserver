@@ -97,9 +97,9 @@ func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []strin
 	}
 	body := gowsTesting.RemoveLineFeed(string(bodyBytes))
 	missingSubstr := true
-	for _, substr := range substrs {
+	for idx, substr := range substrs {
 		if !strings.Contains(body, substr) {
-			tb.Errorf("%s does not contain string '%s'", u, substr)
+			tb.Errorf("%s does not contain string[%d] %q", u, idx, substr)
 			missingSubstr = true
 		}
 	}
