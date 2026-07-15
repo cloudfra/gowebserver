@@ -27,7 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Run is the entry point for the gowebserver application that can run as a terminal application or Windows Service.
+// Run is the entry point for running gowebserver as a console or Windows Service.
 func Run() {
 	_, syncFunc := configLogger(true)
 	defer syncFunc()

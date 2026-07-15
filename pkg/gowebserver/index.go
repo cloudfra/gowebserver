@@ -16,11 +16,10 @@ package gowebserver
 
 import (
 	"bytes"
+	_ "embed"
 	"net/http"
 	"strings"
 	"time"
-
-	_ "embed"
 
 	"go.uber.org/zap"
 )

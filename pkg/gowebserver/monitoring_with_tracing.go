@@ -25,12 +25,13 @@ import (
 )
 
 func newTraceProvider(m Monitoring, r *resource.Resource, sp sdktrace.SpanProcessor) (*sdktrace.TracerProvider, error) {
+	ctx := context.Background()
 	if len(m.Trace.URI) == 0 {
 		return nil, nil
 	}
 
 	exp, err := otlptracehttp.New(
-		context.Background(),
+		ctx,
 		otlptracehttp.WithEndpointURL(m.Trace.URI),
 	)
 	if err != nil {

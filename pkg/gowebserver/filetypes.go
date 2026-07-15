@@ -15,7 +15,6 @@
 package gowebserver
 
 import (
-	"log"
 	"mime"
 	"path/filepath"
 	"strings"
@@ -41,6 +40,7 @@ var mimeIconMap = map[string]string{
 	".dat":                            "data",
 	".db":                             "database",
 	".deb":                            "package",
+	".divx":                           "video",
 	".doc":                            "doc",
 	".docx":                           "doc",
 	".download":                       "download",
@@ -48,6 +48,7 @@ var mimeIconMap = map[string]string{
 	".dwg":                            "cad",
 	".epub":                           "ebook",
 	".exe":                            "terminal",
+	".flv":                            "video",
 	".go":                             "code",
 	".gz":                             "archive",
 	".htm":                            "markup",
@@ -55,10 +56,13 @@ var mimeIconMap = map[string]string{
 	".ini":                            "config",
 	".iso":                            "disc",
 	".java":                           "code",
+	".jpg":                            "image",
 	".js":                             "script",
 	".key":                            "key",
 	".log":                            "log",
 	".md":                             "doc",
+	".mp3":                            "audio",
+	".mp4":                            "video",
 	".msi":                            "package",
 	".pdf":                            "pdf",
 	".pem":                            "key",
@@ -71,6 +75,7 @@ var mimeIconMap = map[string]string{
 	".psd":                            "photoshop",
 	".psm1":                           "terminal",
 	".pub":                            "certificate",
+	".qt":                             "video",
 	".rar":                            "archive",
 	".rpm":                            "package",
 	".scss":                           "stylesheet",
@@ -82,8 +87,11 @@ var mimeIconMap = map[string]string{
 	".ts":                             "script",
 	".tsx":                            "script",
 	".ttf":                            "font",
+	".txt":                            "text",
+	".webm":                           "video",
 	".xls":                            "spreadsheet",
 	".xlsx":                           "spreadsheet",
+	".xvid":                           "video",
 	".xz":                             "archive",
 	".yaml":                           "config",
 	".yml":                            "config",
@@ -97,28 +105,11 @@ var mimeIconMap = map[string]string{
 	"application/x-shellscript":       "terminal",
 	"application/x-x509-ca-cert":      "certificate",
 	"application/x-yaml":              "config",
+	"audio":                           "audio",
 	"font":                            "font",
-
-	// Audio
-	".mp3":  "audio",
-	"audio": "audio",
-
-	// Image
-	".jpg":  "image",
-	"image": "image",
-
-	// Text
-	".txt": "text",
-	"text": "text",
-
-	// Video
-	".divx": "video",
-	".flv":  "video",
-	".mp4":  "video",
-	".qt":   "video",
-	".webm": "video",
-	".xvid": "video",
-	"video": "video",
+	"image":                           "image",
+	"text":                            "text",
+	"video":                           "video",
 }
 
 func nameToIconClass(isDir bool, name string) string {
@@ -145,7 +136,6 @@ func nameToIconClass(isDir bool, name string) string {
 		}
 	}
 
-	log.Printf("%s > %s", ext, mimeType)
 	return "unknown"
 }
 

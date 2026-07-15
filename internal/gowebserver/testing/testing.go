@@ -64,9 +64,7 @@ func RemoveLineFeed(content string) string {
 
 // IgnoreCarriageReturns normalizes Windows newlines to Linux style newlines.
 func IgnoreCarriageReturns() cmp.Option {
-	return cmp.Transformer("IgnoreCarriageReturns", func(s string) string {
-		return RemoveLineFeed(s)
-	})
+	return cmp.Transformer("IgnoreCarriageReturns", RemoveLineFeed)
 }
 
 // DeferClose returns an error checked close that's deferred at the end of the test.

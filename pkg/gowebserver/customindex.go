@@ -139,7 +139,7 @@ func (d *DirEntry) NameForSorting() string {
 	return strings.ToLower(d.Name)
 }
 
-// String returns the string representation of the metadata.
+// String returns the string representation of the [DirEntry].
 func (d *DirEntry) String() string {
 	if d == nil {
 		return "<nil>"

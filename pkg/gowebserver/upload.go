@@ -17,7 +17,7 @@ package gowebserver
 // https://astaxie.gitbooks.io/build-web-application-with-golang/content/en/04.5.html
 // http://sanatgersappa.blogspot.com/2013/03/handling-multiple-file-uploads-in-go.html
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -72,7 +72,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
-		h := md5.New()
+		h := sha256.New()
 		io.WriteString(h, strconv.FormatInt(crutime, 10))
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
@@ -129,7 +129,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			f, err := os.Create(localPath)
+			f, err := os.Create(filepath.Clean(localPath))
 			if err != nil {
 				resp.Error = fmt.Errorf("InternalError: Cannot create file (%s), %w", localPath, err)
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)

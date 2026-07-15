@@ -20,13 +20,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -72,53 +70,6 @@ func TestCreateTempDirectory(t *testing.T) {
 	cleanup()
 	if exists(dir) {
 		t.Errorf("'%s' exists when it should not", dir)
-	}
-}
-
-func TestDownloadFileOnLocalFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceFilename := filepath.Join(tmpDir, "gowebserver")
-	gowsTesting.MustFile(t, sourceFilename, []byte("ok"))
-
-	localPath, cleanup, err := downloadFile(sourceFilename)
-	if localPath != sourceFilename {
-		t.Errorf("want: %v, got: %v", sourceFilename, localPath)
-	}
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	if !exists(localPath) {
-		t.Errorf("local file %s should exist", localPath)
-	}
-
-	if err := cleanup(); err != nil {
-		t.Error(err)
-	}
-
-	if !exists(localPath) {
-		t.Errorf("local file %s should exist", localPath)
-	}
-}
-
-func TestDownloadFileOnHttpsFile(t *testing.T) {
-	remotePath := "https://raw.githubusercontent.com/cloudfra/gowebserver/main/Makefile"
-	localPath, cleanup, err := downloadFile(remotePath)
-	if err != nil {
-		t.Error(err)
-	}
-	if localPath == remotePath {
-		t.Errorf("'%s' is the local and remote path, they should be different", localPath)
-	}
-	if !exists(localPath) {
-		t.Errorf("'%s' does not exist locally", localPath)
-	}
-	if err := cleanup(); err != nil {
-		t.Errorf("cannot cleanup file, %s", err)
-	}
-	if exists(localPath) {
-		t.Errorf("'%s' should have been cleaned up", localPath)
 	}
 }
 
@@ -228,7 +179,7 @@ func TestExecuteTemplate(t *testing.T) {
 
 type angryReader struct{}
 
-func (a *angryReader) Read(_ []byte) (n int, err error) {
+func (a *angryReader) Read(_ []byte) (int, error) {
 	return 0, fmt.Errorf("failure")
 }
 

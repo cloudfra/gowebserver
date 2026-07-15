@@ -82,6 +82,9 @@ func TestUpload(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Errorf("http status code is '%d'", resp.StatusCode)
 	}
+	if err := resp.Body.Close(); err != nil {
+		t.Errorf("cannot close response body, %s", err)
+	}
 
 	got := sha256File(t, filepath.Join(tmpDir, "test.zip"))
 	want := sha256File(t, zipPath)
@@ -102,6 +105,9 @@ func TestUpload(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Errorf("http status code is '%d'", resp.StatusCode)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Errorf("cannot close response body, %s", err)
 	}
 }
 
@@ -154,6 +160,10 @@ func TestUpload_CrossOriginRejected(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(tmpDir, "evil.zip")); !os.IsNotExist(err) {
 		t.Errorf("cross-origin upload should not have been written, stat err = %v", err)
+	}
+
+	if err := resp.Body.Close(); err != nil {
+		t.Errorf("cannot close response body, %s", err)
 	}
 }
 

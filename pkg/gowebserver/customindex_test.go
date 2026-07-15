@@ -95,7 +95,7 @@ func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []strin
 		tb.Errorf("cannot read response from %s, %s", u, err)
 		return
 	}
-	body := string(bodyBytes)
+	body := gowsTesting.RemoveLineFeed(string(bodyBytes))
 	missingSubstr := true
 	for _, substr := range substrs {
 		if !strings.Contains(body, substr) {

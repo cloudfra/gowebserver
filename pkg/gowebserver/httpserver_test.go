@@ -44,10 +44,20 @@ func TestServeAndDie(t *testing.T) {
 
 	if resp, err := http.Get(baseURL + "/diediedie"); err == nil || resp != nil {
 		t.Errorf("got response when server should be dead., Response: %v, Err: %s", resp, err)
+		if resp != nil {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("failed to close response body, %s", err)
+			}
+		}
 	}
 
 	if resp, err := http.Get(baseURL); err == nil || resp != nil {
 		t.Errorf("got response when server should be dead., Response: %v, Err: %s", resp, err)
+		if resp != nil {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("failed to close response body, %s", err)
+			}
+		}
 	}
 }
 
@@ -229,10 +239,8 @@ func TestWebServer_Serve(t *testing.T) {
 				resp, err := http.Get(baseURL + path)
 				if err != nil {
 					t.Error(err)
-				} else {
-					if resp.StatusCode != http.StatusOK {
-						t.Errorf("status for '%s' got: %d, want 200", path, resp.StatusCode)
-					}
+				} else if resp.StatusCode != http.StatusOK {
+					t.Errorf("status for '%s' got: %d, want 200", path, resp.StatusCode)
 				}
 			}
 		})
@@ -253,7 +261,7 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 	closer := gomainTesting.Main(wsi.Serve)
 
 	var httpPort int
-	for i := 0; i < 600; i++ {
+	for i := range 600 {
 		httpPort, _ = wsi.getPorts()
 		if httpPort != 0 {
 			break
@@ -275,7 +283,7 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 }
 
 func waitAvailable(url string) error {
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if _, err := http.Get(url); err == nil {
 			return nil
 		}
@@ -327,7 +335,6 @@ func TestNormalizeHTTPPath(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 			got := normalizeHTTPPath(tc.input)
