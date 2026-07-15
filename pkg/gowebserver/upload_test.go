@@ -65,7 +65,7 @@ func TestUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gowsTesting.DeferClose(t, fp)
+	defer gowsTesting.DeferClose(t, fp)()
 
 	req, err := newUploadFormRequest(ctx, baseURL+"/upload", "test.zip", fp, map[string]string{})
 	if err != nil {
@@ -139,7 +139,7 @@ func TestUpload_CrossOriginRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gowsTesting.DeferClose(t, fp)
+	defer gowsTesting.DeferClose(t, fp)()
 
 	req, err := newUploadFormRequest(ctx, baseURL+"/upload", "evil.zip", fp, map[string]string{})
 	if err != nil {
@@ -152,7 +152,7 @@ func TestUpload_CrossOriginRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gowsTesting.DeferClose(t, resp.Body)
+	defer gowsTesting.DeferClose(t, resp.Body)()
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("http status code is '%d', want %d", resp.StatusCode, http.StatusForbidden)
