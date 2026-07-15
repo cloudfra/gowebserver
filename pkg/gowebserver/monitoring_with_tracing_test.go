@@ -146,7 +146,10 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 	span.End()
 
 	// Render the tracez page and verify the span name is present.
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/debug/tracez", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/debug/tracez", nil)
+	if err != nil {
+		t.Fatalf("cannot create request, %s", err)
+	}
 	rr := httptest.NewRecorder()
 	tracezHandler.ServeHTTP(rr, req)
 

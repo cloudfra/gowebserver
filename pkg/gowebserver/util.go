@@ -19,7 +19,6 @@ import (
 	"html/template"
 	"io"
 	"mime"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -55,32 +54,6 @@ func tryDeleteDirectory(path string) {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		zap.S().With("error", err, "directory", path).Error("cannot delete directory")
 	}
-}
-
-func downloadFile(path string) (string, func() error, error) {
-	if strings.HasPrefix(strings.ToLower(path), "http") {
-		cleanup := nilFuncWithError
-		f, err := os.CreateTemp(os.TempDir(), "gowebserverdl")
-		if err != nil {
-			return "", cleanup, err
-		}
-		defer f.Close()
-		fileName := f.Name()
-		cleanup = func() error {
-			return os.Remove(fileName)
-		}
-		resp, err := http.Get(path)
-		if err != nil {
-			return "", cleanup, err
-		}
-		defer resp.Body.Close()
-
-		if _, err := io.Copy(f, resp.Body); err != nil {
-			return "", cleanup, err
-		}
-		return f.Name(), cleanup, nil
-	}
-	return path, nilFuncWithError, nil
 }
 
 func exists(path string) bool {

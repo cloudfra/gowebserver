@@ -56,10 +56,10 @@ jobs:
       # - name: Container Fix
       #   run: git config --system --add safe.directory /__w/
 
-      # - name: Install Signing Dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get -y -q install osslsigncode binutils openssl
+      - name: Install Signing Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y -q install osslsigncode binutils openssl
       - name: Install Prerequisites
         run: |
           sudo apt-get update

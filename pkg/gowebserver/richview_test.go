@@ -166,11 +166,12 @@ func TestRichViewHandler_ThemeOverride(t *testing.T) {
 }
 
 func TestRichViewHandler_HashInFileName(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"weird#1.txt": []byte("hello world\n"),
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/placeholder?view=rich", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/placeholder?view=rich", nil)
 	req.URL.Path = "/weird#1.txt"
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -188,11 +189,12 @@ func TestRichViewHandler_HashInFileName(t *testing.T) {
 }
 
 func TestRichViewHandler_InvalidTheme(t *testing.T) {
+	ctx := t.Context()
 	h := makeRichViewHandler(t, map[string][]byte{
 		"hello.go": []byte("package main\n"),
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/hello.go?view=rich&theme=notavalidthemexyz", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/hello.go?view=rich&theme=notavalidthemexyz", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 

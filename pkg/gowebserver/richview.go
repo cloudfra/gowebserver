@@ -143,7 +143,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Oversized:          true,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.Execute(w, report) //nolint:errcheck
+		h.tmpl.Execute(w, report)
 		return
 	}
 
@@ -215,5 +215,5 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.tmpl.Execute(w, report) //nolint:errcheck
+	h.tmpl.Execute(w, report)
 }

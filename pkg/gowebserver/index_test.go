@@ -18,6 +18,7 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -51,13 +52,18 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 		tc := tc
 		t.Run(fmt.Sprintf("modern= %t", tc.modern), func(t *testing.T) {
 			t.Parallel()
+			ctx := t.Context()
 			h, err := newIndexHTTPHandler([]string{"/ok", "/abc"}, tc.modern)
 			if err != nil {
 				t.Fatal(err)
 			}
 			hs := httptest.NewServer(h)
 			defer hs.Close()
-			resp, err := hs.Client().Get(hs.URL + "/")
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, hs.URL+"/", nil)
+			if err != nil {
+				t.Fatalf("cannot create request for %s, %s", hs.URL+"/", err)
+			}
+			resp, err := hs.Client().Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
