@@ -67,7 +67,7 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer gowsTesting.DeferClose(t, resp.Body)
+			defer gowsTesting.DeferClose(t, resp.Body)()
 
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {

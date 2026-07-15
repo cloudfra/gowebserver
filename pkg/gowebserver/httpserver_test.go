@@ -69,13 +69,13 @@ func TestDieDieDieDisabled(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || err != nil {
 		t.Errorf("got error response, Response: %v, Err: %s", resp, err)
 	}
-	defer gowsTesting.DeferClose(t, resp.Body)
+	defer gowsTesting.DeferClose(t, resp.Body)()
 
 	resp, err = http.Get(baseURL)
 	if resp.StatusCode != http.StatusOK || err != nil {
 		t.Errorf("server should still be alive, Response: %v, Err: %s", resp, err)
 	}
-	defer gowsTesting.DeferClose(t, resp.Body)
+	defer gowsTesting.DeferClose(t, resp.Body)()
 }
 
 func TestServe(t *testing.T) {
@@ -150,7 +150,7 @@ func TestWebServer_Serve_Multi(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			} else {
-				defer gowsTesting.DeferClose(t, resp.Body)
+				defer gowsTesting.DeferClose(t, resp.Body)()
 				got, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Error(err)

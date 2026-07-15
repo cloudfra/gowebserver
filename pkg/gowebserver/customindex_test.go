@@ -50,7 +50,7 @@ func TestCustomIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gowsTesting.DeferClose(t, nFS)
+	defer gowsTesting.DeferClose(t, nFS)()
 
 	mc := &monitoringContext{}
 	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc.getTraceProvider(), true)
@@ -87,7 +87,7 @@ func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []strin
 		tb.Errorf("cannot GET %s, %s", u, err)
 		return
 	}
-	defer gowsTesting.DeferClose(tb, res.Body)
+	defer gowsTesting.DeferClose(tb, res.Body)()
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	res.Body.Close()
