@@ -184,6 +184,7 @@ func tryListDir(fsys fs.FS, path string) {
 		zap.S().With("path", path).With(zap.Error(err)).Warn("failed to open file")
 		return
 	}
+	defer f.Close()
 	if dirList, ok := f.(fs.ReadDirFile); ok {
 		dirs, err := dirList.ReadDir(-1)
 		if err != nil {
