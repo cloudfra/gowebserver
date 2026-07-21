@@ -10,7 +10,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-cmp v0.7.0
 	github.com/jeremyje/gomain v0.12.1
-	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_golang v1.24.0
 	github.com/rs/cors v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/host v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
