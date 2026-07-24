@@ -54,7 +54,7 @@ jobs:
 
       - name: Run analysis
         # https://github.com/ossf/scorecard-action
-        uses: ossf/scorecard-action@v2.4.3
+        uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
