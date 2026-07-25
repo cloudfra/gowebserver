@@ -109,6 +109,7 @@ jobs:
       - name: Publish Benchmark (7 Days)
         # https://github.com/actions/upload-artifact
         uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: benchmark-linux.html
           path: |
@@ -134,18 +135,6 @@ jobs:
 
       - name: Release Package
         run: make build/packages/release.tar.gz
-
-      - name: Attach Ephemeral Binaries
-        # https://github.com/actions/upload-artifact
-        uses: actions/upload-artifact@v7
-        with:
-          retention-days: ${{ github.ref_type == 'tag' && 1 || github.event_name == 'push' && 7 || 1 }}
-          path: |
-            build/release/gowebserver-darwin_arm64
-            build/release/gowebserver-linux_amd64
-            build/release/gowebserver-linux_arm64
-            build/release/gowebserver-windows_amd64.exe
-            build/release/gowebserver-windows_arm64.exe
 
       - name: Create Release
         # https://github.com/softprops/action-gh-release
@@ -216,7 +205,7 @@ jobs:
         with:
           go-version: stable
           cache: false
-          
+
       - name: System Information
         run: make system-info
 
@@ -230,7 +219,7 @@ jobs:
       - name: Lint
         run: make lint
       - name: Test
-        run: make test -j6
+        run: make test
       - name: Test (Deflake)
         run: make GO_TEST_COUNT=5 test-deflake
       - name: Coverage
@@ -241,6 +230,7 @@ jobs:
       - name: Publish Benchmark (7 Days)
         # https://github.com/actions/upload-artifact
         uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: benchmark-windows.html
           path: |
