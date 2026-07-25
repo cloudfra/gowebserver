@@ -5,7 +5,7 @@ It can host a local directory or contents of a zip file.
 
 ```bash
 # Download (linux amd64, see Downloads for other builds)
-curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64; chmod +x gowebserver
+curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_amd64; chmod +x gowebserver
 
 # Host the current directory.
 ./gowebserver
@@ -14,7 +14,7 @@ curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/downl
 ./gowebserver --path=${HOME}
 
 # Host a zip file from the internet.
-./gowebserver --path=https://github.com/cloudfra/gowebserver/archive/v3.6.0.zip
+./gowebserver --path=https://github.com/cloudfra/gowebserver/archive/v3.6.3.zip
 
 # Install in your Kubernetes Cluster.
 kubectl apply -f https://raw.githubusercontent.com/cloudfra/gowebserver/main/install/kubernetes.yaml
@@ -47,14 +47,12 @@ sc.exe start gowebserver
 
 ## Downloads
 
-|   OS   | Arch  | Link
-|--------|-------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-|Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64`
-|Linux   | arm   | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm`
-|Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm64`
-|Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64.exe" -OutFile "server-amd64.exe" -UseBasicParsing`
-|macOS   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-amd64-darwin`
-|macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.0/server-arm64-darwin`
+|   OS    | Arch  | Link
+| ------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_amd64`
+| Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_arm64`
+| Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing`
+| macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-darwin_arm64`
 
 ## Docker Images
 
@@ -66,7 +64,7 @@ docker pull docker.io/cloudfra/gowebserver
 
 ## Build
 
-![example workflow](https://github.com/cloudfra/gowebserver/actions/workflows/deploy.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/cloudfra/gowebserver)](https://goreportcard.com/report/github.com/cloudfra/gowebserver) [![Go Reference](https://pkg.go.dev/badge/github.com/cloudfra/gowebserver.svg)](https://pkg.go.dev/github.com/cloudfra/gowebserver) [![codecov](https://codecov.io/gh/cloudfra/gowebserver/branch/main/graph/badge.svg)](https://codecov.io/gh/cloudfra/gowebserver)
+![example workflow](https://github.com/cloudfra/gowebserver/actions/workflows/deploy.yaml/badge.svg) [![Go Reference](https://pkg.go.dev/badge/github.com/cloudfra/gowebserver.svg)](https://pkg.go.dev/github.com/cloudfra/gowebserver) [![codecov](https://codecov.io/gh/cloudfra/gowebserver/branch/main/graph/badge.svg)](https://codecov.io/gh/cloudfra/gowebserver) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cloudfra/gowebserver/badge)](https://scorecard.dev/viewer/?uri=github.com/cloudfra/gowebserver)
 
 Install [Go 1.24 or newer](https://golang.org/dl/).
 

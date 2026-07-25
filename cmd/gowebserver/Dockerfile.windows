@@ -22,19 +22,19 @@ ARG BUILD_VERSION
 ARG BINARY_NAME
 ARG BINARY_PATH
 
-COPY ${BINARY_PATH} /app/example.exe
+COPY ${BINARY_PATH} /app/gowebserver.exe
 COPY LICENSE /app/LICENSE
 
 USER ContainerUser
 EXPOSE 80
-ENTRYPOINT ["/app/example.exe"]
+ENTRYPOINT ["/app/gowebserver.exe"]
 
 # Standardized Docker Image Labels
 # https://github.com/opencontainers/image-spec/blob/master/annotations.md
 LABEL \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.authors="Cloudfra <cloudfra@googlegroups.com>" \
-    org.opencontainers.image.url="https://github.com/cloudfra/example" \
+    org.opencontainers.image.url="https://github.com/cloudfra/gowebserver" \
     org.opencontainers.image.documentation="https://github.com/cloudfra/gowebserver" \
     org.opencontainers.image.source="https://github.com/cloudfra/gowebserver" \
     org.opencontainers.image.version="${BUILD_VERSION}" \

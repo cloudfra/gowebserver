@@ -87,7 +87,11 @@ build/
 output/
 
 # Sensitive files
-/web.cert
-/web.key
+web.cert
+web.key
 gha-creds-*.json
 
+internal/gowebserver/testing/*.7z
+internal/gowebserver/testing/*.rar
+internal/gowebserver/testing/*.tar*
+internal/gowebserver/testing/*.zip
