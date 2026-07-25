@@ -15,7 +15,7 @@
 version: '3.9'
 services:
   gowebserver:
-    image: docker.io/cloudfra/gowebserver:v3.6.0
+    image: docker.io/cloudfra/gowebserver:v3.6.3
     container_name: gowebserver
     hostname: gowebserver
     networks:

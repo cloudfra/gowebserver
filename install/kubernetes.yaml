@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
       - name: gowebserver
-        image: "docker.io/cloudfra/gowebserver:v3.6.0"
+        image: "docker.io/cloudfra/gowebserver:v3.6.3"
         resources:
           requests:
             memory: "256Mi"

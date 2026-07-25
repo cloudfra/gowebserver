@@ -18,7 +18,7 @@ gowebserver:
   image:
     registry: "docker.io"
     repository: "cloudfra/gowebserver"
-    tag: "v3.6.0"
+    tag: "v3.6.3"
     pullPolicy: "Always"
   replicas: 3
   portType: ClusterIP
