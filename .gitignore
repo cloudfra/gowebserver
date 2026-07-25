@@ -1,4 +1,4 @@
-# Copyright 2019 Cloudfra
+# Copyright 2026 Cloudfra
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,87 +12,82 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
-*.o
 *.a
+*.dll
+*.dylib
+*.exe
+*.exe~
+*.o
 *.so
+*.so
+
+# Code coverage profiles and other test artifacts
+*.coverage
+*.coverprofile
+*.log
+*.out
+*.prof
+*.pt
+*.test
+benchmark.html
+coverage.*
+profile.cov
+
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go temp files
+__debug_bin
+__debug_bin.exe
+_cgo_defun.c
+_cgo_export.*
+_cgo_gotypes.go
+_testmain.go
+*.cgo1.go
+*.cgo2.c
+go.work
+go.work.sum
+
+# env file
+.env
+
+# Note: intentionally does not match .terraform.lock.hcl, which should be
+# committed to pin provider versions/hashes for reproducible builds.
+.terraform/
+.terraformrc
 
 # Folders
 _obj
 _test
 
 # Architecture specific extensions/prefixes
-*.[568vq]
 [568vq].out
+*.[568vq]
 
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
-
-*.exe
-*.test
-*.prof
-
-build/
-release/
-upload/
-
-
-package.coverage
-coverage.txt
-gowebserver-*
-*.pem
-release.tar.gz
-testing/testassets.*
-internal/gowebserver/testing/testassets.*
-internal/gowebserver/testing/*-testassets.*
-packaging/parts/
-packaging/snap/
-uploaded-files/
-packaging/stage/
-packaging/prime/
-packaging/*.snap
-
-stage/
-prime/
-snap/.snapcraft/
-*.snap
-embedded/bindata_assetfs.go
-
+# Bazel
 bazel-bin
 bazel-genfiles
 bazel-gowebserver
 bazel-out
 bazel-testlogs
 
-.snapcraft/
-toolchain/
-bin/
+# Editor/IDE
+.claude/
+.idea/
 .vscode/
 
-*.key
-*.cert
+# Output Directories
+build/
+output/
 
-__debug_bin
-
-temp/
-*.wasm
-*.db
-
-# Note: intentionally does not match .terraform.lock.hcl, which should be
-# committed to pin provider versions/hashes for reproducible builds.
-.terraform/
-.terraformrc
-*.coverage
-*.log
-*.pt
+# Sensitive files
 /web.cert
 /web.key
-benchmark.html
-build/
 gha-creds-*.json
-output/
+
