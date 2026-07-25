@@ -20,6 +20,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
@@ -79,7 +81,15 @@ func TestIndexHTTPHandlerServeHTTP(t *testing.T) {
 
 				t.Errorf("Wanted:\n%s", string(tc.want))
 				t.Errorf("Got:\n%s", string(data))
-				gowsTesting.MustFile(t, tc.sourceFile, data)
+				baseFile := filepath.Base(tc.sourceFile)
+				dir, err := os.MkdirTemp("", baseFile)
+				if err != nil {
+					t.Errorf("cannot create directory %q, %s", dir, err)
+				} else {
+					outputFile := filepath.Join(os.TempDir(), baseFile)
+					gowsTesting.MustFile(t, outputFile, data)
+					t.Errorf("Fix the HTML mismatch\ncp %s %s", outputFile, tc.sourceFile)
+				}
 			}
 		})
 	}
