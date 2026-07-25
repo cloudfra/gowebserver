@@ -69,6 +69,7 @@ func IgnoreCarriageReturns() cmp.Option {
 
 // DeferClose returns an error checked close that's deferred at the end of the test.
 func DeferClose(tb testing.TB, closer io.Closer) func() {
+	tb.Helper()
 	return func() {
 		if err := closer.Close(); err != nil {
 			tb.Fatalf("error closing file: %s", err)
@@ -78,65 +79,82 @@ func DeferClose(tb testing.TB, closer io.Closer) func() {
 
 // MustFile writes a file with the contents to the file system.
 func MustFile(tb testing.TB, filename string, content []byte) {
-	fatalOnFail(tb, os.WriteFile(filename, content, testFileMode))
+	tb.Helper()
+	absFilename, err := filepath.Abs(filename)
+	if err != nil {
+		tb.Fatalf("cannot resolve relative path %q, %s", filename, err)
+	}
+	fatalOnFail(tb, os.WriteFile(absFilename, content, testFileMode))
 }
 
 // MustNoDirZipFilePath gets the .zip test asset file without explicit directory lists.
 func MustNoDirZipFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive-nodir.zip", nodirZipAssets)
 }
 
 // MustSingleZipFilePath gets the .zip test asset file.
 func MustSingleZipFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive-single.zip", singleZipAssets)
 }
 
 // MustNestedZipFilePath gets the .zip test asset file.
 func MustNestedZipFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive-nested.zip", nestedZipAssets)
 }
 
 // MustZipFilePath gets the .zip test asset file.
 func MustZipFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.zip", zipAssets)
 }
 
 // MustRarFilePath gets the .rar test asset file.
 func MustRarFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.rar", rarAssets)
 }
 
 // MustSevenZipFilePath gets the .7z test asset file.
 func MustSevenZipFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.7z", sevenZipAssets)
 }
 
 // MustTarFilePath gets the .tar test asset file.
 func MustTarFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.tar", tarAssets)
 }
 
 // MustTarGzFilePath gets the .tar.gz test asset file.
 func MustTarGzFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.tar.gz", tarGzAssets)
 }
 
 // MustTarBzip2FilePath gets .tar.bz2 test asset file.
 func MustTarBzip2FilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.tar.bz2", tarBzip2Assets)
 }
 
 // MustTarXzFilePath gets .tar.xz test asset file.
 func MustTarXzFilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.tar.xz", tarXzAssets)
 }
 
 // MustTarLz4FilePath gets .tar.lz4 test asset file.
 func MustTarLz4FilePath(tb testing.TB) string {
+	tb.Helper()
 	return mustWriteTempFileWithName(tb, "archive.tar.lz4", tarLz4Assets)
 }
 
 func mustWriteTempFileWithName(tb testing.TB, filename string, content []byte) string {
+	tb.Helper()
 	dir := tb.TempDir()
 	name := filepath.Join(dir, filename)
 
@@ -145,6 +163,7 @@ func mustWriteTempFileWithName(tb testing.TB, filename string, content []byte) s
 }
 
 func assertFile(tb testing.TB, filename string, want []byte) {
+	tb.Helper()
 	got, err := os.ReadFile(filename)
 	if err != nil {
 		tb.Error(err)
@@ -155,6 +174,7 @@ func assertFile(tb testing.TB, filename string, want []byte) {
 }
 
 func fatalOnFail(tb testing.TB, err error) {
+	tb.Helper()
 	if err != nil {
 		tb.Fatal(err)
 	}
