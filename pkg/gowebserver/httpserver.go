@@ -206,7 +206,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		return err
 	}
 
-	defer httpSocket.Close()
+	defer func() { _ = httpSocket.Close() }()
 
 	httpsSocket, err := net.Listen("tcp", ws.httpsAddr)
 	if err != nil {
@@ -216,10 +216,10 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	if ws.enableDebugMethods {
 		killFunc := func() {
 			if httpsSocket != nil {
-				httpsSocket.Close()
+				_ = httpsSocket.Close()
 			}
 			if httpSocket != nil {
-				httpSocket.Close()
+				_ = httpSocket.Close()
 			}
 		}
 
@@ -227,7 +227,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/diediedie", &killHTTPServerHandler{killFunc: killFunc})
 	}
 
-	defer httpsSocket.Close()
+	defer func() { _ = httpsSocket.Close() }()
 
 	httpHandler := cors.Default().Handler(serverMux)
 

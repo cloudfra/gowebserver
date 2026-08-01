@@ -30,7 +30,7 @@ import (
 // Run is the entry point for running gowebserver as a console or Windows Service.
 func Run() {
 	_, syncFunc := configLogger(true)
-	defer syncFunc()
+	defer func() { _ = syncFunc() }()
 
 	gomain.Run(runInteractive, gomain.Config{
 		ServiceName:        "gowebserver",
@@ -70,7 +70,7 @@ func runApplication(wait func()) error {
 		return err
 	}
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
+	defer func() { _ = syncFunc() }()
 
 	logger.Sugar().Debug(conf)
 

@@ -32,7 +32,7 @@ import (
 func checkError(err error) {
 	if err != nil {
 		zap.S().Error(err)
-		zap.S().Sync()
+		_ = zap.S().Sync()
 	}
 }
 
@@ -70,11 +70,11 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 	if err != nil {
 		return fmt.Errorf("cannot create target file %s, %w", filePath, err)
 	}
-	defer fsf.Close()
+	defer func() { _ = fsf.Close() }()
 
 	_, err = io.Copy(fsf, reader)
 	if err != nil {
-		os.Remove(fsf.Name())
+		_ = os.Remove(fsf.Name())
 		return fmt.Errorf("cannot copy to target file %s, %w", filePath, err)
 	}
 	return os.Chtimes(filePath, createdTime, modifiedTime)

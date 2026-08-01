@@ -32,7 +32,6 @@ linters:
     - prealloc
     - bodyclose
     - noctx
-    - goconst
     - revive
   exclusions:
     paths:

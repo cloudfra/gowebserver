@@ -124,7 +124,7 @@ func TestConfigLogger(t *testing.T) {
 		if logger == nil {
 			t.Error("logger is nil")
 		}
-		closer()
+		_ = closer()
 	}
 }
 
@@ -200,7 +200,7 @@ func ExampleWebServer_Serve() {
 	}
 
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
+	defer func() { _ = syncFunc() }()
 
 	httpServer, err := New(conf)
 	if err != nil {
@@ -214,7 +214,7 @@ func ExampleWebServer_Serve() {
 	}()
 
 	closer := gomainTesting.Main(httpServer.Serve)
-	closer()
+	_ = closer()
 	// Output:
 }
 
@@ -252,7 +252,7 @@ func TestWebServerFull(t *testing.T) {
 	}
 
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
+	defer func() { _ = syncFunc() }()
 
 	httpServer, err := New(conf)
 	if err != nil {
@@ -261,6 +261,6 @@ func TestWebServerFull(t *testing.T) {
 
 	closer := gomainTesting.Main(httpServer.Serve)
 	time.Sleep(time.Second)
-	closer()
+	_ = closer()
 	// Output:
 }

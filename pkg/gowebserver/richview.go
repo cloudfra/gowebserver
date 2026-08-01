@@ -105,7 +105,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stat, err := f.Stat()
 	if err != nil {
@@ -143,7 +143,9 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Oversized:          true,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.Execute(w, report)
+		if err := h.tmpl.Execute(w, report); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -215,5 +217,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.tmpl.Execute(w, report)
+	if err := h.tmpl.Execute(w, report); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

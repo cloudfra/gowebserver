@@ -73,7 +73,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := sha256.New()
-		io.WriteString(h, strconv.FormatInt(crutime, 10))
+		_, _ = io.WriteString(h, strconv.FormatInt(crutime, 10))
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
 		params := struct {
@@ -119,7 +119,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)
 				return
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			localPath := filepath.Join(uh.uploadDirectory, fileName)
 
@@ -135,7 +135,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)
 				return
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			bytesWritten, err := io.Copy(f, file)
 			if err != nil {
 				resp.Error = fmt.Errorf("InternalError: Cannot write file (%s), %w", localPath, err)

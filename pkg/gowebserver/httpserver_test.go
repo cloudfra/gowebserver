@@ -239,8 +239,11 @@ func TestWebServer_Serve(t *testing.T) {
 				resp, err := http.Get(baseURL + path)
 				if err != nil {
 					t.Error(err)
-				} else if resp.StatusCode != http.StatusOK {
-					t.Errorf("status for '%s' got: %d, want 200", path, resp.StatusCode)
+				} else {
+					_ = resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						t.Errorf("status for '%s' got: %d, want 200", path, resp.StatusCode)
+					}
 				}
 			}
 		})
@@ -278,7 +281,7 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 	}
 
 	return baseURL, func() {
-		closer()
+		_ = closer()
 	}
 }
 
