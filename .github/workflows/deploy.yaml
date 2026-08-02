@@ -90,7 +90,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.txt
           flags: unittests
-          fail_ci_if_error: true
+          # Ignore upload errors since authz token is required for codecov.
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
           verbose: true
       - name: Upload Coverage Report
         # https://github.com/actions/upload-code-coverage

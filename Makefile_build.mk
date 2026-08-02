@@ -41,7 +41,7 @@ PLAN9_PLATFORMS = # plan9/386 plan9/amd64 plan9/arm/v5 plan9/arm/v6 plan9/arm/v7
 SOLARIS_PLATFORMS = solaris/amd64
 NICHE_PLATFORMS = js/wasm illumos/amd64 aix/ppc64 $(ANDROID_PLATFORMS) $(DARWIN_PLATFORMS) $(IOS_PLATFORMS) $(DRAGONFLY_PLATFORMS) $(FREEBSD_PLATFORMS) $(NETBSD_PLATFORMS) $(OPENBSD_PLATFORMS) $(PLAN9_PLATFORMS) $(SOLARIS_PLATFORMS)
 ALL_PLATFORMS = $(LINUX_PLATFORMS) $(WINDOWS_PLATFORMS) $(NICHE_PLATFORMS)
-RELEASE_PLATFORMS = linux/amd64 linux/amd64 windows/amd64 windows/arm64 darwin/arm64
+RELEASE_PLATFORMS = linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/arm64
 
 MAIN_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(MAIN_PLATFORMS),build/bin/$(platform)/$(app)$(if $(findstring windows,$(platform)),.exe,)))
 WINDOWS_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(WINDOWS_PLATFORMS),build/bin/$(platform)/$(app)$(if $(findstring windows,$(platform)),.exe,)))
@@ -75,7 +75,7 @@ windows-binaries: $(WINDOWS_BINARIES)
 
 build/packages/%-binaries.zip: $(ALL_BINARIES)
 	mkdir -p "$(dir $@)"
-	(cd "$(REPOSITORY_ROOT)build/bin/$*/"; zip -qr9 "$(REPOSITORY_ROOT)/$@" *)
+	(cd "$(REPOSITORY_ROOT)/build/bin/$*/"; zip -qr9 "$(REPOSITORY_ROOT)/$@" *)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 release-binaries: $(RELEASE_BINARIES)
@@ -87,7 +87,7 @@ build/packages/release.tar.gz: $(RELEASE_BINARIES)
 
 build/packages/all-binaries.tar.gz: $(ALL_BINARIES)
 	mkdir -p "$(dir $@)"
-	cd "$(REPOSITORY_ROOT)build/bin/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
+	cd "$(REPOSITORY_ROOT)/build/bin/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
 	touch "$(REPOSITORY_ROOT)/$@"
 
 ifeq ($(CODESIGN_CERT)|$(CODESIGN_KEY),build/certs/codesign.crt|build/certs/codesign.key)
@@ -258,14 +258,12 @@ windows-images: $(ALL_WINDOWS_IMAGES)
 windows-image-%: build/bin/windows/amd64/$$(call appname,$$*).exe ensure-builder
 	$(DOCKER) buildx build $(DOCKER_EXTRA_FLAGS) --platform windows/amd64 --build-arg BINARY_PATH=$< $(DOCKER_LABEL_ARGS) --build-arg BINARY_NAME=$(call appname,$*) -f cmd/$(call appname,$*)/Dockerfile.windows --build-arg WINDOWS_VERSION=$(call platform,$*) -t $(REGISTRY)/$(call appname,$*):$(TAG)-windows_amd64-$(call platform,$*) . $(DOCKER_PUSH)
 
-.SECONDEXPANSION:
-
 # "appname-linux_arm_v5" -> "linux_arm_v5"
 platform = $(lastword $(subst -, ,$(basename $(1))))
 # strip "-<platform>" to recover app name (hyphen-safe)
 appname  = $(patsubst %-$(call platform,$(1)),%,$(basename $(1)))
 # source path: build/bin/linux/arm/v5/appname (no extension on sources)
-rel2bin  = build/bin/$(subst _,/,$(call platform,$(1)))/$(call appname,$(1))$(if $(findstring windows,$(platform)),.exe,)
+rel2bin  = build/bin/$(subst _,/,$(call platform,$(1)))/$(call appname,$(1))$(if $(findstring windows,$(call platform,$(1))),.exe,)
 
 # Debian/Ubuntu's binutils package ships objcopy built with only the x86 BFD
 # backends (elf64-x86-64, elf32-i386) - it cannot parse ARM/MIPS/PPC/RISC-V/
@@ -313,6 +311,6 @@ system-info:
 	-which bzip2
 
 sync-upstream:
-	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main 
+	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main
 
-.PHONY: tools all assets protos windows-binaries release-binaries wasm-binaries lint-terraform lint-go lint-docker lint-yaml lint-shell lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-docker docker-images scan-images images linux-images windows-images no-sudo sync-upstream
+.PHONY: tools all assets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
