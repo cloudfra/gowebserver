@@ -50,7 +50,7 @@ else
 	ifeq ($(UNAME_S),Linux)
 		HOST_OS = linux
 		SED_REPLACE = sed -i
-		ifeq ($(UNAME_ARCH),arm)
+		ifneq ($(filter arm aarch64,$(UNAME_ARCH)),)
 			HOST_PLATFORM = linux_arm
 			HOST_ARCH = arm
 		else
@@ -60,7 +60,13 @@ else
 	endif
 	ifeq ($(UNAME_S),Darwin)
 		HOST_OS = darwin
-		HOST_PLATFORM = darwin_amd64
 		SED_REPLACE = sed -i ''
+		ifeq ($(UNAME_ARCH),arm64)
+			HOST_PLATFORM = darwin_arm64
+			HOST_ARCH = arm64
+		else
+			HOST_PLATFORM = darwin_amd64
+			HOST_ARCH = amd64
+		endif
 	endif
 endif
