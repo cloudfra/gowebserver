@@ -2435,9 +2435,10 @@
         if (card._videoDuration && durationSpan) {
           durationSpan.textContent = formatDuration(card._videoDuration);
         }
-        video.addEventListener('loadedmetadata', function () {
+        video.addEventListener('loadeddata', function () {
           card._videoDuration = video.duration;
           if (durationSpan) durationSpan.textContent = formatDuration(video.duration);
+          video.currentTime = 0.001;
         });
         var a = card.querySelector('a');
         if (a) a.insertBefore(video, a.firstChild);
