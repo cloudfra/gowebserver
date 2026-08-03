@@ -2365,7 +2365,37 @@
           : m + ':' + String(s).padStart(2, '0');
       }
 
-      function mountVideo(card) {
+      var mountQueue = [];
+      var mountBatch = 4;
+      var mountFlushTimer = null;
+
+      function flushMountQueue() {
+        mountFlushTimer = null;
+        var batch = mountQueue.splice(0, mountBatch);
+        batch.forEach(function (card) {
+          if (!card._mountPending) return;
+          card._mountPending = false;
+          createVideo(card);
+        });
+        if (mountQueue.length > 0) {
+          mountFlushTimer = setTimeout(flushMountQueue, 200);
+        }
+      }
+
+      function scheduleMount(card) {
+        if (card.querySelector('video') || card._mountPending) return;
+        card._mountPending = true;
+        mountQueue.push(card);
+        if (!mountFlushTimer) {
+          mountFlushTimer = setTimeout(flushMountQueue, 100);
+        }
+      }
+
+      function cancelMount(card) {
+        card._mountPending = false;
+      }
+
+      function createVideo(card) {
         if (card.querySelector('video')) return;
         var src = card.getAttribute('data-src');
         if (!src) return;
@@ -2392,19 +2422,21 @@
       }
 
       function unmountVideo(card) {
+        cancelMount(card);
         var video = card.querySelector('video');
         if (!video) return;
         video.pause();
+        video.remove();
+        video.textContent = '';
         video.removeAttribute('src');
         video.load();
-        video.remove();
       }
 
       var observer = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
           var card = entry.target;
           if (entry.isIntersecting) {
-            mountVideo(card);
+            scheduleMount(card);
           } else {
             unmountVideo(card);
           }
