@@ -2413,10 +2413,10 @@
         if (card._videoDuration && durationSpan) {
           durationSpan.textContent = formatDuration(card._videoDuration);
         }
-        video.addEventListener('loadeddata', function () {
+        video.addEventListener('loadedmetadata', function () {
           card._videoDuration = video.duration;
           if (durationSpan) durationSpan.textContent = formatDuration(video.duration);
-          video.currentTime = 0.001;
+          video.play().then(function () { video.pause(); }).catch(function () {});
         });
         var a = card.querySelector('a');
         if (a) a.insertBefore(video, a.firstChild);
