@@ -2330,11 +2330,8 @@
   <div class="video-grid">
 
     {{range $index, $element := $.DirEntries}}{{if isVideo $element.Name}}
-    <div class="video-card" tabindex="0">
+    <div class="video-card" tabindex="0" data-src="{{urlEncode $element.Name}}">
       <a href="{{urlEncode $element.Name}}">
-        <video preload="none" muted loop onmouseenter="this.play()" onmouseleave="this.pause()">
-          <source src="{{urlEncode $element.Name}}" type="video/mp4">
-        </video>
         <div class="play-icon"></div>
         <div class="video-meta">
           <span class="video-name">{{$element.Name}}</span>
@@ -2390,18 +2387,49 @@
           : m + ':' + String(s).padStart(2, '0');
       }
 
+      function mountVideo(card) {
+        if (card.querySelector('video')) return;
+        var src = card.getAttribute('data-src');
+        if (!src) return;
+        var video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.loop = true;
+        video.setAttribute('onmouseenter', 'this.play()');
+        video.setAttribute('onmouseleave', 'this.pause()');
+        var source = document.createElement('source');
+        source.src = src;
+        source.type = 'video/mp4';
+        video.appendChild(source);
+        var durationSpan = card.querySelector('.video-duration');
+        if (card._videoDuration && durationSpan) {
+          durationSpan.textContent = formatDuration(card._videoDuration);
+        }
+        video.addEventListener('loadedmetadata', function () {
+          card._videoDuration = video.duration;
+          if (durationSpan) durationSpan.textContent = formatDuration(video.duration);
+        });
+        var a = card.querySelector('a');
+        if (a) a.insertBefore(video, a.firstChild);
+      }
+
+      function unmountVideo(card) {
+        var video = card.querySelector('video');
+        if (!video) return;
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.remove();
+      }
+
       var observer = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
           var card = entry.target;
-          observer.unobserve(card);
-          var video = card.querySelector('video');
-          if (!video) return;
-          video.addEventListener('loadedmetadata', function () {
-            var span = card.querySelector('.video-duration');
-            if (span) span.textContent = formatDuration(video.duration);
-          });
-          video.preload = 'metadata';
+          if (entry.isIntersecting) {
+            mountVideo(card);
+          } else {
+            unmountVideo(card);
+          }
         });
       }, { rootMargin: '200px' });
 
@@ -2587,10 +2615,10 @@
           });
         } else {
           document.querySelectorAll('.video-card').forEach(function (card) {
-            var srcEl = card.querySelector('source');
+            var src = card.getAttribute('data-src');
             var nameEl = card.querySelector('.video-name');
-            if (srcEl && nameEl) {
-              ssItems.push({ src: srcEl.getAttribute('src'), name: nameEl.textContent, isVideo: true });
+            if (src && nameEl) {
+              ssItems.push({ src: src, name: nameEl.textContent, isVideo: true });
             }
           });
         }
