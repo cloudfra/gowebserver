@@ -184,7 +184,11 @@ func tryListDir(fsys fs.FS, path string) {
 		zap.S().With("path", path).With(zap.Error(err)).Warn("failed to open file")
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			zap.S().With("path", path).With(zap.Error(err)).Warn("failed to close file")
+		}
+	}()
 	if dirList, ok := f.(fs.ReadDirFile); ok {
 		dirs, err := dirList.ReadDir(-1)
 		if err != nil {
@@ -233,7 +237,9 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				_, closeSpan := rootTrace.Start(ctx, "Close")
 				closeSpan.SetAttributes(attribute.String("path", path))
-				f.Close()
+				if err := f.Close(); err != nil {
+					zap.S().With("path", path).With(zap.Error(err)).Warn("failed to close file")
+				}
 				closeSpan.End()
 			}()
 

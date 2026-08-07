@@ -172,7 +172,7 @@ func sha256File(tb testing.TB, localPath string) string {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {

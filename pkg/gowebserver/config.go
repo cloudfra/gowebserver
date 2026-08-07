@@ -134,7 +134,9 @@ func (c *Config) String() string {
 	if err := e.Encode(c); err != nil {
 		return err.Error()
 	}
-	e.Close()
+	if err := e.Close(); err != nil {
+		return err.Error()
+	}
 	return b.String()
 }
 
