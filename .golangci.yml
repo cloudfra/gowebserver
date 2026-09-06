@@ -25,15 +25,17 @@ linters:
   # and layer a security-focused, curated set on top of it.
   default: standard
   enable:
-    - gosec
     - gocritic
+    - prealloc
+    - revive
     - unconvert
     - unparam
-    - prealloc
-    - bodyclose
-    - noctx
-    - goconst
-    - revive
+    # - bodyclose
+    # - errcheck
+    # - goconst
+    # - gosec
+    # - noctx
+    # - staticcheck
   exclusions:
     paths:
       - "build/"

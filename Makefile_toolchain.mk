@@ -17,13 +17,13 @@ include Makefile_core.mk
 # https://github.com/rhysd/actionlint/releases
 ACTIONLINT_VERSION=latest
 # https://github.com/docker/compose/releases
-DOCKERCOMPOSE_VERSION = 5.3.1
+DOCKERCOMPOSE_VERSION = 5.5.1
 # https://developer.hashicorp.com/terraform/install
-TERRAFORM_VERSION = 1.15.8
+TERRAFORM_VERSION = 1.16.1
 # https://github.com/cloudfra/certtool/releases
-CERTTOOL_VERSION = 0.4.1
+CERTTOOL_VERSION = 0.5.1
 # https://github.com/hadolint/hadolint/releases
-HADOLINT_VERSION = 2.14.0
+HADOLINT_VERSION = 2.15.1
 # https://github.com/t-yuki/gocover-cobertura/releases
 GOCOVER_COBERTURA_VERSION = latest
 # https://github.com/mvdan/gofumpt/releases
@@ -31,23 +31,27 @@ GOFUMPT_VERSION = latest
 # https://github.com/golangci/golangci-lint/releases
 GOLANGCI_LINT_VERSION = latest
 # https://github.com/golang/vuln/releases
-GOVULNCHECK_VERSION = 1.6.0
+GOVULNCHECK_VERSION = 1.7.0
 # https://github.com/mgechev/revive/releases
 REVIVE_VERSION=latest
+# https://github.com/rvben/rumdl/releases
+RUMDL_VERSION = 0.2.64
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
 TFLINT_VERSION = latest
 # https://github.com/aquasecurity/trivy/releases
-TRIVY_VERSION = 0.72.0
+TRIVY_VERSION = 0.74.0
 # https://github.com/goptics/vizb/releases
-VIZB_VERSION = 0.14.1
+VIZB_VERSION = 0.20.0
 
 ifeq ($(OS),Windows_NT)
 	DOCKERCOMPOSE_PACKAGE = https://github.com/docker/compose/releases/download/v$(DOCKERCOMPOSE_VERSION)/docker-compose-windows-x86_64.exe
 	TERRAFORM_PACKAGE = https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_windows_amd64.zip
 	CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-windows_amd64.exe
 	HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-windows-x86_64.exe
+	RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-x86_64-pc-windows-msvc.zip
+	RUMDL_ARCHIVE = build/archives/rumdl.zip
 	SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).zip
 	SHELLCHECK_ARCHIVE = build/archives/shellcheck.zip
 	TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_windows-64bit.zip
@@ -61,6 +65,7 @@ else
 			TERRAFORM_PACKAGE = https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_arm64.zip
 			CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-linux_arm64
 			HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-linux-arm64
+			RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-aarch64-unknown-linux-gnu.tar.gz
 			SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.aarch64.tar.xz
 			TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_Linux-ARM.tar.gz
 		else
@@ -68,9 +73,11 @@ else
 			TERRAFORM_PACKAGE = https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip
 			CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-linux_amd64
 			HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-linux-x86_64
+			RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-x86_64-unknown-linux-gnu.tar.gz
 			SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.x86_64.tar.xz
 			TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_Linux-64bit.tar.gz
 		endif
+		RUMDL_ARCHIVE = build/archives/rumdl.tar.gz
 		SHELLCHECK_ARCHIVE = build/archives/shellcheck.tar.xz
 		TRIVY_ARCHIVE = build/archives/trivy.tar.gz
 	endif
@@ -79,6 +86,8 @@ else
 		TERRAFORM_PACKAGE = https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_darwin_arm64.zip
 		CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-darwin_arm64
 		HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-macos-arm64
+		RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-aarch64-apple-darwin.tar.gz
+		RUMDL_ARCHIVE = build/archives/rumdl.tar.gz
 		SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).darwin.aarch64.tar.xz
 		SHELLCHECK_ARCHIVE = build/archives/shellcheck.tar.xz
 		TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_macOS-ARM64.tar.gz
@@ -95,13 +104,14 @@ GOLANGCI_LINT = build/toolchain/bin/golangci-lint$(EXE)
 GOVULNCHECK = build/toolchain/bin/govulncheck$(EXE)
 HADOLINT = build/toolchain/bin/hadolint$(EXE)
 REVIVE = build/toolchain/bin/revive$(EXE)
+RUMDL = build/toolchain/bin/rumdl$(EXE)
 SHELLCHECK = build/toolchain/bin/shellcheck$(EXE)
 TERRAFORM = build/toolchain/bin/terraform$(EXE)
 TFLINT = build/toolchain/bin/tflint$(EXE)
 TRIVY = build/toolchain/bin/trivy$(EXE)
 VIZB = build/toolchain/bin/vizb$(EXE)
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
 	mkdir -p "$(dir $@)"
@@ -147,6 +157,18 @@ $(HADOLINT):
 $(REVIVE):
 	mkdir -p "$(dir $@)"
 	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/mgechev/revive@$(REVIVE_VERSION)
+
+$(RUMDL): $(RUMDL_ARCHIVE)
+	mkdir -p "$(dir $@)"
+	mkdir -p "$(TOOLCHAIN_DIR)/rumdl-temp/"
+ifeq ($(HOST_OS),windows)
+	(cd "$(TOOLCHAIN_DIR)/rumdl-temp/" && unzip -q "$(REPOSITORY_ROOT)/$<")
+else
+	tar -xzf $< -C "$(TOOLCHAIN_DIR)/rumdl-temp/"
+endif
+	cp "$(TOOLCHAIN_DIR)/rumdl-temp/rumdl$(EXE)" "$(TOOLCHAIN_BIN)/rumdl$(EXE)"
+	chmod +x "$(TOOLCHAIN_BIN)/rumdl$(EXE)"
+	rm -rf "$(TOOLCHAIN_DIR)/rumdl-temp/"
 
 # Also not a Go module. Unlike hadolint, shellcheck ships as an archive (a
 # .zip with shellcheck.exe on Windows, a .tar.xz with a versioned
@@ -199,6 +221,11 @@ $(VIZB):
 build/archives/terraform.zip:
 	mkdir -p "$(dir $@)"
 	$(CURL) -o "$(ARCHIVES_DIR)/terraform.zip" -L "$(TERRAFORM_PACKAGE)"
+	touch "$(REPOSITORY_ROOT)/$@"
+
+$(RUMDL_ARCHIVE):
+	mkdir -p "$(dir $@)"
+	$(CURL) -o $@ -L "$(RUMDL_PACKAGE)"
 	touch "$(REPOSITORY_ROOT)/$@"
 
 $(SHELLCHECK_ARCHIVE):

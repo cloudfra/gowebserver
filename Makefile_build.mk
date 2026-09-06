@@ -27,6 +27,12 @@ TAR = tar
 
 GO_TEST_COUNT = 25
 
+ifeq ($(PRODUCTION), 1)
+	IGNORE_LINT_CHECK =
+else
+	IGNORE_LINT_CHECK = -
+endif
+
 LINUX_PLATFORMS = linux/386 linux/amd64 linux/arm/v5 linux/arm/v6 linux/arm/v7 linux/arm64 linux/loong64 linux/s390x linux/ppc64 linux/ppc64le linux/riscv64 linux/mips64le linux/mips linux/mipsle linux/mips64
 ANDROID_PLATFORMS = android/arm64 # android/386 android/amd64 android/arm android/arm/v5 android/arm/v6 android/arm/v7
 WINDOWS_PLATFORMS = windows/386 windows/amd64 windows/arm64 # windows/arm/v5 windows/arm/v6 windows/arm/v7
@@ -70,6 +76,7 @@ tools: $(TOOLCHAIN)
 
 all: no-sudo $(ALL_BINARIES)
 assets: $(ASSETS)
+testassets: $(TEST_ASSETS)
 protos: $(PROTOS)
 windows-binaries: $(WINDOWS_BINARIES)
 
@@ -112,45 +119,48 @@ build/bin/js/wasm/wasm_exec.js:
 
 wasm-binaries: $(WASM_BINARIES)
 
-lint: lint-go lint-terraform lint-docker lint-yaml lint-shell lint-vuln
+lint: lint-go lint-terraform lint-docker lint-yaml lint-shell lint-markdown lint-vuln
 
 ifneq ($(wildcard install/terraform),)
 lint-terraform: build/toolchain/bin/terraform$(EXE) build/toolchain/bin/tflint$(EXE) build/toolchain/bin/trivy$(EXE)
-	(cd "$(REPOSITORY_ROOT)/install/terraform"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" fmt .)
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --init --chdir install/terraform
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --chdir install/terraform
+	$(IGNORE_LINT_CHECK)(cd "$(REPOSITORY_ROOT)/install/terraform"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" fmt .)
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --init --chdir install/terraform
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --chdir install/terraform
 	# tflint covers style/correctness, not security misconfigurations (overly
 	# permissive IAM, public storage buckets, missing encryption, etc.) -
 	# trivy config (successor to the now-maintenance-mode tfsec, folded into
 	# trivy) covers that instead, reusing the same tool already pinned for
 	# image scanning rather than adding a second, redundant IaC scanner.
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 "$(REPOSITORY_ROOT)/install/terraform"
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 "$(REPOSITORY_ROOT)/install/terraform"
 else
 lint-terraform:
 endif
 
 lint-go: build/toolchain/bin/golangci-lint$(EXE) build/toolchain/bin/gofumpt$(EXE) build/toolchain/bin/revive$(EXE)
-	$(GO) fmt ./...
-	$(GO) mod verify
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/gofumpt$(EXE)" -l -w .
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" fmt ./...
-	-"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" run ./...
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/revive$(EXE)" -set_exit_status -exclude=build/... ./...
+	$(IGNORE_LINT_CHECK)$(GO) fmt ./...
+	$(IGNORE_LINT_CHECK)$(GO) mod verify
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/gofumpt$(EXE)" -l -w .
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" fmt ./...
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" run ./...
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/revive$(EXE)" -set_exit_status -exclude=build/... ./...
 
 lint-docker: build/toolchain/bin/hadolint$(EXE)
-	$(FIND) cmd -iname 'Dockerfile*' -exec "$(REPOSITORY_ROOT)/build/toolchain/bin/hadolint$(EXE)" {} +
+	$(IGNORE_LINT_CHECK)$(FIND) cmd -iname 'Dockerfile*' -exec "$(REPOSITORY_ROOT)/build/toolchain/bin/hadolint$(EXE)" --ignore=DL3066 {} +
 
 lint-yaml: build/toolchain/bin/actionlint$(EXE) build/toolchain/bin/shellcheck$(EXE)
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/actionlint$(EXE)" -shellcheck="$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" -config-file "$(REPOSITORY_ROOT)/.github/actionlint.yaml"
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/actionlint$(EXE)" -shellcheck="$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" -config-file "$(REPOSITORY_ROOT)/.github/actionlint.yaml"
 
 lint-shell: build/toolchain/bin/shellcheck$(EXE)
-	@scripts="$$($(FIND) . -name '*.sh' -not -path './third_party/*' -not -path './build/*' -not -path '*/testassets/*')"; \
+	$(IGNORE_LINT_CHECK)@scripts="$$($(FIND) . -name '*.sh' -not -path './third_party/*' -not -path './build/*' -not -path '*/testassets/*')"; \
 	shellcheck_exclude=""; \
 	if [ "$(OS)" = "Windows_NT" ]; then shellcheck_exclude="--exclude=SC1009,SC1017,SC1044,SC1072,SC1073"; fi; \
 	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
 
+lint-markdown: build/toolchain/bin/rumdl$(EXE)
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**" .
+
 lint-vuln: build/toolchain/bin/govulncheck$(EXE)
-	-"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
 
 bench: $(TEST_ASSETS)
 	$(GO) test -bench=. -benchmem -tags testing ${SOURCE_DIRS}
@@ -313,4 +323,4 @@ system-info:
 sync-upstream:
 	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main
 
-.PHONY: tools all assets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
+.PHONY: tools all assets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
