@@ -15,6 +15,7 @@
 package gowebserver
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -32,7 +33,9 @@ import (
 func checkError(err error) {
 	if err != nil {
 		zap.S().Error(err)
-		zap.S().Sync()
+		if err := zap.S().Sync(); err != nil {
+			zap.S().With(zap.Error(err)).Error("failed to sync zap logger")
+		}
 	}
 }
 
@@ -70,12 +73,14 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 	if err != nil {
 		return fmt.Errorf("cannot create target file %s, %w", filePath, err)
 	}
-	defer fsf.Close()
+	defer func() {
+		checkError(fsf.Close())
+	}()
 
 	_, err = io.Copy(fsf, reader)
 	if err != nil {
-		os.Remove(fsf.Name())
-		return fmt.Errorf("cannot copy to target file %s, %w", filePath, err)
+		deleteErr := os.Remove(fsf.Name())
+		return joinErrors(fmt.Errorf("cannot copy to target file %s, %w", filePath, err), deleteErr)
 	}
 	return os.Chtimes(filePath, createdTime, modifiedTime)
 }
@@ -221,4 +226,21 @@ func urlEncode(u string) string {
 // are preserved.
 func encodeURLPath(p string) string {
 	return (&url.URL{Path: p}).EscapedPath()
+}
+
+func joinErrors(errs ...error) error {
+	var nonNil []error
+	for _, err := range errs {
+		if err != nil {
+			nonNil = append(nonNil, err)
+		}
+	}
+	switch len(nonNil) {
+	case 0:
+		return nil
+	case 1:
+		return nonNil[0]
+	default:
+		return errors.Join(nonNil...)
+	}
 }

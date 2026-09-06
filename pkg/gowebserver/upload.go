@@ -73,7 +73,12 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := sha256.New()
-		io.WriteString(h, strconv.FormatInt(crutime, 10))
+		if bytesWritten, err := io.WriteString(h, strconv.FormatInt(crutime, 10)); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.With("error", err).Error("cannot write to hash")
+		} else {
+			span.SetAttributes(attribute.Int64("bytesWritten", int64(bytesWritten)))
+		}
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
 		params := struct {
@@ -119,7 +124,9 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)
 				return
 			}
-			defer file.Close()
+			defer func() {
+				checkError(file.Close())
+			}()
 
 			localPath := filepath.Join(uh.uploadDirectory, fileName)
 
