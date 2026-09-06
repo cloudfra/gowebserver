@@ -21,7 +21,7 @@ GOLANG_PROTOBUF_VERSION = latest
 # https://github.com/grpc-ecosystem/grpc-gateway/releases
 GRPC_GATEWAY_VERSION = latest
 # https://github.com/protocolbuffers/protobuf/releases
-PROTOC_VERSION = 35.1
+PROTOC_VERSION = 36.1
 
 ifeq ($(OS),Windows_NT)
 	PROTOC_PACKAGE = https://github.com/protocolbuffers/protobuf/releases/download/v$(PROTOC_VERSION)/protoc-$(PROTOC_VERSION)-win64.zip

@@ -74,6 +74,8 @@ jobs:
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
 
+      - name: Build Assets
+        run: make assets testassets
       - name: Lint
         run: make lint
       - name: Test
