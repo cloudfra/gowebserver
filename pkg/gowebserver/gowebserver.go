@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/cloudfra/certtool/pkg/certtool"
-	"github.com/jeremyje/gomain"
+	"github.com/cloudfra/gomain"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

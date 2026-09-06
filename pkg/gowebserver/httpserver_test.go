@@ -24,9 +24,9 @@ import (
 
 	_ "embed"
 
+	gomainTesting "github.com/cloudfra/gomain/testing"
 	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
-	gomainTesting "github.com/jeremyje/gomain/testing"
 )
 
 var (
