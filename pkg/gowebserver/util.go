@@ -44,7 +44,7 @@ func isBenignSyncError(err error) bool {
 
 func checkError(err error) {
 	if err != nil {
-		zap.S().Error(err)
+		slog.Error("error", "error", err)
 		if syncErr := zap.S().Sync(); syncErr != nil && !isBenignSyncError(syncErr) {
 			slog.Error("failed to sync logger after reporting error", "error", syncErr)
 		}
@@ -67,7 +67,7 @@ func tryDeleteDirectory(path string) {
 	}
 
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
-		zap.S().With("error", err, "directory", path).Error("cannot delete directory")
+		slog.Error("cannot delete directory", "error", err, "directory", path)
 	}
 }
 

@@ -26,7 +26,6 @@ import (
 	"github.com/cloudfra/ufs"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.uber.org/zap"
 )
 
 // WebServer is a convenience wrapper for Go's HTTP/HTTPS Web serving API.
@@ -127,7 +126,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	serverMux := http.NewServeMux()
 	if ws.monitoringCtx != nil {
 		for endpoint, h := range ws.monitoringCtx.handlers {
-			zap.S().With("http", endpoint).Info("Endpoint")
+			slog.Info("Endpoint", "http", endpoint)
 			serverMux.Handle(endpoint, h)
 		}
 		allCleanups = append(allCleanups, func() error {
@@ -139,7 +138,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	mounts := map[string]string{}
 	rootPath := ""
 	for _, paths := range ws.fileSystemServePath {
-		zap.S().With("localPath", paths.localPath, "http", paths.httpPath).Info("Endpoint")
+		slog.Info("Endpoint", "localPath", paths.localPath, "http", paths.httpPath)
 		if paths.httpPath == "" || paths.httpPath == "/" {
 			rootPath = paths.localPath
 		} else {
@@ -189,7 +188,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	defer func() {
 		for _, cleanup := range allCleanups {
 			if err := cleanup(); err != nil {
-				zap.S().With("error", err).Error("cleanup error")
+				slog.Error("cleanup error", "error", err)
 			}
 		}
 	}()
@@ -232,7 +231,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 			}
 		}
 
-		zap.S().With("http", "/diediedie").Info("Endpoint")
+		slog.Info("Endpoint", "http", "/diediedie")
 		ws.addHandler(serverMux, "/diediedie", &killHTTPServerHandler{killFunc: killFunc})
 	}
 
@@ -246,14 +245,14 @@ func (ws *webServerImpl) Serve(wait func()) error {
 
 	httpPort, err := getPort(httpSocket)
 	if err != nil {
-		zap.S().With("error", err).Error("cannot get port from HTTP listener")
+		slog.Error("cannot get port from HTTP listener", "error", err)
 	}
 	httpsPort, err := getPort(httpsSocket)
 	if err != nil {
-		zap.S().With("error", err).Error("cannot get port from HTTPS listener")
+		slog.Error("cannot get port from HTTPS listener", "error", err)
 	}
 
-	zap.S().With("HTTP", fmt.Sprintf("http://localhost:%d/", httpPort), "HTTPS", fmt.Sprintf("https://localhost:%d/", httpsPort)).Info("Serving")
+	slog.Info("Serving", "HTTP", fmt.Sprintf("http://localhost:%d/", httpPort), "HTTPS", fmt.Sprintf("https://localhost:%d/", httpsPort))
 
 	ws.setPorts(httpPort, httpsPort)
 

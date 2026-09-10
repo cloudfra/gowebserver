@@ -121,10 +121,7 @@ func TestBuildCertificateHostnames(t *testing.T) {
 
 func TestConfigLogger(t *testing.T) {
 	for _, verbose := range []bool{false, true} {
-		logger, closer := configLogger(verbose)
-		if logger == nil {
-			t.Error("logger is nil")
-		}
+		closer := configLogger(verbose)
 		if err := closer(); err != nil && !isBenignSyncError(err) {
 			t.Fatalf("closer() failed: %s", err)
 		}
@@ -202,11 +199,11 @@ func ExampleWebServer_Serve() {
 		},
 	}
 
-	logger, syncFunc := configLogger(conf.Verbose)
+	syncFunc := configLogger(conf.Verbose)
 
 	httpServer, err := New(conf)
 	if err != nil {
-		logger.Sugar().Fatal(err)
+		panic(err)
 	}
 
 	termCh := make(chan error)
@@ -262,7 +259,7 @@ func TestWebServerFull(t *testing.T) {
 		},
 	}
 
-	logger, syncFunc := configLogger(conf.Verbose)
+	syncFunc := configLogger(conf.Verbose)
 	defer func() {
 		if err := syncFunc(); err != nil && !isBenignSyncError(err) {
 			t.Fatalf("syncFunc() failed: %s", err)
@@ -271,7 +268,7 @@ func TestWebServerFull(t *testing.T) {
 
 	httpServer, err := New(conf)
 	if err != nil {
-		logger.Sugar().Fatal(err)
+		t.Fatal(err)
 	}
 
 	closer := gomainTesting.Main(httpServer.Serve)

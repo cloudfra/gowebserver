@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -28,7 +29,6 @@ import (
 
 	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 )
 
 func TestUploadHTML(t *testing.T) {
@@ -196,7 +196,7 @@ func newUploadFormRequest(ctx context.Context, requestURL string, fileName strin
 	if err != nil {
 		return nil, err
 	}
-	zap.S().Infof("bytes read: %d", bytesRead)
+	slog.Info("bytes read", "bytesRead", bytesRead)
 
 	for k, v := range formEntries {
 		err = writer.WriteField(k, v)
