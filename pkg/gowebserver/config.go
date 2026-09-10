@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -151,7 +150,7 @@ func Load() (*Config, error) {
 	if *configFileFlag != "" {
 		err := loadWithConfigFile(*configFileFlag, conf)
 		if err != nil {
-			zap.S().With("error", err, "configFile", *configFileFlag).Warn("Error Loading File")
+			slog.Warn("Error Loading File", "error", err, "configFile", *configFileFlag)
 		}
 	}
 	return conf, nil

@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"time"
@@ -34,7 +35,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 )
 
 func setupMonitoring(m Monitoring) (*monitoringContext, error) {
@@ -174,13 +174,13 @@ func (m *monitoringContext) shutdown() {
 	}
 	if m.promExporter != nil {
 		if err := m.promExporter.Shutdown(ctx); err != nil {
-			zap.S().With("error", err).Error("cannot shutdown prometheus exporter")
+			slog.Error("cannot shutdown prometheus exporter", "error", err)
 		}
 		m.promExporter = nil
 	}
 	if m.tp != nil {
 		if err := m.tp.Shutdown(ctx); err != nil {
-			zap.S().With("error", err).Error("cannot shutdown trace provider")
+			slog.Error("cannot shutdown trace provider", "error", err)
 		}
 	}
 }

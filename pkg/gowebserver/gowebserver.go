@@ -25,12 +25,13 @@ import (
 	"github.com/cloudfra/certtool/pkg/certtool"
 	"github.com/cloudfra/gomain"
 	"go.uber.org/zap"
+	"go.uber.org/zap/exp/zapslog"
 	"go.uber.org/zap/zapcore"
 )
 
 // Run is the entry point for running gowebserver as a console or Windows Service.
 func Run() {
-	_, syncFunc := configLogger(true)
+	syncFunc := configLogger(true)
 	defer func() {
 		if err := syncFunc(); err != nil && !isBenignSyncError(err) {
 			slog.Error("failed to sync logger on shutdown", "error", err)
@@ -44,7 +45,7 @@ func Run() {
 	})
 }
 
-func configLogger(verbose bool) (*zap.Logger, func() error) {
+func configLogger(verbose bool) func() error {
 	zapConfig := zap.NewDevelopmentConfig()
 	zapConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	zapConfig.Encoding = "console"
@@ -59,10 +60,16 @@ func configLogger(verbose bool) (*zap.Logger, func() error) {
 		zap.ReplaceGlobals(logger)
 	}
 	if logger == nil {
-		return nil, func() error { return nil }
+		return func() error { return nil }
 	}
 	zap.RedirectStdLog(logger)
-	return logger, logger.Sync
+
+	slog.SetDefault(slog.New(zapslog.NewHandler(logger.Core(),
+		zapslog.WithCaller(true),
+		zapslog.AddStacktraceAt(slog.LevelError),
+	)))
+
+	return logger.Sync
 }
 
 func runInteractive(wait func()) error {
@@ -74,14 +81,14 @@ func runApplication(wait func()) error {
 	if err != nil {
 		return err
 	}
-	logger, syncFunc := configLogger(conf.Verbose)
+	syncFunc := configLogger(conf.Verbose)
 	defer func() {
 		if syncErr := syncFunc(); syncErr != nil && !isBenignSyncError(syncErr) {
 			slog.Error("failed to sync logger after running application", "error", syncErr)
 		}
 	}()
 
-	logger.Sugar().Debug(conf)
+	slog.Debug("config", "config", conf)
 
 	checkError(createCertificate(conf))
 
@@ -137,7 +144,7 @@ func buildCertificateHostnames(conf *Config) []string {
 
 func createCertificate(conf *Config) error {
 	dir, err := os.Getwd()
-	zap.S().With("certificate", conf.HTTPS.Certificate, "directory", dir, "error", err).Debug("createCertificate")
+	slog.Debug("createCertificate", "certificate", conf.HTTPS.Certificate, "directory", dir, "error", err)
 	_, certErr := os.Stat(conf.HTTPS.Certificate.CertificateFilePath)
 	_, privateKeyErr := os.Stat(conf.HTTPS.Certificate.PrivateKeyFilePath)
 	if conf.HTTPS.Certificate.ForceOverwrite || (os.IsNotExist(certErr) && os.IsNotExist(privateKeyErr)) {
@@ -156,7 +163,7 @@ func createCertificate(conf *Config) error {
 			},
 				rootCertPath,
 				rootKeyPath)
-			zap.S().With("error", err, "certificateFile", rootCertPath, "privateKeyFile", rootKeyPath).Debug("GenerateAndWriteKeyPair")
+			slog.Debug("GenerateAndWriteKeyPair", "error", err, "certificateFile", rootCertPath, "privateKeyFile", rootKeyPath)
 			if err != nil {
 				return fmt.Errorf("cannot write public certificate, %w", err)
 			}
@@ -176,7 +183,7 @@ func createCertificate(conf *Config) error {
 		},
 			conf.HTTPS.Certificate.CertificateFilePath,
 			conf.HTTPS.Certificate.PrivateKeyFilePath)
-		zap.S().With("error", err, "certificateFile", conf.HTTPS.Certificate.CertificateFilePath, "privateKeyFile", conf.HTTPS.Certificate.PrivateKeyFilePath).Debug("GenerateAndWriteKeyPair")
+		slog.Debug("GenerateAndWriteKeyPair", "error", err, "certificateFile", conf.HTTPS.Certificate.CertificateFilePath, "privateKeyFile", conf.HTTPS.Certificate.PrivateKeyFilePath)
 		if err != nil {
 			return fmt.Errorf("cannot write public certificate, %w", err)
 		}

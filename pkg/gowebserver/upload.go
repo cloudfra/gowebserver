@@ -36,7 +36,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 )
 
 //go:embed upload.html
@@ -69,7 +68,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := uploadTracer.Start(r.Context(), r.Method)
 	defer span.End()
 
-	logger := zap.S().With("url", r.URL)
+	logger := slog.With("url", r.URL)
 
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
@@ -87,7 +86,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}{uh.uploadHTTPPath, token, uploadFileFormName, internal.Version()}
 
 		if err := uh.tmpl.Execute(w, params); err != nil {
-			logger.With("error", err).Error("cannot execute upload.html template.")
+			logger.Error("cannot execute upload.html template.", "error", err)
 		}
 	} else {
 		var resp uploadResponse
@@ -156,7 +155,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			childSpan.SetAttributes(attribute.Int64("bytesWritten", bytesWritten))
 			uh.uploadedBytesTotal.Add(ctx, bytesWritten)
 			uh.uploadedFilesTotal.Add(ctx, 1)
-			logger.With("fileName", fileName).With("localPath", localPath).Info("Upload Complete")
+			logger.Info("Upload Complete", "fileName", fileName, "localPath", localPath)
 		}
 
 		resp.Success = true
@@ -207,9 +206,9 @@ func isSameOrigin(r *http.Request) bool {
 	return strings.EqualFold(originURL.Host, r.Host)
 }
 
-func writeUploadResponse(w http.ResponseWriter, resp uploadResponse, statusCode int, logger *zap.SugaredLogger, span trace.Span) {
+func writeUploadResponse(w http.ResponseWriter, resp uploadResponse, statusCode int, logger *slog.Logger, span trace.Span) {
 	if resp.Error != nil {
-		logger.With("error", resp.Error).Warn("Upload error")
+		logger.Warn("Upload error", "error", resp.Error)
 		span.RecordError(resp.Error)
 	} else {
 		logger.Debug("Upload Successful")
@@ -217,13 +216,13 @@ func writeUploadResponse(w http.ResponseWriter, resp uploadResponse, statusCode 
 	data, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Malformed server response.", http.StatusInternalServerError)
-		logger.With("error", err).Warn("Cannot marshal upload JSON response")
+		logger.Warn("Cannot marshal upload JSON response", "error", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(data); err != nil {
-		logger.With("error", err).Warn("cannot write upload response")
+		logger.Warn("cannot write upload response", "error", err)
 	}
 }

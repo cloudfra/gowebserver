@@ -32,7 +32,6 @@ import (
 	"github.com/cloudfra/ufs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 )
 
 var (
@@ -182,7 +181,7 @@ func canonicalizeSortBy(v string) string {
 func tryListDir(fsys fs.FS, path string) {
 	f, err := fsys.Open(path)
 	if err != nil {
-		zap.S().With("path", path).With(zap.Error(err)).Warn("failed to open file")
+		slog.Warn("failed to open file", "path", path, "error", err)
 		return
 	}
 	defer func() {
@@ -193,13 +192,13 @@ func tryListDir(fsys fs.FS, path string) {
 	if dirList, ok := f.(fs.ReadDirFile); ok {
 		dirs, err := dirList.ReadDir(-1)
 		if err != nil {
-			zap.S().With("path", path).With(zap.Error(err)).Warn("failed to open file")
+			slog.Warn("failed to open file", "path", path, "error", err)
 		}
 		for _, dir := range dirs {
-			zap.S().With("path", path).With("stat", statToString(dir.Info())).Infof("- %s", dir.Name())
+			slog.Info(fmt.Sprintf("- %s", dir.Name()), "path", path, "stat", statToString(dir.Info()))
 		}
 	} else {
-		zap.S().With("path", path).With("stat", statToString(f.Stat())).Infof("regular file")
+		slog.Info("regular file", "path", path, "stat", statToString(f.Stat()))
 	}
 }
 
@@ -225,7 +224,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		path = cleanPath(strings.TrimPrefix(path, "/"))
 
 		tryListDir(c.baseFS, path)
-		zap.S().With("url", r.URL, "path", path).Info("customIndexHandler")
+		slog.Info("customIndexHandler", "url", r.URL, "path", path)
 		if strings.HasSuffix(urlPath, "/") || path == "." {
 			_, openSpan := rootTrace.Start(ctx, "Open")
 			openSpan.SetAttributes(attribute.String("path", path))
@@ -302,7 +301,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if strings.HasSuffix(entry.Name(), ".xz") {
-						zap.S().Infof("%s", entry.Name())
+						slog.Info(entry.Name())
 					}
 					_, isArchive := actualArchiveDir[entry.Name()]
 					isDir := entry.IsDir() || isArchive
@@ -348,7 +347,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				params.HasImage = hasImage
 				params.HasVideo = hasVideo
 
-				zap.S().Infof("Params: %s", params)
+				slog.Info("Params", "params", params)
 				if err := c.tmpl.Execute(w, params); err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
