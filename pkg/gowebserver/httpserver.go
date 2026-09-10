@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -206,7 +207,11 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		return err
 	}
 
-	defer httpSocket.Close()
+	defer func() {
+		if err := httpSocket.Close(); err != nil {
+			slog.Error("failed to close HTTP listener socket", "addr", ws.httpAddr, "error", err)
+		}
+	}()
 
 	httpsSocket, err := net.Listen("tcp", ws.httpsAddr)
 	if err != nil {
@@ -216,10 +221,14 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	if ws.enableDebugMethods {
 		killFunc := func() {
 			if httpsSocket != nil {
-				httpsSocket.Close()
+				if err := httpsSocket.Close(); err != nil {
+					slog.Error("failed to close HTTPS listener socket from /diediedie handler", "addr", ws.httpsAddr, "error", err)
+				}
 			}
 			if httpSocket != nil {
-				httpSocket.Close()
+				if err := httpSocket.Close(); err != nil {
+					slog.Error("failed to close HTTP listener socket from /diediedie handler", "addr", ws.httpAddr, "error", err)
+				}
 			}
 		}
 
@@ -227,7 +236,11 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/diediedie", &killHTTPServerHandler{killFunc: killFunc})
 	}
 
-	defer httpsSocket.Close()
+	defer func() {
+		if err := httpsSocket.Close(); err != nil {
+			slog.Error("failed to close HTTPS listener socket", "addr", ws.httpsAddr, "error", err)
+		}
+	}()
 
 	httpHandler := cors.Default().Handler(serverMux)
 

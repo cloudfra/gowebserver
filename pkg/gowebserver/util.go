@@ -15,24 +15,39 @@
 package gowebserver
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"mime"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
 )
 
+// isBenignSyncError reports whether err is the well-known spurious failure
+// returned by (*zap.Logger).Sync (and the underlying os.File.Sync) when
+// flushing stdout/stderr on Linux: those file descriptors are not
+// syncable, and the OS returns EINVAL even though nothing is wrong. See
+// https://github.com/uber-go/zap/issues/328 and
+// https://github.com/uber-go/zap/issues/991.
+func isBenignSyncError(err error) bool {
+	return errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.ENOTTY)
+}
+
 func checkError(err error) {
 	if err != nil {
 		zap.S().Error(err)
-		zap.S().Sync()
+		if syncErr := zap.S().Sync(); syncErr != nil && !isBenignSyncError(syncErr) {
+			slog.Error("failed to sync logger after reporting error", "error", syncErr)
+		}
 	}
 }
 
@@ -65,17 +80,22 @@ func dirPath(dirPath string) string {
 	return strings.TrimRight(dirPath, "/") + "/"
 }
 
-func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, filePath string) error {
+func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, filePath string) (err error) {
 	fsf, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("cannot create target file %s, %w", filePath, err)
 	}
-	defer fsf.Close()
+	defer func() {
+		if closeErr := fsf.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("cannot close target file %s, %w", filePath, closeErr))
+		}
+	}()
 
-	_, err = io.Copy(fsf, reader)
-	if err != nil {
-		os.Remove(fsf.Name())
-		return fmt.Errorf("cannot copy to target file %s, %w", filePath, err)
+	if _, copyErr := io.Copy(fsf, reader); copyErr != nil {
+		if removeErr := os.Remove(fsf.Name()); removeErr != nil {
+			slog.Error("failed to remove partially written target file after copy failure", "path", fsf.Name(), "error", removeErr)
+		}
+		return fmt.Errorf("cannot copy to target file %s, %w", filePath, copyErr)
 	}
 	return os.Chtimes(filePath, createdTime, modifiedTime)
 }

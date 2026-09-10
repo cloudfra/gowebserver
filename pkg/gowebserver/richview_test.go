@@ -30,7 +30,9 @@ func makeRichViewHandler(t *testing.T, files map[string][]byte) *richViewHandler
 		testFS[name] = &fstest.MapFile{Data: content}
 	}
 	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("raw"))
+		if _, err := w.Write([]byte("raw")); err != nil {
+			t.Fatalf("w.Write() failed: %s", err)
+		}
 	})
 	mc := &monitoringContext{}
 	h, err := newRichViewHandler(base, testFS, mc.getTraceProvider())
@@ -49,7 +51,9 @@ func TestRichViewHandler_PassThrough(t *testing.T) {
 	var called bool
 	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
-		w.Write([]byte("raw content"))
+		if _, err := w.Write([]byte("raw content")); err != nil {
+			t.Fatalf("w.Write() failed: %s", err)
+		}
 	})
 	h.baseHandler = base
 
@@ -102,7 +106,9 @@ func TestRichViewHandler_BinaryFile(t *testing.T) {
 	var calledBase bool
 	h.baseHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calledBase = true
-		w.Write([]byte("binary"))
+		if _, err := w.Write([]byte("binary")); err != nil {
+			t.Fatalf("w.Write() failed: %s", err)
+		}
 	})
 
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/image.png?view=rich", nil)

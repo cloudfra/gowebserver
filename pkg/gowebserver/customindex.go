@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -184,7 +185,11 @@ func tryListDir(fsys fs.FS, path string) {
 		zap.S().With("path", path).With(zap.Error(err)).Warn("failed to open file")
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close directory listing file", "path", path, "error", err)
+		}
+	}()
 	if dirList, ok := f.(fs.ReadDirFile); ok {
 		dirs, err := dirList.ReadDir(-1)
 		if err != nil {
@@ -233,7 +238,9 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				_, closeSpan := rootTrace.Start(ctx, "Close")
 				closeSpan.SetAttributes(attribute.String("path", path))
-				f.Close()
+				if err := f.Close(); err != nil {
+					slog.Error("failed to close file after serving custom index", "path", path, "error", err)
+				}
 				closeSpan.End()
 			}()
 

@@ -16,12 +16,14 @@ The directory listing is updated so that for text/code files, the **filename tex
 ### Handler Chain
 
 **Before:**
-```
+
+```text
 http.ServeMux → customIndexHandler → http.FileServer(nFS)
 ```
 
 **After:**
-```
+
+```text
 http.ServeMux → richViewHandler → customIndexHandler → http.FileServer(nFS)
 ```
 
@@ -54,6 +56,7 @@ type richViewHandler struct {
 **Constructor:** `newRichViewHandler(baseHandler, baseFS, tp)` — parses the embedded template, returns `*richViewHandler`.
 
 **ServeHTTP logic:**
+
 1. Check `r.URL.Query().Get("view") == "rich"`. If not, call `baseHandler.ServeHTTP`.
 2. Open the file via `baseFS.Open(cleanPath)`. If it's a directory, redirect to the listing.
 3. Read up to 10 MB. If file exceeds 10 MB, render an "oversized" HTML page with a raw link.
@@ -81,6 +84,7 @@ type RichViewReport struct {
 ### New embedded template: `pkg/gowebserver/rich-view.html`
 
 A self-contained HTML page. Styling is consistent with `custom-index.html` (dark sidebar header, breadcrumb, content area). Contains:
+
 - Header bar with filename, language badge, theme selector (links to `?view=rich&theme=<name>`), "Raw" link
 - Inline `<style>` block from Chroma CSS
 - `<pre><code>` block with the Chroma-formatted HTML
@@ -95,6 +99,7 @@ Themes available via selector: monokai, github, github-dark, dracula, solarized-
 ### `DirEntry` struct (in `customindex.go`)
 
 Add field:
+
 ```go
 IsViewable bool  // true for text/code file types
 ```
@@ -109,6 +114,7 @@ Returns `true` for these icon classes:
 ### `custom-index.html` template changes
 
 For entries where `IsViewable` is true:
+
 - **File icon** (`<a>` around the icon SVG): links to raw file path (unchanged)
 - **Filename text** (`<a>` around the name): links to `<filename>?view=rich`
 
@@ -131,7 +137,8 @@ For all other entries: both icon and filename link to raw file (existing behavio
 ## Dependencies
 
 Add to `go.mod`:
-```
+
+```text
 github.com/alecthomas/chroma/v2
 ```
 

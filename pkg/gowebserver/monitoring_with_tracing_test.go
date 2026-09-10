@@ -62,14 +62,18 @@ func TestNewTraceProvider_ExportsSpans(t *testing.T) {
 	if tp == nil {
 		t.Fatal("expected non-nil trace provider")
 	}
-	defer tp.Shutdown(ctx)
+	defer func() {
+		if err := tp.Shutdown(ctx); err != nil {
+			t.Fatalf("tp.Shutdown() failed: %s", err)
+		}
+	}()
 
 	_, span := tp.Tracer("test").Start(ctx, "export-test")
 	span.End()
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	flushCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := tp.ForceFlush(ctx); err != nil {
+	if err := tp.ForceFlush(flushCtx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +101,11 @@ func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
 	if tp == nil {
 		t.Fatal("expected non-nil trace provider")
 	}
-	defer tp.Shutdown(ctx)
+	defer func() {
+		if err := tp.Shutdown(ctx); err != nil {
+			t.Fatalf("tp.Shutdown() failed: %s", err)
+		}
+	}()
 
 	_, span := tp.Tracer("test").Start(ctx, "recorded-span")
 	span.End()

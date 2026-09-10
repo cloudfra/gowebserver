@@ -40,3 +40,4 @@ linters:
     paths:
       - "build/"
       - "third_party/"
+      - "internal/gowebserver/testing/testassets/"

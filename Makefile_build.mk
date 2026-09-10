@@ -157,7 +157,7 @@ lint-shell: build/toolchain/bin/shellcheck$(EXE)
 	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
 
 lint-markdown: build/toolchain/bin/rumdl$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**" .
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**,internal/gowebserver/testing/testassets/**" .
 
 lint-vuln: build/toolchain/bin/govulncheck$(EXE)
 	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...

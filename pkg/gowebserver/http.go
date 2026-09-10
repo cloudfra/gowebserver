@@ -24,18 +24,18 @@ import (
 
 func overlayURLProxy(target *url.URL, client *http.Client) *httputil.ReverseProxy {
 	targetQuery := target.RawQuery
-	director := func(req *http.Request) {
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = ""
-		if targetQuery == "" || req.URL.RawQuery == "" {
-			req.URL.RawQuery = targetQuery + req.URL.RawQuery
+	rewrite := func(pr *httputil.ProxyRequest) {
+		pr.Out.URL.Scheme = target.Scheme
+		pr.Out.URL.Host = target.Host
+		pr.Out.Host = target.Host
+		if targetQuery == "" || pr.Out.URL.RawQuery == "" {
+			pr.Out.URL.RawQuery = targetQuery + pr.Out.URL.RawQuery
 		} else {
-			req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+			pr.Out.URL.RawQuery = targetQuery + "&" + pr.Out.URL.RawQuery
 		}
 	}
 	return &httputil.ReverseProxy{
-		Director:  director,
+		Rewrite:   rewrite,
 		Transport: client.Transport,
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"strconv"
@@ -134,7 +135,9 @@ func (c *Config) String() string {
 	if err := e.Encode(c); err != nil {
 		return err.Error()
 	}
-	e.Close()
+	if err := e.Close(); err != nil {
+		slog.Error("failed to close YAML encoder while rendering config string", "error", err)
+	}
 	return b.String()
 }
 

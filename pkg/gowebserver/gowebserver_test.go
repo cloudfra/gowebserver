@@ -15,6 +15,7 @@
 package gowebserver
 
 import (
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -124,7 +125,9 @@ func TestConfigLogger(t *testing.T) {
 		if logger == nil {
 			t.Error("logger is nil")
 		}
-		closer()
+		if err := closer(); err != nil && !isBenignSyncError(err) {
+			t.Fatalf("closer() failed: %s", err)
+		}
 	}
 }
 
@@ -200,7 +203,6 @@ func ExampleWebServer_Serve() {
 	}
 
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
 
 	httpServer, err := New(conf)
 	if err != nil {
@@ -214,7 +216,16 @@ func ExampleWebServer_Serve() {
 	}()
 
 	closer := gomainTesting.Main(httpServer.Serve)
-	closer()
+	closeErr := closer()
+
+	if err := syncFunc(); err != nil && !isBenignSyncError(err) {
+		slog.Error("failed to sync logger in ExampleWebServer_Serve", "error", err)
+	}
+
+	if closeErr != nil {
+		slog.Error("failed to close web server in ExampleWebServer_Serve", "error", closeErr)
+		os.Exit(1)
+	}
 	// Output:
 }
 
@@ -252,7 +263,11 @@ func TestWebServerFull(t *testing.T) {
 	}
 
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
+	defer func() {
+		if err := syncFunc(); err != nil && !isBenignSyncError(err) {
+			t.Fatalf("syncFunc() failed: %s", err)
+		}
+	}()
 
 	httpServer, err := New(conf)
 	if err != nil {
@@ -261,6 +276,8 @@ func TestWebServerFull(t *testing.T) {
 
 	closer := gomainTesting.Main(httpServer.Serve)
 	time.Sleep(time.Second)
-	closer()
+	if err := closer(); err != nil {
+		t.Fatalf("closer() failed: %s", err)
+	}
 	// Output:
 }
