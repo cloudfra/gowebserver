@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -73,7 +74,9 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := sha256.New()
-		io.WriteString(h, strconv.FormatInt(crutime, 10))
+		if _, err := io.WriteString(h, strconv.FormatInt(crutime, 10)); err != nil {
+			slog.Error("failed to write upload token seed to hash", "crutime", crutime, "error", err)
+		}
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
 		params := struct {
@@ -119,7 +122,11 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)
 				return
 			}
-			defer file.Close()
+			defer func() {
+				if err := file.Close(); err != nil {
+					slog.Error("failed to close uploaded multipart file", "fileName", fileName, "error", err)
+				}
+			}()
 
 			localPath := filepath.Join(uh.uploadDirectory, fileName)
 
@@ -135,7 +142,11 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeUploadResponse(w, resp, http.StatusInternalServerError, logger, childSpan)
 				return
 			}
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					slog.Error("failed to close uploaded destination file", "localPath", localPath, "error", err)
+				}
+			}()
 			bytesWritten, err := io.Copy(f, file)
 			if err != nil {
 				resp.Error = fmt.Errorf("InternalError: Cannot write file (%s), %w", localPath, err)

@@ -90,7 +90,6 @@ func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []strin
 	defer gowsTesting.DeferClose(tb, res.Body)()
 
 	bodyBytes, err := io.ReadAll(res.Body)
-	res.Body.Close()
 	if err != nil {
 		tb.Errorf("cannot read response from %s, %s", u, err)
 		return

@@ -20,6 +20,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -105,7 +106,11 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close file after rich view rendering", "path", fsPath, "error", err)
+		}
+	}()
 
 	stat, err := f.Stat()
 	if err != nil {
@@ -143,7 +148,9 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Oversized:          true,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.Execute(w, report)
+		if err := h.tmpl.Execute(w, report); err != nil {
+			slog.Error("failed to execute rich view template for oversized file", "path", fsPath, "error", err)
+		}
 		return
 	}
 
@@ -215,5 +222,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.tmpl.Execute(w, report)
+	if err := h.tmpl.Execute(w, report); err != nil {
+		slog.Error("failed to execute rich view template", "path", fsPath, "error", err)
+	}
 }

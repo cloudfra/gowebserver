@@ -278,7 +278,9 @@ func serveAsync(tb testing.TB, cfg *Config) (string, func()) {
 	}
 
 	return baseURL, func() {
-		closer()
+		if err := closer(); err != nil {
+			tb.Errorf("closer() failed: %s", err)
+		}
 	}
 }
 

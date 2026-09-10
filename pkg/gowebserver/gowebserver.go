@@ -17,6 +17,7 @@ package gowebserver
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -30,7 +31,11 @@ import (
 // Run is the entry point for running gowebserver as a console or Windows Service.
 func Run() {
 	_, syncFunc := configLogger(true)
-	defer syncFunc()
+	defer func() {
+		if err := syncFunc(); err != nil && !isBenignSyncError(err) {
+			slog.Error("failed to sync logger on shutdown", "error", err)
+		}
+	}()
 
 	gomain.Run(runInteractive, gomain.Config{
 		ServiceName:        "gowebserver",
@@ -70,7 +75,11 @@ func runApplication(wait func()) error {
 		return err
 	}
 	logger, syncFunc := configLogger(conf.Verbose)
-	defer syncFunc()
+	defer func() {
+		if syncErr := syncFunc(); syncErr != nil && !isBenignSyncError(syncErr) {
+			slog.Error("failed to sync logger after running application", "error", syncErr)
+		}
+	}()
 
 	logger.Sugar().Debug(conf)
 

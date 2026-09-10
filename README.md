@@ -96,6 +96,44 @@ make test
 make bench
 ```
 
+## Common make targets
+
+| Target            | Description
+| ----------------- | ------------------------------------------------------------------------
+| `make all`        | Build binaries for all supported platforms.
+| `make run`        | Build and run the server locally on port 8181.
+| `make test`       | Run the unit test suite (Go and Terraform).
+| `make test-deflake` | Run the Go tests under the race detector to catch flaky tests.
+| `make bench`      | Run benchmarks.
+| `make lint`       | Run the full lint suite (Go, Terraform, Docker, YAML, shell, markdown, vulnerabilities).
+| `make coverage`   | Generate a test coverage report.
+| `make deps`       | Download and tidy Go module dependencies.
+| `make tools`      | Download the pinned toolchain used by `make lint` and friends.
+| `make clean`      | Remove build artifacts.
+| `make presubmit`  | Run the same checks CI runs on every push and pull request.
+| `make docker-images` | Build the Docker images.
+
+## Project layout
+
+```text
+cmd/                      # CLI entry points
+└── gowebserver/          # Main web server binary
+
+pkg/                      # Public libraries
+└── gowebserver/          # Core server implementation
+
+internal/gowebserver/testing/  # Test utilities and embedded test archives
+```
+
+The core server implementation lives in `pkg/gowebserver/`:
+
+* `config.go` — CLI flags and YAML config loading.
+* `httpserver.go` — `WebServer` interface, HTTP/HTTPS listener setup, handler registration.
+* `filesystem.go` and `filesystem_*.go` — `FileSystem` interface and its implementations for local directories, archives, git repositories, and nested archives.
+* `index.go` / `customindex.go` — directory listing templates (basic and custom CSS UI).
+* `monitoring.go` — Prometheus metrics, OpenTelemetry tracing, and pprof endpoints.
+* `upload.go` — multi-file upload with MD5 token validation.
+
 ## Example
 
 Sample code for embedding a HTTP/HTTPS server in your application.

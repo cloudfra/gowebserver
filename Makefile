@@ -20,7 +20,7 @@ TEST_ASSETS = $(TEST_ARCHIVES)
 ASSETS = $(PROTOS)
 GO_PACKAGE = github.com/cloudfra/gowebserver
 ALL_APPS = gowebserver
-PRODUCTION=0
+PRODUCTION=1
 
 include Makefile_build.mk
 
