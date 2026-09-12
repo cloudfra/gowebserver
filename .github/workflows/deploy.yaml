@@ -123,6 +123,18 @@ jobs:
       - name: Build Binaries
         run: make all -j"$(nproc)"
 
+      - name: Publish Binaries (1 Day)
+        # https://github.com/actions/upload-artifact
+        uses: actions/upload-artifact@v7
+        continue-on-error: true
+        with:
+          name: gowebserver-binaries
+          path: |
+            build/release/gowebserver-linux_amd64
+            build/release/gowebserver-windows_amd64.exe
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Set up Docker Buildx (Scan)
         # https://github.com/docker/setup-buildx-action
         # Runs unconditionally (including on pull requests), unlike the
