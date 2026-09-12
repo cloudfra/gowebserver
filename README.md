@@ -5,7 +5,7 @@ It can host a local directory or contents of a zip file.
 
 ```bash
 # Download (linux amd64, see Downloads for other builds)
-curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_amd64; chmod +x gowebserver
+curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.0/gowebserver-linux_amd64; chmod +x gowebserver
 
 # Host the current directory.
 ./gowebserver
@@ -14,7 +14,7 @@ curl -o gowebserver -O -L https://github.com/cloudfra/gowebserver/releases/downl
 ./gowebserver --path=${HOME}
 
 # Host a zip file from the internet.
-./gowebserver --path=https://github.com/cloudfra/gowebserver/archive/v3.6.3.zip
+./gowebserver --path=https://github.com/cloudfra/gowebserver/archive/v3.8.0.zip
 
 # Install in your Kubernetes Cluster.
 kubectl apply -f https://raw.githubusercontent.com/cloudfra/gowebserver/main/install/kubernetes.yaml
@@ -49,10 +49,10 @@ sc.exe start gowebserver
 
 |   OS    | Arch  | Link
 | ------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_amd64`
-| Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-linux_arm64`
-| Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing`
-| macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.6.3/gowebserver-darwin_arm64`
+| Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.0/gowebserver-linux_amd64`
+| Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.0/gowebserver-linux_arm64`
+| Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.8.0/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing`
+| macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.0/gowebserver-darwin_arm64`
 
 ## Docker Images
 
