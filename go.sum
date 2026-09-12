@@ -73,8 +73,8 @@ github.com/cloudflare/circl v1.6.5 h1:O64F26HEqNhznd/hrC5KZXVKYuKM2rx4deZDTc4ihQ
 github.com/cloudflare/circl v1.6.5/go.mod h1:h5LNyxAc5nTue9DS5jT+48en2PSDYt3zdGnz5OstK6c=
 github.com/cloudfra/certtool v0.5.1 h1:YTsdEK3WgPqw7gziypOfdP5XwM9ANW0GKZufFMWRz2I=
 github.com/cloudfra/certtool v0.5.1/go.mod h1:DSs9Z8Phb9L5YNG6pITVZC31WNCwJImLymQod4ssjL0=
-github.com/cloudfra/gomain v0.13.0 h1:0hYC2lu5IbPWkIqjbckLQbUl4zsHgr4D2ERj4MZqt0k=
-github.com/cloudfra/gomain v0.13.0/go.mod h1:i4AfQdpF5jCb3/a+ASltrNYD+S+suJIViwrc8UMEz3w=
+github.com/cloudfra/gomain v0.14.0 h1:z1nFofESo+8hzDgcXLrmvYjdv9GBOHgyRV4bVuYcWk4=
+github.com/cloudfra/gomain v0.14.0/go.mod h1:i4AfQdpF5jCb3/a+ASltrNYD+S+suJIViwrc8UMEz3w=
 github.com/cloudfra/ufs v0.13.0 h1:OOPzVPm1cFKGcXPM3L1utoFy0R/ShxNw04ORQm9/Ieo=
 github.com/cloudfra/ufs v0.13.0/go.mod h1:S9poF15tqf1GjdEqC9WHBlM0n2xmAIMtPgNu8QQW8+s=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
