@@ -212,6 +212,40 @@ func statToString(info fs.FileInfo, err error) string {
 	return statStr
 }
 
+// redirectDirectoryToTrailingSlash issues a redirect to urlPath+"/" when the
+// request targets a directory but the URL is missing its trailing slash. It
+// reports whether it wrote a response; the caller must stop handling the
+// request when it returns true.
+//
+// This works around a bug in net/http's own handling of this case:
+// http.FileServer's localRedirect builds the Location header by appending
+// "/" to the raw request path without re-encoding it. For a directory named
+// e.g. "test#dir", that produces "Location: test#dir/". Browsers treat the
+// unescaped '#' as a fragment delimiter, so they request "/test" instead of
+// "/test#dir/", which 404s. Encoding the path with encodeURLPath before
+// redirecting keeps '#' (and other reserved characters) part of the path
+// instead of being read as a fragment or query string.
+func (c *customIndexHandler) redirectDirectoryToTrailingSlash(w http.ResponseWriter, r *http.Request, path, urlPath string) bool {
+	if strings.HasSuffix(urlPath, "/") || path == "." {
+		return false
+	}
+
+	// fs.Stat uses the filesystem's StatFS implementation when available
+	// (ufs.FS implements it), so this avoids opening a file handle just to
+	// check IsDir.
+	info, err := fs.Stat(c.baseFS, path)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+
+	target := encodeURLPath(urlPath) + "/"
+	if q := r.URL.RawQuery; q != "" {
+		target += "?" + q
+	}
+	http.Redirect(w, r, target, http.StatusMovedPermanently)
+	return true
+}
+
 func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sortBy := canonicalizeSortBy(r.URL.Query().Get("sort"))
 	rootTrace := c.tp.Tracer("customIndex")
@@ -225,6 +259,11 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		tryListDir(c.baseFS, path)
 		slog.Info("customIndexHandler", "url", r.URL, "path", path)
+
+		if c.redirectDirectoryToTrailingSlash(w, r, path, urlPath) {
+			return
+		}
+
 		if strings.HasSuffix(urlPath, "/") || path == "." {
 			_, openSpan := rootTrace.Start(ctx, "Open")
 			openSpan.SetAttributes(attribute.String("path", path))
