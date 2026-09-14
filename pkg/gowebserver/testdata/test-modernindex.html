@@ -16,6 +16,7 @@
     }
 
     :root {
+      --ease-natural: cubic-bezier(0.32, 0.72, 0, 1);
       --bg: #ffffff;
       --bg-secondary: #f5f6f8;
       --text: #1a1a1a;
@@ -1651,7 +1652,7 @@
       overflow: hidden;
       background: var(--bg-secondary);
       cursor: pointer;
-      transition: transform 0.25s ease, filter 0.25s ease;
+      transition: transform 0.32s var(--ease-natural), filter 0.32s var(--ease-natural);
       z-index: 0;
     }
 
@@ -1659,9 +1660,9 @@
 
       .photo-card:hover,
       .photo-card:focus-within {
-        transform: scale(1.5);
+        transform: scale(1.04);
         z-index: 1;
-        filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.5)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.28)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
       }
     }
 
@@ -1680,7 +1681,7 @@
       padding: 18px 11px 9px;
       background: linear-gradient(to top, var(--overlay-bg) 70%, transparent);
       transform: translateY(100%);
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      transition: transform 0.32s var(--ease-natural), opacity 0.32s var(--ease-natural);
       opacity: 0;
       cursor: pointer;
     }
@@ -1719,9 +1720,9 @@
 
     @media (min-width: 600px) {
       .photo-card:focus {
-        transform: scale(1.5);
+        transform: scale(1.04);
         z-index: 1;
-        filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.5)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.28)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
       }
     }
 
@@ -1753,7 +1754,7 @@
       border-radius: 8px;
       overflow: hidden;
       background: var(--bg-secondary);
-      transition: transform 0.25s ease, filter 0.25s ease;
+      transition: transform 0.32s var(--ease-natural), filter 0.32s var(--ease-natural);
       z-index: 0;
     }
 
@@ -1774,9 +1775,9 @@
 
       .video-card:hover,
       .video-card:focus-within {
-        transform: scale(1.5);
+        transform: scale(1.04);
         z-index: 1;
-        filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.5)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.28)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
       }
     }
 
@@ -1821,9 +1822,9 @@
 
     @media (min-width: 780px) {
       .video-card:focus {
-        transform: scale(1.5);
+        transform: scale(1.04);
         z-index: 1;
-        filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.5)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.28)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.2));
       }
     }
 
@@ -1876,7 +1877,7 @@
       overflow: hidden;
       opacity: 0;
       visibility: hidden;
-      transition: opacity 0.28s ease, visibility 0.28s ease;
+      transition: opacity 0.4s var(--ease-natural), visibility 0.4s var(--ease-natural);
     }
 
     .ss-overlay.ss-active {
@@ -1916,7 +1917,7 @@
       padding: 0 20px;
       box-sizing: border-box;
       opacity: 0;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.3s var(--ease-natural);
     }
 
     .ss-item img {
@@ -1928,7 +1929,7 @@
       -webkit-user-select: none;
       -webkit-user-drag: none;
       border-radius: 2px;
-      transition: transform 0.12s ease;
+      transition: transform 0.15s var(--ease-natural);
       transform-origin: center center;
     }
 
@@ -1938,7 +1939,7 @@
       object-fit: contain;
       display: block;
       border-radius: 2px;
-      transition: transform 0.12s ease;
+      transition: transform 0.15s var(--ease-natural);
       transform-origin: center center;
     }
 
@@ -1947,23 +1948,23 @@
       top: 14px;
       right: 18px;
       z-index: 10001;
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      transition: background 0.18s, opacity 0.35s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.2s var(--ease-natural), opacity 0.4s var(--ease-natural), transform 0.2s var(--ease-natural);
     }
 
     .ss-close:hover {
-      background: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.22);
     }
 
     .ss-autoplay {
@@ -1971,28 +1972,28 @@
       top: 14px;
       left: 18px;
       z-index: 10001;
-      width: 42px;
-      height: 42px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      transition: background 0.18s, border-color 0.18s, opacity 0.35s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.2s var(--ease-natural), opacity 0.4s var(--ease-natural), transform 0.2s var(--ease-natural);
     }
 
     .ss-autoplay:hover {
-      background: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.22);
     }
 
     .ss-autoplay.ss-autoplay-active {
-      background: rgba(255, 255, 255, 0.22);
-      border-color: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.18);
+      color: #0a84ff;
     }
 
     .ss-nav {
@@ -2000,23 +2001,23 @@
       top: 50%;
       transform: translateY(-50%);
       z-index: 10001;
-      width: 50px;
-      height: 50px;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      transition: background 0.18s, opacity 0.35s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.2s var(--ease-natural), opacity 0.4s var(--ease-natural), transform 0.2s var(--ease-natural);
     }
 
     .ss-nav:hover {
-      background: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.22);
     }
 
     .ss-nav:disabled {
@@ -2039,11 +2040,20 @@
       pointer-events: none;
     }
 
+    .ss-close:active,
+    .ss-autoplay:active {
+      transform: scale(0.9);
+    }
+
+    .ss-nav:not(:disabled):active {
+      transform: translateY(-50%) scale(0.9);
+    }
+
     .ss-close svg,
     .ss-autoplay svg,
     .ss-nav svg {
       display: block;
-      transition: transform 0.18s ease;
+      transition: transform 0.2s var(--ease-natural);
     }
 
     .ss-close:hover svg {
@@ -2069,8 +2079,8 @@
       }
 
       .ss-nav {
-        width: 40px;
-        height: 40px;
+        width: 38px;
+        height: 38px;
       }
 
       .ss-prev {
@@ -2490,6 +2500,10 @@
       
       var ssIdleTimer = null;
       var SS_IDLE_DELAY = 3000;
+      
+      var SS_DURATION_BASE = 0.36;
+      var SS_DURATION_MIN = 0.2;
+      var SS_DURATION_MAX_VELOCITY = 1.4;
 
       
       
@@ -2509,6 +2523,19 @@
       }
 
       
+      function ssDurationFor(velocity) {
+        var v = Math.min(Math.abs(velocity || 0), SS_DURATION_MAX_VELOCITY);
+        return SS_DURATION_BASE - (SS_DURATION_BASE - SS_DURATION_MIN) * (v / SS_DURATION_MAX_VELOCITY);
+      }
+
+      
+      function ssRubberBand(overshoot, dim) {
+        var c = 0.55;
+        var damped = (1 - 1 / ((Math.abs(overshoot) * c / dim) + 1)) * dim;
+        return overshoot < 0 ? -damped : damped;
+      }
+
+      
       function ssInitOpacities() {
         Array.from(ssTrack.children).forEach(function (item, i) {
           item.style.transition = 'none';
@@ -2519,23 +2546,26 @@
       
       function ssUpdateOpacities() {
         Array.from(ssTrack.children).forEach(function (item, i) {
-          item.style.transition = 'opacity 0.25s ease';
+          item.style.transition = 'opacity 0.22s var(--ease-natural)';
           item.style.opacity = i === ssIndex ? '1' : '0';
         });
       }
 
       
-      function ssShowNeighbors() {
+      
+      
+      function ssShowNeighbors(instant) {
         Array.from(ssTrack.children).forEach(function (item, i) {
-          item.style.transition = 'opacity 0.25s ease';
+          item.style.transition = instant ? 'none' : 'opacity 0.22s var(--ease-natural)';
           item.style.opacity = Math.abs(i - ssIndex) <= 1 ? '1' : '0';
         });
       }
 
       
-      function ssScheduleSettle() {
+      function ssScheduleSettle(duration) {
         if (ssSettleTimer) clearTimeout(ssSettleTimer);
-        ssSettleTimer = setTimeout(ssUpdateOpacities, 400);
+        var delayMs = (typeof duration === 'number' ? duration : SS_DURATION_BASE) * 1000 + 40;
+        ssSettleTimer = setTimeout(ssUpdateOpacities, delayMs);
       }
 
       
@@ -2659,11 +2689,14 @@
 
       
 
-      function ssSetPosition(animate) {
+      
+      function ssSetPosition(animate, velocity) {
+        var duration = ssDurationFor(velocity);
         ssTrack.style.transition = animate
-          ? 'transform 0.33s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+          ? 'transform ' + duration + 's var(--ease-natural)'
           : 'none';
         ssTrack.style.transform = 'translateX(' + ssTrackX(ssIndex) + 'px)';
+        return duration;
       }
 
       function ssUpdateUI() {
@@ -2671,7 +2704,7 @@
         ssBtnNext.disabled = ssIndex >= ssItems.length - 1;
       }
 
-      function ssGoTo(idx, animate) {
+      function ssGoTo(idx, animate, velocity) {
         ssResetZoom();
         var prevItem = ssTrack.children[ssIndex];
         if (prevItem) {
@@ -2680,9 +2713,9 @@
         }
         ssIndex = Math.max(0, Math.min(idx, ssItems.length - 1));
         ssShowNeighbors();
-        ssSetPosition(animate !== false);
+        var duration = ssSetPosition(animate !== false, velocity);
         ssUpdateUI();
-        ssScheduleSettle();
+        ssScheduleSettle(duration);
         ssRestartAutoplay();
       }
 
@@ -2714,7 +2747,7 @@
           
           requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-              currentItem.style.transition = 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+              currentItem.style.transition = 'transform 0.4s var(--ease-natural)';
               currentItem.style.transform = '';
               currentItem.addEventListener('transitionend', function handler(e) {
                 if (e.propertyName !== 'transform') return;
@@ -2761,7 +2794,7 @@
         }
         if (ssZoom <= 1) {
           if (ssSettleTimer) { clearTimeout(ssSettleTimer); ssSettleTimer = null; }
-          ssShowNeighbors();
+          ssShowNeighbors(true);
         }
         ssDragging = true;
         ssDragStartX = ssGetX(e);
@@ -2806,7 +2839,14 @@
         ssLastY = y;
         ssLastTime = now;
         ssDragX = x;
-        ssTrack.style.transform = 'translateX(' + (ssTrackX(ssIndex) + (ssDragX - ssDragStartX)) + 'px)';
+        var rawDelta = ssDragX - ssDragStartX;
+        var atStart = ssIndex <= 0;
+        var atEnd = ssIndex >= ssItems.length - 1;
+        
+        var visualDelta = (atStart && rawDelta > 0) || (atEnd && rawDelta < 0)
+          ? ssRubberBand(rawDelta, ssStridePx())
+          : rawDelta;
+        ssTrack.style.transform = 'translateX(' + (ssTrackX(ssIndex) + visualDelta) + 'px)';
         e.preventDefault();
       }
 
@@ -2821,12 +2861,12 @@
         var threshold = ssStridePx() * 0.2;
         var vt = 0.35;
         if ((delta < -threshold || ssVelocity < -vt) && ssIndex < ssItems.length - 1) {
-          ssGoTo(ssIndex + 1, true);
+          ssGoTo(ssIndex + 1, true, ssVelocity);
         } else if ((delta > threshold || ssVelocity > vt) && ssIndex > 0) {
-          ssGoTo(ssIndex - 1, true);
+          ssGoTo(ssIndex - 1, true, ssVelocity);
         } else {
-          ssSetPosition(true);
-          ssScheduleSettle();
+          var duration = ssSetPosition(true, ssVelocity);
+          ssScheduleSettle(duration);
         }
       }
 
