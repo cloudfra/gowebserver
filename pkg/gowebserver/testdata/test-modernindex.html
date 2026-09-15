@@ -2665,26 +2665,65 @@
         }
       }
 
+      
+      
+      
+      
+      
+      var SS_LOAD_RADIUS = 1;
+
       function ssBuildTrack() {
         ssTrack.innerHTML = '';
-        ssItems.forEach(function (item) {
+        ssItems.forEach(function () {
           var div = document.createElement('div');
           div.className = 'ss-item';
-          if (item.isVideo) {
-            var video = document.createElement('video');
-            video.src = item.src;
-            video.controls = true;
-            video.preload = 'metadata';
-            div.appendChild(video);
-          } else {
-            var img = document.createElement('img');
-            img.src = item.src;
-            img.alt = item.name;
-            img.draggable = false;
-            div.appendChild(img);
-          }
           ssTrack.appendChild(div);
         });
+      }
+
+      function ssMountItem(i) {
+        var div = ssTrack.children[i];
+        var item = ssItems[i];
+        if (!div || !item || div.firstChild) return;
+        if (item.isVideo) {
+          var video = document.createElement('video');
+          video.src = item.src;
+          video.controls = true;
+          video.preload = 'metadata';
+          div.appendChild(video);
+        } else {
+          var img = document.createElement('img');
+          img.src = item.src;
+          img.alt = item.name;
+          img.draggable = false;
+          div.appendChild(img);
+        }
+      }
+
+      function ssUnmountItem(i) {
+        var div = ssTrack.children[i];
+        var media = div && div.firstChild;
+        if (!media) return;
+        if (media.tagName === 'VIDEO') {
+          media.pause();
+          media.removeAttribute('src');
+          media.load();
+        } else {
+          media.removeAttribute('src');
+        }
+        div.removeChild(media);
+      }
+
+      
+      
+      
+      function ssMountRange(centerIdx) {
+        var lo = Math.max(0, centerIdx - SS_LOAD_RADIUS);
+        var hi = Math.min(ssItems.length - 1, centerIdx + SS_LOAD_RADIUS);
+        for (var i = 0; i < ssItems.length; i++) {
+          if (i >= lo && i <= hi) ssMountItem(i);
+          else ssUnmountItem(i);
+        }
       }
 
       
@@ -2712,6 +2751,7 @@
           if (v) v.pause();
         }
         ssIndex = Math.max(0, Math.min(idx, ssItems.length - 1));
+        ssMountRange(ssIndex);
         ssShowNeighbors();
         var duration = ssSetPosition(animate !== false, velocity);
         ssUpdateUI();
@@ -2725,6 +2765,7 @@
         ssBuildTrack();
         ssResetZoom();
         ssIndex = Math.max(0, Math.min(startIdx || 0, ssItems.length - 1));
+        ssMountRange(ssIndex);
         ssSetPosition(false);
         ssUpdateUI();
 
