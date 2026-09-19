@@ -28,7 +28,10 @@ import (
 )
 
 func TestBuildCertificateHostnames(t *testing.T) {
-	localHostname, _ := os.Hostname()
+	localHostname, err := os.Hostname()
+	if err != nil {
+		t.Fatalf("cannot get hostname, %s", err)
+	}
 
 	tests := []struct {
 		name        string

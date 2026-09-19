@@ -32,6 +32,10 @@ linters:
     - prealloc
     - revive
     - unconvert
+  settings:
+    errcheck:
+      # Errors must be handled: `_ = f()` and `x, _ := f()` are reported too.
+      check-blank: true
   exclusions:
     paths:
       - "build/"
