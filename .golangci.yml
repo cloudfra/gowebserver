@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# https://golangci-lint.run/docs/configuration/file/
+
 version: "2"
 
 formatters:
@@ -20,14 +22,15 @@ formatters:
       - "build/"
       - "third_party/"
 
+# https://golangci-lint.run/docs/linters/
 linters:
   # Keep the default set (errcheck, govet, ineffassign, staticcheck, unused)
   # and layer a security-focused, curated set on top of it.
   default: standard
   enable:
-    #- bodyclose
+    # - bodyclose
     - gocritic
-    #- gosec
+    # - gosec
     # - noctx
     - prealloc
     - revive

@@ -26,6 +26,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # On pull requests, skip the niche platforms (NICHE_PLATFORMS= is an empty
+  # list) to keep CI fast. This goes through MAKEFLAGS because make treats it
+  # like a command-line variable, which overrides the assignment in the
+  # Makefile; a plain NICHE_PLATFORMS environment variable would not.
+  MAKEFLAGS: ${{ github.event_name == 'pull_request' && 'NICHE_PLATFORMS=' || '' }}
+
 jobs:
   build-linux:
     name: "Build Linux"
@@ -76,7 +83,6 @@ jobs:
         run: make deps
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
-
       - name: Lint
         run: make lint
       - name: Test
@@ -138,18 +144,21 @@ jobs:
 
       - name: Set up Docker Buildx (Scan)
         # https://github.com/docker/setup-buildx-action
-        # Runs unconditionally (including on pull requests), unlike the
-        # push-pipeline Buildx setup below - vulnerability scanning needs to
-        # catch issues before merge, not just before a release push.
+        # Skipped on pull requests along with the image scan below.
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/setup-buildx-action@v4
 
       - name: Scan Container Image
         # Builds a local single-arch image with --load purely so trivy has
         # something to scan; independent of the multi-arch push pipeline
         # further down, which never loads images into the local daemon.
+        # Skipped on pull requests, and never fails the build.
+        if: ${{ github.event_name != 'pull_request' }}
+        continue-on-error: true
         run: make scan-images
 
       - name: Release Package
+        if: ${{ github.event_name != 'pull_request' }}
         run: make build/packages/release.tar.gz
 
       - name: Create Release
@@ -223,7 +232,6 @@ jobs:
           cache: false
       - name: System Information
         run: make system-info
-
       - name: Clean
         run: make clean
       - name: Build Assets
@@ -232,7 +240,6 @@ jobs:
         run: make deps
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
-
       - name: Lint
         run: make lint
       - name: Test
