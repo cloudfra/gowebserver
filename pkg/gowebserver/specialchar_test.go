@@ -71,8 +71,15 @@ func TestWebServer_Serve_SpecialCharFiles(t *testing.T) {
 					if err != nil {
 						t.Fatalf("GET %s error: %v", url, err)
 					}
-					defer func() { _ = resp.Body.Close() }()
-					body, _ := io.ReadAll(resp.Body)
+					defer func() {
+						if err := resp.Body.Close(); err != nil {
+							t.Fatalf("read all failed, %s", err)
+						}
+					}()
+					body, err := io.ReadAll(resp.Body)
+					if err != nil {
+						t.Fatalf("read all failed, %s", err)
+					}
 					if resp.StatusCode != http.StatusOK {
 						t.Errorf("GET %s => status %d (want 200), body: %s", url, resp.StatusCode, previewBody(body))
 					} else {
@@ -117,7 +124,9 @@ func TestWebServer_DirectoryWithHash_Redirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("close failed, %s", err)
+	}
 	location := resp.Header.Get("Location")
 	t.Logf("GET /test%%23dir => status %d, Location: %q", resp.StatusCode, location)
 
@@ -134,8 +143,13 @@ func TestWebServer_DirectoryWithHash_Redirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body2, _ := io.ReadAll(resp2.Body)
-	_ = resp2.Body.Close()
+	body2, err := io.ReadAll(resp2.Body)
+	if err != nil {
+		t.Fatalf("read all failed, %s", err)
+	}
+	if err := resp2.Body.Close(); err != nil {
+		t.Errorf("close failed, %s", err)
+	}
 	t.Logf("GET /test%%23dir/ => status %d, body length: %d", resp2.StatusCode, len(body2))
 
 	// Access file inside the directory
@@ -143,8 +157,13 @@ func TestWebServer_DirectoryWithHash_Redirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body3, _ := io.ReadAll(resp3.Body)
-	_ = resp3.Body.Close()
+	body3, err := io.ReadAll(resp3.Body)
+	if err != nil {
+		t.Fatalf("read all failed, %s", err)
+	}
+	if err := resp3.Body.Close(); err != nil {
+		t.Errorf("close failed, %s", err)
+	}
 	t.Logf("GET /test%%23dir/file.txt => status %d, body: %q", resp3.StatusCode, previewBody([]byte(strings.TrimSpace(string(body3)))))
 }
 
@@ -181,8 +200,13 @@ func TestWebServer_NestedArchive_SpecialCharFiles(t *testing.T) {
 				t.Errorf("[%s] GET %s error: %v", tp.desc, url, err)
 				return
 			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("read all failed, %s", err)
+			}
+			if err := resp.Body.Close(); err != nil {
+				t.Fatalf("close failed, %s", err)
+			}
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("[%s] GET %s => status %d (want 200), body: %s", tp.desc, url, resp.StatusCode, previewBody(body))
 			} else {
@@ -209,8 +233,15 @@ func TestWebServer_Serve_SpecialCharDirListing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET / error: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(resp.Body)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("close() failed, %s", err)
+		}
+	}()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read all failed, %s", err)
+	}
 	html := string(body)
 
 	expectedHrefs := []string{
