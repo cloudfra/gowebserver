@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include Makefile_testassets.mk
-
 REGISTRY = docker.io/cloudfra
 PROTOS =
 TEST_ASSETS = $(TEST_ARCHIVES)
@@ -21,6 +19,9 @@ ASSETS = $(PROTOS)
 GO_PACKAGE = github.com/cloudfra/gowebserver
 ALL_APPS = gowebserver
 PRODUCTION=1
+RUMDL_IGNORE = internal/gowebserver/testing/testassets/**
+PLAN9_PLATFORMS = 
+NETBSD_PLATFORMS = netbsd/amd64 netbsd/arm64 netbsd/arm/v5 netbsd/arm/v6 netbsd/arm/v7 # netbsd/386 
 
 include Makefile_build.mk
 

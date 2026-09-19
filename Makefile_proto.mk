@@ -41,6 +41,15 @@ endif
 PROTOC := GOPATH="$(TOOLCHAIN_DIR)" "$(TOOLCHAIN_BIN)/protoc"
 PROTOC_INCLUDE_FLAGS = -I "$(REPOSITORY_ROOT)" -I "$(THIRDPARTY_DIR)/grpc_gateway/include/" -I "$(THIRDPARTY_DIR)/google_protobuf/include/"
 
+# protoc otherwise resolves each protoc-gen-* plugin by searching PATH, which
+# depends on the toolchain bin directory being on PATH in whatever form the
+# current OS/shell expects (this breaks on the Windows CI runner). Pointing
+# protoc at each plugin's exact path sidesteps PATH entirely.
+PROTOC_GO_PLUGIN = --plugin=protoc-gen-go="$(TOOLCHAIN_BIN)/protoc-gen-go$(EXE)"
+PROTOC_GO_GRPC_PLUGIN = --plugin=protoc-gen-go-grpc="$(TOOLCHAIN_BIN)/protoc-gen-go-grpc$(EXE)"
+PROTOC_GRPC_GATEWAY_PLUGIN = --plugin=protoc-gen-grpc-gateway="$(TOOLCHAIN_BIN)/protoc-gen-grpc-gateway$(EXE)"
+PROTOC_OPENAPIV2_PLUGIN = --plugin=protoc-gen-openapiv2="$(TOOLCHAIN_BIN)/protoc-gen-openapiv2$(EXE)"
+
 PROTOC_TOOLCHAIN = build/toolchain/bin/protoc$(EXE)
 PROTOC_TOOLCHAIN += build/toolchain/bin/protoc-gen-go-grpc$(EXE)
 PROTOC_TOOLCHAIN += build/toolchain/bin/protoc-gen-go$(EXE)
@@ -144,23 +153,23 @@ third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE: build/archives/gr
 	touch "$(REPOSITORY_ROOT)/$@"
 
 %_grpc.pb.go: %.proto %.pb.go $(PROTOC_TOOLCHAIN)
-	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) --go-grpc_out=. --go-grpc_opt=paths=source_relative $<
+	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) $(PROTOC_GO_GRPC_PLUGIN) --go-grpc_out=. --go-grpc_opt=paths=source_relative $<
 	$(TOOLCHAIN_GO) fmt $@
 	touch "$(REPOSITORY_ROOT)/$@"
 
 %.pb.go: %.proto $(PROTOC_TOOLCHAIN)
-	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) --go_out=. --go_opt=paths=source_relative $<
+	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) $(PROTOC_GO_PLUGIN) --go_out=. --go_opt=paths=source_relative $<
 	$(TOOLCHAIN_GO) fmt $@
 	touch "$(REPOSITORY_ROOT)/$@"
 
 %.pb.gw.go: %.proto %_grpc.pb.go $(PROTOC_TOOLCHAIN)
 	echo $(dir $<)
-	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) --grpc-gateway_out . --grpc-gateway_opt paths=source_relative --grpc-gateway_opt logtostderr=true --grpc-gateway_opt allow_delete_body=true $<
+	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) $(PROTOC_GRPC_GATEWAY_PLUGIN) --grpc-gateway_out . --grpc-gateway_opt paths=source_relative --grpc-gateway_opt logtostderr=true --grpc-gateway_opt allow_delete_body=true $<
 	$(SED_REPLACE) 's/proto_0/proto/g' $@
 	$(SED_REPLACE) 's/status_0/status/g' $@
 	$(TOOLCHAIN_GO) fmt $@
 	touch "$(REPOSITORY_ROOT)/$@"
 
 %.swagger.json: %.proto %.pb.gw.go $(PROTOC_TOOLCHAIN)
-	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) --openapiv2_out . --openapiv2_opt logtostderr=true $<
+	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) $(PROTOC_OPENAPIV2_PLUGIN) --openapiv2_out . --openapiv2_opt logtostderr=true $<
 	touch "$(REPOSITORY_ROOT)/$@"
