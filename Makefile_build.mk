@@ -188,8 +188,11 @@ lint-shell: build/toolchain/bin/shellcheck$(EXE)
 	if [ "$(OS)" = "Windows_NT" ]; then shellcheck_exclude="--exclude=SC1009,SC1017,SC1044,SC1072,SC1073"; fi; \
 	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
 
+# RUMDL_IGNORE is an optional comma-separated list of extra globs to exclude.
+RUMDL_EXCLUDE = third_party/**,build/**$(if $(RUMDL_IGNORE),$(COMMA)$(RUMDL_IGNORE))
+
 lint-markdown: build/toolchain/bin/rumdl$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**,$(RUMDL_IGNORE)" .
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "$(RUMDL_EXCLUDE)" .
 
 lint-vuln: build/toolchain/bin/govulncheck$(EXE)
 	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
