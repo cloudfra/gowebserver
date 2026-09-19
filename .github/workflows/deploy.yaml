@@ -67,15 +67,16 @@ jobs:
           sudo add-apt-repository universe
           sudo apt-get update
           sudo apt-get -y -q install lz4 p7zip-full rar unrar
+
       - name: Clean
         run: make clean
+      - name: Build Assets
+        run: make assets testassets
       - name: Download Dependencies
         run: make deps
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
 
-      - name: Build Assets
-        run: make assets testassets
       - name: Lint
         run: make lint
       - name: Test
@@ -220,18 +221,18 @@ jobs:
         with:
           go-version: stable
           cache: false
-
       - name: System Information
         run: make system-info
 
       - name: Clean
         run: make clean
+      - name: Build Assets
+        run: make assets testassets
       - name: Download Dependencies
         run: make deps
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
-      - name: Build Assets
-        run: make assets testassets
+
       - name: Lint
         run: make lint
       - name: Test

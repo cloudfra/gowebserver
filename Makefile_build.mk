@@ -15,6 +15,7 @@
 include Makefile_core.mk
 include Makefile_proto.mk
 include Makefile_toolchain.mk
+include Makefile_testassets.mk
 
 DOCKER_PUSH = --push
 
@@ -33,21 +34,52 @@ else
 	IGNORE_LINT_CHECK = -
 endif
 
+ifeq ($(origin LINUX_PLATFORMS),undefined)
 LINUX_PLATFORMS = linux/386 linux/amd64 linux/arm/v5 linux/arm/v6 linux/arm/v7 linux/arm64 linux/loong64 linux/s390x linux/ppc64 linux/ppc64le linux/riscv64 linux/mips64le linux/mips linux/mipsle linux/mips64
+endif
+ifeq ($(origin ANDROID_PLATFORMS),undefined)
 ANDROID_PLATFORMS = android/arm64 # android/386 android/amd64 android/arm android/arm/v5 android/arm/v6 android/arm/v7
+endif
+ifeq ($(origin WINDOWS_PLATFORMS),undefined)
 WINDOWS_PLATFORMS = windows/386 windows/amd64 windows/arm64 # windows/arm/v5 windows/arm/v6 windows/arm/v7
-MAIN_PLATFORMS = windows/amd64 linux/amd64 linux/arm64
+endif
+ifeq ($(origin IOS_PLATFORMS),undefined)
 IOS_PLATFORMS = # ios/amd64 ios/arm64
+endif
+ifeq ($(origin DARWIN_PLATFORMS),undefined)
 DARWIN_PLATFORMS = darwin/amd64 darwin/arm64
+endif
+ifeq ($(origin DRAGONFLY_PLATFORMS),undefined)
 DRAGONFLY_PLATFORMS = dragonfly/amd64
+endif
+ifeq ($(origin FREEBSD_PLATFORMS),undefined)
 FREEBSD_PLATFORMS = freebsd/386 freebsd/amd64 freebsd/arm/v5 freebsd/arm/v6 freebsd/arm/v7 freebsd/arm64
-NETBSD_PLATFORMS = netbsd/amd64 netbsd/arm64 netbsd/arm/v5 netbsd/arm/v6 netbsd/arm/v7 # netbsd/386
+endif
+ifeq ($(origin NETBSD_PLATFORMS),undefined)
+NETBSD_PLATFORMS = netbsd/amd64 netbsd/arm64 netbsd/386 netbsd/arm/v5 netbsd/arm/v6 netbsd/arm/v7
+endif
+ifeq ($(origin OPENBSD_PLATFORMS),undefined)
 OPENBSD_PLATFORMS = openbsd/386 openbsd/amd64 openbsd/arm/v5 openbsd/arm/v6 openbsd/arm/v7 openbsd/arm64 # openbsd/mips64
-PLAN9_PLATFORMS = # plan9/386 plan9/amd64 plan9/arm/v5 plan9/arm/v6 plan9/arm/v7
+endif
+ifeq ($(origin PLAN9_PLATFORMS),undefined)
+PLAN9_PLATFORMS = plan9/386 plan9/amd64 plan9/arm/v5 plan9/arm/v6 plan9/arm/v7
+endif
+ifeq ($(origin SOLARIS_PLATFORMS),undefined)
 SOLARIS_PLATFORMS = solaris/amd64
-NICHE_PLATFORMS = js/wasm illumos/amd64 aix/ppc64 $(ANDROID_PLATFORMS) $(DARWIN_PLATFORMS) $(IOS_PLATFORMS) $(DRAGONFLY_PLATFORMS) $(FREEBSD_PLATFORMS) $(NETBSD_PLATFORMS) $(OPENBSD_PLATFORMS) $(PLAN9_PLATFORMS) $(SOLARIS_PLATFORMS)
-ALL_PLATFORMS = $(LINUX_PLATFORMS) $(WINDOWS_PLATFORMS) $(NICHE_PLATFORMS)
+endif
+ifeq ($(origin JS_PLATFORMS),undefined)
+JS_PLATFORMS = js/wasm
+endif
+ifeq ($(origin ILLUMOS_PLATFORMS),undefined)
+ILLUMOS_PLATFORMS = illumos/amd64
+endif
+ifeq ($(origin AIX_PLATFORMS),undefined)
+AIX_PLATFORMS = aix/ppc64
+endif
+MAIN_PLATFORMS = windows/amd64 linux/amd64 linux/arm64
 RELEASE_PLATFORMS = linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/arm64
+NICHE_PLATFORMS = $(JS_PLATFORMS) $(ILLUMOS_PLATFORMS) $(AIX_PLATFORMS) $(ANDROID_PLATFORMS) $(DARWIN_PLATFORMS) $(IOS_PLATFORMS) $(DRAGONFLY_PLATFORMS) $(FREEBSD_PLATFORMS) $(NETBSD_PLATFORMS) $(OPENBSD_PLATFORMS) $(PLAN9_PLATFORMS) $(SOLARIS_PLATFORMS)
+ALL_PLATFORMS = $(LINUX_PLATFORMS) $(WINDOWS_PLATFORMS) $(NICHE_PLATFORMS)
 
 MAIN_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(MAIN_PLATFORMS),build/bin/$(platform)/$(app)$(if $(findstring windows,$(platform)),.exe,)))
 WINDOWS_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(WINDOWS_PLATFORMS),build/bin/$(platform)/$(app)$(if $(findstring windows,$(platform)),.exe,)))
@@ -157,7 +189,7 @@ lint-shell: build/toolchain/bin/shellcheck$(EXE)
 	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
 
 lint-markdown: build/toolchain/bin/rumdl$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**,internal/gowebserver/testing/testassets/**" .
+	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "third_party/**,build/**,$(RUMDL_IGNORE)" .
 
 lint-vuln: build/toolchain/bin/govulncheck$(EXE)
 	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
@@ -181,8 +213,8 @@ test-tf: build/toolchain/bin/terraform$(EXE) $(TEST_ASSETS)
 	# -backend=false: main.tftest.hcl mocks the providers and never touches
 	# real state, so there's no need to configure the (real, per-environment)
 	# GCS backend just to run tests.
-	(cd "$(REPOSITORY_ROOT)install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" init -backend=false)
-	(cd "$(REPOSITORY_ROOT)install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" test)
+	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" init -backend=false)
+	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" test)
 else
 test-tf:
 endif
@@ -211,7 +243,7 @@ clean:
 	rm -rf build/
 	rm -rf output/
 
-presubmit: no-sudo tools lint all test-deflake release-binaries
+presubmit: no-sudo tools assets testassets lint all test-deflake release-binaries
 
 ensure-builder:
 	-$(DOCKER) buildx create --name $(BUILDX_BUILDER)
@@ -323,4 +355,4 @@ system-info:
 sync-upstream:
 	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main
 
-.PHONY: tools all assets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
+.PHONY: tools all assets testassets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
