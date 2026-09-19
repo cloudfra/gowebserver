@@ -50,6 +50,7 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **index.go / customindex.go**: Directory listing templates (basic and custom css UI)
 - **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
+- **thumbnail.go**: On-demand image thumbnails (`?thumb=256|512|1024`) cached in a private in-memory `ufs` with a byte-budget LRU (`-thumbnail.cachemb`, 0 disables). Applies EXIF orientation; formats it cannot decode fall back to the original.
 - **custom-index.html**: Enhanced HTML template for file browsing. Includes advanced preview features for images and videos.
 
 ### Request Flow

@@ -2,6 +2,7 @@ verbose: false
 serve: []
 enhancedList: false
 debug: false
+thumbnailCacheMB: 0
 http:
   port: 0
 https:

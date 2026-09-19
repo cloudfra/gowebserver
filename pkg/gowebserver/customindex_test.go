@@ -53,7 +53,7 @@ func TestCustomIndex(t *testing.T) {
 	defer gowsTesting.DeferClose(t, nFS)()
 
 	mc := &monitoringContext{}
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc.getTraceProvider(), true)
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc.getTraceProvider(), true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +69,39 @@ func TestCustomIndex(t *testing.T) {
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets.zip.d/", []string{"index.html", "site.js", "assets/"})
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images", []string{"ocean.jpg", "nature.jpg"})
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images/", []string{"ocean.jpg", "nature.jpg"})
+}
+
+func TestCustomIndexGridMarkup(t *testing.T) {
+	nestedZipPath := gowsTesting.MustNestedZipFilePath(t)
+
+	nFS, err := ufs.New(t.Context(), nestedZipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gowsTesting.DeferClose(t, nFS)()
+
+	mc := &monitoringContext{}
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc.getTraceProvider(), true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(ci)
+	defer ts.Close()
+
+	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images/", []string{
+		// Grid: thumbnails with a 2x variant, the original as the fallback and the link target.
+		`src="ocean.jpg?thumb=256"`,
+		`ocean.jpg?thumb=512 2x`,
+		`data-full="ocean.jpg"`,
+		`<a href="ocean.jpg">`,
+		// The name tag is what opens the slideshow.
+		`class="photo-meta"`,
+		// Slideshow chrome.
+		`id="ss-counter"`,
+		`id="ss-name"`,
+		`id="ss-original"`,
+		`id="ss-backdrop"`,
+	})
 }
 
 func verifyCustomIndex(tb testing.TB, hc *http.Client, u string, substrs []string) {

@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -24,6 +25,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +46,7 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool) (http.Handler, func() error, error) {
+func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool, thumbConf thumbnailConfig) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
@@ -57,15 +59,29 @@ func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool)
 		return nil, nilFuncWithError, err
 	}
 
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, tp, enhancedList)
+	var thumbs *thumbnailer
+	if thumbConf.BudgetBytes > 0 {
+		thumbs, err = newThumbnailer(ctx, thumbConf)
+		if err != nil {
+			return nil, nilFuncWithError, errors.Join(err, nFS.Close())
+		}
+	}
+	cleanup := func() error {
+		if thumbs == nil {
+			return nFS.Close()
+		}
+		return errors.Join(thumbs.Close(), nFS.Close())
+	}
+
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, tp, enhancedList, thumbs)
 	if err != nil {
-		return nil, nilFuncWithError, err
+		return nil, nilFuncWithError, errors.Join(err, cleanup())
 	}
 	rv, err := newRichViewHandler(ci, nFS, tp)
 	if err != nil {
-		return nil, nilFuncWithError, err
+		return nil, nilFuncWithError, errors.Join(err, cleanup())
 	}
-	return rv, nFS.Close, nil
+	return rv, cleanup, nil
 }
 
 func cleanPath(path string) string {
@@ -166,6 +182,9 @@ type customIndexHandler struct {
 	enhancedList bool
 	tp           trace.TracerProvider
 	tmpl         *template.Template
+	// thumbs serves resized images for ?thumb=N. It is nil when thumbnails are
+	// disabled, in which case ?thumb=N serves the original image.
+	thumbs *thumbnailer
 }
 
 func canonicalizeSortBy(v string) string {
@@ -247,6 +266,16 @@ func (c *customIndexHandler) redirectDirectoryToTrailingSlash(w http.ResponseWri
 }
 
 func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if raw := r.URL.Query().Get("thumb"); raw != "" && isImage(r.URL.Path) {
+		size, err := strconv.Atoi(raw)
+		if err != nil || !validThumbnailSize(size) {
+			http.Error(w, fmt.Sprintf("invalid thumb size %q, must be one of %v", raw, thumbnailSizes), http.StatusBadRequest)
+			return
+		}
+		if c.thumbs != nil && c.thumbs.serve(w, r, c.baseFS, cleanPath(strings.TrimPrefix(r.URL.Path, "/")), size) {
+			return
+		}
+	}
 	sortBy := canonicalizeSortBy(r.URL.Query().Get("sort"))
 	rootTrace := c.tp.Tracer("customIndex")
 	ctx, span := rootTrace.Start(r.Context(), r.URL.Path)
@@ -400,7 +429,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.baseHandler.ServeHTTP(w, r)
 }
 
-func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvider, enhancedList bool) (http.Handler, error) {
+func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvider, enhancedList bool, thumbs *thumbnailer) (http.Handler, error) {
 	tmpl, err := createTemplate(customIndexHTML)
 	if err != nil {
 		return nil, err
@@ -411,5 +440,6 @@ func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvi
 		enhancedList: enhancedList,
 		tp:           tp,
 		tmpl:         tmpl,
+		thumbs:       thumbs,
 	}, nil
 }
