@@ -28,10 +28,12 @@ concurrency:
 
 env:
   # On pull requests, skip the niche platforms (NICHE_PLATFORMS= is an empty
-  # list) to keep CI fast. This goes through MAKEFLAGS because make treats it
-  # like a command-line variable, which overrides the assignment in the
-  # Makefile; a plain NICHE_PLATFORMS environment variable would not.
-  MAKEFLAGS: ${{ github.event_name == 'pull_request' && 'NICHE_PLATFORMS=' || '' }}
+  # list) and only build amd64 and arm64 for Linux and Windows to keep CI fast.
+  # This goes through MAKEFLAGS because make treats it like a command-line
+  # variable, which overrides the assignment in the Makefile; a plain
+  # NICHE_PLATFORMS environment variable would not. Spaces inside a value must
+  # be escaped with a backslash or make splits the list into separate words.
+  MAKEFLAGS: ${{ github.event_name == 'pull_request' && 'GO_TEST_COUNT=3 NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64\ linux/arm64 WINDOWS_PLATFORMS=windows/amd64\ windows/arm64' || '' }}
 
 jobs:
   build-linux:
@@ -44,7 +46,7 @@ jobs:
       # Required by actions/upload-code-coverage below.
       # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage
       code-quality: write
-    timeout-minutes: 60
+    timeout-minutes: 20
     steps:
       - name: Fix mod cache permissions
         run: |
@@ -115,9 +117,11 @@ jobs:
           label: code-coverage/gotest
 
       - name: Benchmark
+        # Benchmarks are for performance tracking, not PR correctness.
+        if: ${{ github.event_name != 'pull_request' }}
         run: make benchmark.html
       - name: Publish Benchmark (7 Days)
-        # https://github.com/actions/upload-artifact
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v7
         continue-on-error: true
         with:
@@ -129,18 +133,6 @@ jobs:
 
       - name: Build Binaries
         run: make all -j"$(nproc)"
-
-      - name: Publish Binaries (1 Day)
-        # https://github.com/actions/upload-artifact
-        uses: actions/upload-artifact@v7
-        continue-on-error: true
-        with:
-          name: gowebserver-binaries
-          path: |
-            build/release/gowebserver-linux_amd64
-            build/release/gowebserver-windows_amd64.exe
-          retention-days: 1
-          if-no-files-found: error
 
       - name: Set up Docker Buildx (Scan)
         # https://github.com/docker/setup-buildx-action
@@ -245,14 +237,16 @@ jobs:
       - name: Test
         run: make test
       - name: Test (Deflake)
-        run: make GO_TEST_COUNT=5 test-deflake
+        run: make GO_TEST_COUNT=${{ github.event_name == 'pull_request' && '3' || '5' }} test-deflake
       - name: Coverage
         run: make coverage.txt coverage.xml
 
       - name: Benchmark
+        # Benchmarks are for performance tracking, not PR correctness.
+        if: ${{ github.event_name != 'pull_request' }}
         run: make benchmark.html
       - name: Publish Benchmark (7 Days)
-        # https://github.com/actions/upload-artifact
+        if: ${{ github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v7
         continue-on-error: true
         with:
@@ -261,3 +255,15 @@ jobs:
             benchmark.html
           retention-days: 7
           if-no-files-found: error
+      - name: Clean
+        # Leave the workspace clean for the next run. This is what keeps
+        # `actions/checkout`'s `git clean -ffdx` fast on the Windows
+        # self-hosted runner: without it, a previous build leaves the read-only
+        # Go toolchain/module cache under build/ and the next checkout's
+        # `git clean -ffdx` must delete those read-only files (hundreds of
+        # "access denied", over a minute). `make clean` handles them with
+        # `-chmod -R +w build/` before `rm -rf build/`. `if: always()` makes it
+        # run even when an earlier step failed, so a failed build still leaves
+        # a clean workspace instead of poisoning the next checkout.
+        if: always()
+        run: make clean

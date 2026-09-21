@@ -24,7 +24,15 @@ TOOLCHAIN_BIN = $(TOOLCHAIN_DIR)/bin
 THIRDPARTY_DIR = $(REPOSITORY_ROOT)/third_party
 
 TOOLCHAIN_GO = go
-TOOLCHAIN_GO_INSTALL = GOPATH=$(TOOLCHAIN_DIR) $(TOOLCHAIN_GO) install
+# Install to GOBIN (build/toolchain/bin, on PATH) instead of pinning GOPATH to
+# the repo: Go stores the read-only module cache under $GOPATH/pkg/mod, so
+# parking it in the repo means `actions/checkout`'s `git clean -ffdx` and `make
+# clean` (rm -rf build/) have to delete thousands of read-only files — what
+# makes the Windows self-hosted runner's checkout step take over a minute.
+# Using the default GOPATH keeps the cache out of the repo (persistent across
+# runs, never touched by clean); the proto plugins now match every other
+# toolchain rule, which already uses GOBIN.
+TOOLCHAIN_GO_INSTALL = GOBIN=$(TOOLCHAIN_BIN) $(TOOLCHAIN_GO) install
 CURL = curl --retry 5 --retry-connrefused
 
 SHORT_SHA = $(shell git rev-parse --short=7 HEAD | tr -d [:punct:])
