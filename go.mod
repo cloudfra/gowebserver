@@ -5,9 +5,9 @@ go 1.26.2
 require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/cloudfra/certtool v0.5.1
+	github.com/cloudfra/certtool v0.6.0
 	github.com/cloudfra/gomain v0.14.0
-	github.com/cloudfra/ufs v0.14.0
+	github.com/cloudfra/ufs v0.15.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/google/go-cmp v0.7.0
 	github.com/prometheus/client_golang v1.24.1
@@ -76,7 +76,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.22 // indirect
 	github.com/googleapis/gax-go/v2 v2.24.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
-	github.com/hanwen/go-fuse/v2 v2.11.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
