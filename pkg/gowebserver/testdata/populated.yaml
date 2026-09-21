@@ -4,6 +4,7 @@ serve:
     endpoint: /serving
 enhancedList: true
 debug: true
+thumbnailCacheMB: 64
 http:
   port: 1000
 https:

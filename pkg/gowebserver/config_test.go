@@ -43,9 +43,10 @@ func TestEmptyConfig(t *testing.T) {
 
 func TestPopulatedConfig(t *testing.T) {
 	conf := &Config{
-		Verbose:      true,
-		EnhancedList: true,
-		Debug:        true,
+		Verbose:          true,
+		EnhancedList:     true,
+		Debug:            true,
+		ThumbnailCacheMB: 64,
 		Serve: []Serve{{
 			Source:   "/home/folder",
 			Endpoint: "/serving",
@@ -160,9 +161,10 @@ func TestPopulatedYamlConfig(t *testing.T) {
 	}
 
 	want := &Config{
-		Verbose:      true,
-		EnhancedList: true,
-		Debug:        true,
+		Verbose:          true,
+		EnhancedList:     true,
+		Debug:            true,
+		ThumbnailCacheMB: 64,
 		Serve: []Serve{
 			{
 				Source:   "/home/folder",
@@ -218,8 +220,9 @@ func TestDefaultConfiguration(t *testing.T) {
 	}
 
 	want := &Config{
-		Verbose:      false,
-		EnhancedList: false,
+		Verbose:          false,
+		EnhancedList:     false,
+		ThumbnailCacheMB: defaultThumbnailCacheMB,
 		Serve: []Serve{
 			{
 				Source:   "",

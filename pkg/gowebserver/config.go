@@ -61,6 +61,8 @@ var (
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
 	debugFlag        = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+
+	thumbnailCacheMBFlag = flag.Int("thumbnail.cachemb", defaultThumbnailCacheMB, "In-memory cache size in MiB for generated image thumbnails (?thumb=256|512|1024). 0 disables thumbnails.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -111,6 +113,8 @@ type Config struct {
 	ConfigurationFile string  `yaml:"-"`
 	EnhancedList      bool    `yaml:"enhancedList"`
 	Debug             bool    `yaml:"debug"`
+	// ThumbnailCacheMB is the in-memory cache size in MiB for image thumbnails. 0 disables thumbnails.
+	ThumbnailCacheMB int `yaml:"thumbnailCacheMB"`
 
 	HTTP       HTTP       `yaml:"http"`
 	HTTPS      HTTPS      `yaml:"https"`
@@ -204,6 +208,7 @@ func loadFromFlags() (*Config, error) {
 		ConfigurationFile: *configFileFlag,
 		EnhancedList:      *enhancedListFlag,
 		Debug:             *debugFlag,
+		ThumbnailCacheMB:  *thumbnailCacheMBFlag,
 		HTTP: HTTP{
 			Port: *httpPortFlag,
 		},

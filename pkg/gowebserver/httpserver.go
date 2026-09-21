@@ -46,6 +46,7 @@ type webServerImpl struct {
 	uploadPath          string
 	uploadHTTPPath      string
 	enhancedListMode    bool
+	thumbnailCacheMB    int
 	enableDebugMethods  bool
 	monitoringCtx       *monitoringContext
 
@@ -85,6 +86,13 @@ func getPort(lis net.Listener) (int, error) {
 		return addr.Port, nil
 	}
 	return 0, fmt.Errorf("cannot get port from '%s'", lis)
+}
+
+func (ws *webServerImpl) thumbnailConfig() thumbnailConfig {
+	return thumbnailConfig{
+		BudgetBytes:   int64(ws.thumbnailCacheMB) << 20,
+		MeterProvider: ws.monitoringCtx.getMeterProvider(),
+	}
 }
 
 func (ws *webServerImpl) setPorts(httpPort int, httpsPort int) {
@@ -160,7 +168,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode, ws.thumbnailConfig())
 			if err != nil {
 				return err
 			}
@@ -177,7 +185,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode, ws.thumbnailConfig())
 		if err != nil {
 			return err
 		}
@@ -309,6 +317,7 @@ func New(conf *Config) (WebServer, error) {
 		certificateFilePath: conf.HTTPS.Certificate.CertificateFilePath,
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
+		thumbnailCacheMB:    conf.ThumbnailCacheMB,
 		enableDebugMethods:  conf.Debug,
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,
