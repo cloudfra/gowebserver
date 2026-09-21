@@ -19,9 +19,9 @@ ACTIONLINT_VERSION=latest
 # https://github.com/docker/compose/releases
 DOCKERCOMPOSE_VERSION = 5.5.1
 # https://developer.hashicorp.com/terraform/install
-TERRAFORM_VERSION = 1.16.2
+TERRAFORM_VERSION = 1.16.3
 # https://github.com/cloudfra/certtool/releases
-CERTTOOL_VERSION = 0.5.1
+CERTTOOL_VERSION = 0.6.0
 # https://github.com/hadolint/hadolint/releases
 HADOLINT_VERSION = 2.15.1
 # https://github.com/t-yuki/gocover-cobertura/releases
@@ -35,7 +35,7 @@ GOVULNCHECK_VERSION = 1.8.0
 # https://github.com/mgechev/revive/releases
 REVIVE_VERSION=latest
 # https://github.com/rvben/rumdl/releases
-RUMDL_VERSION = 0.2.73
+RUMDL_VERSION = 0.2.75
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
