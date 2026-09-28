@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -188,27 +189,31 @@ func canonicalizeSortBy(v string) string {
 // "/" to the raw request path without re-encoding it. For a directory named
 // e.g. "test#dir", that produces "Location: test#dir/". Browsers treat the
 // unescaped '#' as a fragment delimiter, so they request "/test" instead of
-// "/test#dir/", which 404s. Encoding the path with encodeURLPath before
-// redirecting keeps '#' (and other reserved characters) part of the path
-// instead of being read as a fragment or query string.
-func (c *customIndexHandler) redirectDirectoryToTrailingSlash(w http.ResponseWriter, r *http.Request, path, urlPath string) bool {
-	if strings.HasSuffix(urlPath, "/") || path == "." {
+// "/test#dir/", which 404s. Escaping the name before redirecting keeps '#'
+// (and other reserved characters) part of the path instead of being read as
+// a fragment or query string.
+//
+// The redirect is relative because this handler runs behind
+// http.StripPrefix: urlPath lacks the serve path prefix (e.g. "/e"), so an
+// absolute Location built from it would leave the mounted filesystem.
+func (c *customIndexHandler) redirectDirectoryToTrailingSlash(w http.ResponseWriter, r *http.Request, fsPath, urlPath string) bool {
+	if strings.HasSuffix(urlPath, "/") || fsPath == "." {
 		return false
 	}
 
 	// fs.Stat uses the filesystem's StatFS implementation when available
 	// (ufs.FS implements it), so this avoids opening a file handle just to
 	// check IsDir.
-	info, err := fs.Stat(c.baseFS, path)
+	info, err := fs.Stat(c.baseFS, fsPath)
 	if err != nil || !info.IsDir() {
 		return false
 	}
 
-	target := encodeURLPath(urlPath) + "/"
+	target := relativeURL(path.Base(urlPath)) + "/"
 	if q := r.URL.RawQuery; q != "" {
 		target += "?" + q
 	}
-	http.Redirect(w, r, target, http.StatusMovedPermanently)
+	redirectRelative(w, target, http.StatusMovedPermanently)
 	return true
 }
 
