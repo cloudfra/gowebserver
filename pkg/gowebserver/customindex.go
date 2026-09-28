@@ -178,40 +178,6 @@ func canonicalizeSortBy(v string) string {
 	return "name"
 }
 
-func tryListDir(fsys fs.FS, path string) {
-	f, err := fsys.Open(path)
-	if err != nil {
-		slog.Warn("failed to open file", "path", path, "error", err)
-		return
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			slog.Error("failed to close directory listing file", "path", path, "error", err)
-		}
-	}()
-	if dirList, ok := f.(fs.ReadDirFile); ok {
-		dirs, err := dirList.ReadDir(-1)
-		if err != nil {
-			slog.Warn("failed to open file", "path", path, "error", err)
-		}
-		for _, dir := range dirs {
-			slog.Info(fmt.Sprintf("- %s", dir.Name()), "path", path, "stat", statToString(dir.Info()))
-		}
-	} else {
-		slog.Info("regular file", "path", path, "stat", statToString(f.Stat()))
-	}
-}
-
-func statToString(info fs.FileInfo, err error) string {
-	statStr := ""
-	if err != nil {
-		statStr = fmt.Sprintf("%s", err)
-	} else {
-		statStr = fmt.Sprintf("size: %d, isDir: %t, time: %s", info.Size(), info.IsDir(), info.ModTime())
-	}
-	return statStr
-}
-
 // redirectDirectoryToTrailingSlash issues a redirect to urlPath+"/" when the
 // request targets a directory but the URL is missing its trailing slash. It
 // reports whether it wrote a response; the caller must stop handling the
@@ -257,7 +223,6 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		urlPath := r.URL.Path
 		path = cleanPath(strings.TrimPrefix(path, "/"))
 
-		tryListDir(c.baseFS, path)
 		slog.Info("customIndexHandler", "url", r.URL, "path", path)
 
 		if c.redirectDirectoryToTrailingSlash(w, r, path, urlPath) {
