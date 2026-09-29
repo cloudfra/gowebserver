@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -30,12 +31,17 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/cloudfra/gowebserver/internal"
+	"github.com/dustin/go-humanize"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const (
 	richViewMaxFileSize = 10 * 1024 * 1024 // 10 MB
-	defaultChromaTheme  = "monokai"
+	// defaultChromaTheme pairs richViewLightTheme and richViewDarkTheme and
+	// switches between them with the page's light/dark theme.
+	defaultChromaTheme = "auto"
+	richViewLightTheme = "github"
+	richViewDarkTheme  = "github-dark"
 )
 
 var (
@@ -48,7 +54,7 @@ var (
 			"monokai", "dracula", "github", "github-dark",
 			"solarized-dark", "solarized-light", "nord",
 		}
-		var out []string
+		out := []string{defaultChromaTheme}
 		for _, name := range candidates {
 			if styles.Get(name) != nil {
 				out = append(out, name)
@@ -58,13 +64,15 @@ var (
 	}()
 )
 
-// RichViewReport is the template data for rich-view.html.
+// RichViewReport is the template data for rich-view.html. URLs are relative
+// to the file's directory; see relativeURL.
 type RichViewReport struct {
 	FileName           string
-	FilePath           string
 	ParentPath         string
 	RawURL             string
 	Language           string
+	Size               string
+	Lines              int
 	Theme              string
 	AvailableThemes    []string
 	ChromaCSS          template.CSS
@@ -119,7 +127,11 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if stat.IsDir() {
-		http.Redirect(w, r, encodeURLPath(r.URL.Path), http.StatusFound)
+		target := "./"
+		if !strings.HasSuffix(r.URL.Path, "/") {
+			target = relativeURL(path.Base(r.URL.Path)) + "/"
+		}
+		redirectRelative(w, target, http.StatusFound)
 		return
 	}
 
@@ -130,20 +142,16 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fileName := path.Base(r.URL.Path)
-	filePath := encodeURLPath(r.URL.Path)
-	rawURL := filePath
-	parentPath := path.Dir(r.URL.Path)
-	if !strings.HasSuffix(parentPath, "/") {
-		parentPath += "/"
-	}
-	parentPath = encodeURLPath(parentPath)
+	rawURL := relativeURL(fileName)
+	parentPath := "./"
+	size := humanize.Bytes(uint64(stat.Size()))
 
 	if len(content) > richViewMaxFileSize {
 		report := &RichViewReport{
 			FileName:           fileName,
-			FilePath:           filePath,
 			ParentPath:         parentPath,
 			RawURL:             rawURL,
+			Size:               size,
 			ApplicationVersion: internal.Version(),
 			Oversized:          true,
 		}
@@ -166,10 +174,8 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve theme.
 	themeName := r.URL.Query().Get("theme")
-	style := styles.Get(themeName)
-	if style == nil {
+	if themeName != defaultChromaTheme && styles.Registry[themeName] == nil {
 		themeName = defaultChromaTheme
-		style = styles.Get(themeName)
 	}
 
 	// Detect language.
@@ -183,10 +189,14 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	lexer = chroma.Coalesce(lexer)
 
-	formatter := chromahtml.New(chromahtml.WithLineNumbers(true), chromahtml.WithClasses(true))
+	formatter := chromahtml.New(
+		chromahtml.WithLineNumbers(true),
+		chromahtml.WithLinkableLineNumbers(true, "L"),
+		chromahtml.WithClasses(true),
+	)
 
-	var cssBuilder strings.Builder
-	if err := formatter.WriteCSS(&cssBuilder, style); err != nil {
+	chromaCSS, err := richViewCSS(formatter, themeName)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -198,7 +208,8 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var htmlBuf bytes.Buffer
-	if err := formatter.Format(&htmlBuf, style, iterator); err != nil {
+	// With classes enabled the style only affects the CSS, not the markup.
+	if err := formatter.Format(&htmlBuf, styles.Fallback, iterator); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -210,13 +221,14 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	report := &RichViewReport{
 		FileName:           fileName,
-		FilePath:           filePath,
 		ParentPath:         parentPath,
 		RawURL:             rawURL,
 		Language:           language,
+		Size:               size,
+		Lines:              strings.Count(contentStr, "\n") + boolToInt(!strings.HasSuffix(contentStr, "\n") && contentStr != ""),
 		Theme:              themeName,
 		AvailableThemes:    richViewThemes,
-		ChromaCSS:          template.CSS(cssBuilder.String()),
+		ChromaCSS:          template.CSS(chromaCSS),
 		HighlightedHTML:    template.HTML(htmlBuf.String()),
 		ApplicationVersion: internal.Version(),
 	}
@@ -225,4 +237,41 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl.Execute(w, report); err != nil {
 		slog.Error("failed to execute rich view template", "path", fsPath, "error", err)
 	}
+}
+
+// richViewCSS returns the chroma stylesheet for themeName. The "auto" theme
+// emits a light and a dark stylesheet, each nested under the selectors that
+// the page uses for its own light and dark tokens, so the code follows the
+// OS setting and the page's theme override.
+func richViewCSS(formatter *chromahtml.Formatter, themeName string) (string, error) {
+	write := func(name string) (string, error) {
+		var b strings.Builder
+		if err := formatter.WriteCSS(&b, styles.Get(name)); err != nil {
+			return "", err
+		}
+		return b.String(), nil
+	}
+	if themeName != defaultChromaTheme {
+		return write(themeName)
+	}
+	light, err := write(richViewLightTheme)
+	if err != nil {
+		return "", err
+	}
+	dark, err := write(richViewDarkTheme)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { %[1]s } }
+:root[data-theme="light"] { %[1]s }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { %[2]s } }
+:root[data-theme="dark"] { %[2]s }
+`, light, dark), nil
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

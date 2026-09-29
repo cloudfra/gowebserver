@@ -16,8 +16,14 @@ package gowebserver
 
 import (
 	"bytes"
+	"html"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -207,5 +213,96 @@ func TestRichViewHandler_InvalidTheme(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, defaultChromaTheme) {
 		t.Errorf("expected fallback to %q theme in body, got: %q", defaultChromaTheme, body[:min(300, len(body))])
+	}
+}
+
+// TestWebServer_ServePathPrefix_RelativeLinks checks that redirects and rich
+// view links stay inside a filesystem mounted under a serve path. Handlers
+// run behind http.StripPrefix, so links built from r.URL.Path used to drop
+// the prefix: /e/apps/README.md linked back to /apps/.
+func TestWebServer_ServePathPrefix_RelativeLinks(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "apps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "apps", "README.md"), []byte("# hi\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	baseURL, closer := serveAsync(t, &Config{
+		EnhancedList: true,
+		Serve:        []Serve{{Source: dir, Endpoint: "/e/"}},
+	})
+	defer closer()
+
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resolve := func(t *testing.T, reqURL, ref string) string {
+		t.Helper()
+		base, err := url.Parse(reqURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := url.Parse(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return base.ResolveReference(r).Path
+	}
+
+	for _, tc := range []struct {
+		reqPath string
+		want    string
+	}{
+		{reqPath: "/e/apps", want: "/e/apps/"},
+		{reqPath: "/e/apps?view=rich", want: "/e/apps/"},
+	} {
+		t.Run(tc.reqPath, func(t *testing.T) {
+			reqURL := baseURL + tc.reqPath
+			resp, err := client.Get(reqURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := resp.Body.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode < 300 || resp.StatusCode >= 400 {
+				t.Fatalf("status = %d, want a redirect", resp.StatusCode)
+			}
+			if got := resolve(t, reqURL, resp.Header.Get("Location")); got != tc.want {
+				t.Errorf("redirect resolves to %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	reqURL := baseURL + "/e/apps/README.md?view=rich"
+	resp, err := http.Get(reqURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		class string
+		want  string
+	}{
+		{class: "back", want: "/e/apps/"},
+		{class: "icon-btn", want: "/e/apps/README.md"},
+	} {
+		m := regexp.MustCompile(`class="` + tc.class + `" href="([^"]*)"`).FindSubmatch(body)
+		if m == nil {
+			t.Fatalf("no %q link in rich view", tc.class)
+		}
+		if got := resolve(t, reqURL, html.UnescapeString(string(m[1]))); got != tc.want {
+			t.Errorf("%q link resolves to %q, want %q", tc.class, got, tc.want)
+		}
 	}
 }

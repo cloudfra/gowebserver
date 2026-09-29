@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -234,11 +235,19 @@ func urlEncode(u string) string {
 	return url.PathEscape(u)
 }
 
-// encodeURLPath percent-encodes the given URL path so that characters with
-// special meaning in URLs (such as '#', '?', and '%') are preserved as part
-// of the path instead of being interpreted as the start of a fragment or
-// query string when used in an href/Location value. Path separators ('/')
-// are preserved.
-func encodeURLPath(p string) string {
-	return (&url.URL{Path: p}).EscapedPath()
+// relativeURL returns a link to the sibling named name, relative to the
+// directory of the current request. Handlers run behind http.StripPrefix, so
+// absolute links built from r.URL.Path would drop the serve path prefix;
+// relative links resolve against the path the browser actually requested.
+// The "./" keeps a name containing ':' from being read as a URL scheme.
+func relativeURL(name string) string {
+	return "./" + url.PathEscape(name)
+}
+
+// redirectRelative writes a redirect to target without resolving it against
+// r.URL.Path the way http.Redirect does, which would lose the prefix removed
+// by http.StripPrefix.
+func redirectRelative(w http.ResponseWriter, target string, code int) {
+	w.Header().Set("Location", target)
+	w.WriteHeader(code)
 }
