@@ -2526,20 +2526,22 @@
       }
     }
 
+    /* Once, like the other hover animations: the pointer often rests on
+       this button, or focus stays on it, while a slideshow or video plays. */
     .ss-btn:is(:hover, :focus-visible) .i-bar {
-      animation: ss-bob 0.8s ease-in-out infinite alternate;
+      animation: ss-bob 0.8s ease-in-out;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-bar2 {
-      animation-delay: -0.4s;
+      animation-direction: reverse;
     }
 
     @keyframes ss-bob {
-      from {
+      25% {
         transform: translateY(-2px);
       }
 
-      to {
+      75% {
         transform: translateY(2px);
       }
     }
@@ -3047,6 +3049,13 @@
 
     .ss.chrome-off {
       cursor: none;
+    }
+
+    /* A pointer left resting on a button keeps it :hover after the
+       controls fade out; nothing should keep moving there unseen. */
+    .ss.chrome-off .ss-btn,
+    .ss.chrome-off .ss-btn * {
+      animation: none !important;
     }
 
     @media (hover: none), (pointer: coarse), (max-width: 700px) {

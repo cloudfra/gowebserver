@@ -2470,20 +2470,21 @@
       }
     }
 
+     
     .ss-btn:is(:hover, :focus-visible) .i-bar {
-      animation: ss-bob 0.8s ease-in-out infinite alternate;
+      animation: ss-bob 0.8s ease-in-out;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-bar2 {
-      animation-delay: -0.4s;
+      animation-direction: reverse;
     }
 
     @keyframes ss-bob {
-      from {
+      25% {
         transform: translateY(-2px);
       }
 
-      to {
+      75% {
         transform: translateY(2px);
       }
     }
@@ -2973,6 +2974,12 @@
 
     .ss.chrome-off {
       cursor: none;
+    }
+
+     
+    .ss.chrome-off .ss-btn,
+    .ss.chrome-off .ss-btn * {
+      animation: none !important;
     }
 
     @media (hover: none), (pointer: coarse), (max-width: 700px) {
