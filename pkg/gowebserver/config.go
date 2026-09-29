@@ -66,7 +66,10 @@ var (
 	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg binary to use. Empty uses the installed ffmpeg, if any.")
 	ffmpegInstallOnDemandFlag = flag.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
 	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
-	debugFlag                 = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+
+	// Thumbnail Flags
+	thumbnailsEnabledFlag = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
+	debugFlag             = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -123,6 +126,7 @@ type Config struct {
 	Monitoring Monitoring `yaml:"monitoring"`
 	Upload     Serve      `yaml:"upload"`
 	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
+	Thumbnails Thumbnails `yaml:"thumbnails"`
 }
 
 // FFmpeg configures the ffmpeg binary used for video features.
@@ -140,6 +144,14 @@ type FFmpeg struct {
 	// .zip). Append #sha256=<hex> to verify it. Empty downloads the latest
 	// release for this platform.
 	SourceURL string `yaml:"sourceUrl"`
+}
+
+// Thumbnails configures resized images and video frames, served when a
+// file is requested with width or height query parameters.
+type Thumbnails struct {
+	// Enabled turns thumbnails on. Video thumbnails also need ffmpeg; see
+	// FFmpeg.
+	Enabled bool `yaml:"enabled"`
 }
 
 // Serve maps the source to endpoint serving of content.
@@ -263,6 +275,9 @@ func loadFromFlags() (*Config, error) {
 			Path:            *ffmpegPathFlag,
 			InstallOnDemand: *ffmpegInstallOnDemandFlag,
 			SourceURL:       *ffmpegSourceURLFlag,
+		},
+		Thumbnails: Thumbnails{
+			Enabled: *thumbnailsEnabledFlag,
 		},
 	}, nil
 }

@@ -269,6 +269,9 @@ func TestDefaultConfiguration(t *testing.T) {
 			Source:   "uploaded-files",
 			Endpoint: "/upload.asp",
 		},
+		Thumbnails: Thumbnails{
+			Enabled: true,
+		},
 	}
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {

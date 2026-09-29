@@ -29,3 +29,5 @@ ffmpeg:
   path: ""
   installOnDemand: false
   sourceUrl: ""
+thumbnails:
+  enabled: false
