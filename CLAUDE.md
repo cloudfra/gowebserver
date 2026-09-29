@@ -36,6 +36,7 @@ cmd/                      # CLI entry points
 └── gowebserver/          # Main web server binary
 
 pkg/                      # Public libraries
+├── ffmpeg/               # Runs ffmpeg; finds or downloads (on demand, after license acceptance) the binary
 └── gowebserver/          # Core server implementation
 
 internal/gowebserver/testing/  # Test utilities and embedded test archives

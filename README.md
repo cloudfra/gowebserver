@@ -45,6 +45,26 @@ sc.exe start gowebserver
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
 
+## ffmpeg
+
+Some features use [ffmpeg](https://ffmpeg.org). gowebserver doesn't ship it. It uses, in order:
+
+1. The binary set with `ffmpeg.path` (`-ffmpeg.path`).
+2. The `ffmpeg` installed on `PATH`.
+3. A copy downloaded the first time it's needed, only when both `ffmpeg.installOnDemand` and `ffmpeg.acceptLicense` are set.
+
+The downloadable builds are GPL, so gowebserver won't download one until you accept [ffmpeg's license](https://ffmpeg.org/legal.html). By default the download is the latest release from [BtbN's FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) for Linux or Windows on amd64 or arm64, checked against its published SHA-256. `ffmpeg.sourceUrl` names another build instead: a `.tar.xz`, `.tar.gz` or `.zip` holding an `ffmpeg` binary. Append `#sha256=<hex>` to the URL to have it verified. Downloads, with their license files, are kept in the user cache directory (`~/.cache/gowebserver/ffmpeg` on Linux) and reused.
+
+```yaml
+ffmpeg:
+  acceptLicense: true
+  path: ""            # empty: use the installed ffmpeg, if any
+  installOnDemand: true
+  sourceUrl: ""       # empty: the latest release for this platform
+```
+
+Without ffmpeg, the features that need it are turned off.
+
 ## Downloads
 
 |   OS    | Arch  | Link
