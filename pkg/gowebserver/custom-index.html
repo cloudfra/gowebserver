@@ -2011,6 +2011,18 @@
       opacity: 1;
     }
 
+    /* A video tile's server thumbnail sits over the video and fades out
+       while the hover preview plays: slowly the first time, quickly once
+       the video is buffered. It fades back in at the usual speed. */
+    .tile.vid.vplay .vthumb {
+      opacity: 0;
+      transition-duration: 0.6s;
+    }
+
+    .tile.vid.vwarm.vplay .vthumb {
+      transition-duration: 0.15s;
+    }
+
     .tile::after {
       content: "";
       position: absolute;
@@ -4050,14 +4062,12 @@
         el.addEventListener('pointerover', function (e) {
           if (!finePointer.matches) return;
           var a = e.target.closest('.tile.vid');
-          var v = a && a.querySelector('video');
-          if (v) v.play().catch(function () { });
+          if (a) previewVideo(a, true);
         });
         el.addEventListener('pointerout', function (e) {
           var a = e.target.closest('.tile.vid');
           if (!a || a.contains(e.relatedTarget)) return;
-          var v = a.querySelector('video');
-          if (v) v.pause();
+          previewVideo(a, false);
         });
 
         var lastWidth = 0;
@@ -4126,11 +4136,20 @@
         }, { once: true });
         v.addEventListener('error', function () { a.classList.add('err'); release(); }, { once: true });
         setTimeout(release, 10000);
-        // With a poster frame from the server the tile shows right away;
-        // otherwise the fragment asks the browser for a frame from just
-        // after the start instead of a (often black) first frame.
+        v.addEventListener('playing', function () { if (a._hovering) revealVideo(a); });
+        // With a thumbnail from the server the tile shows it, above the
+        // video, rather than as the video's poster: a poster vanishes the
+        // moment playback starts and never comes back, so it can't fade.
+        // Without one, the fragment asks the browser for a frame from
+        // just after the start instead of a (often black) first frame.
         if (CFG.videoThumbs) {
-          v.poster = tileThumbURL(it, parseFloat(a.style.width));
+          var th = doc.createElement('img');
+          th.className = 'vthumb';
+          th.alt = '';
+          th.decoding = 'async';
+          th.draggable = false;
+          th.src = tileThumbURL(it, parseFloat(a.style.width));
+          a.insertBefore(th, a.firstChild);
           v.src = it.url;
         } else {
           v.src = it.url + '#t=0.5';
@@ -4138,7 +4157,46 @@
         a.insertBefore(v, a.firstChild);
       }
 
+      // How long a video tile's thumbnail takes to fade back in, from the
+      // .tile img transition.
+      var VTHUMB_FADE_BACK = 400;
+
+      // Starts (on) or stops the hover preview of video tile a. With a
+      // thumbnail, it fades out only once the video is actually playing,
+      // so there's no flash of a blank frame, and fades back in on leave
+      // before the video pauses. Later hovers fade quickly, since the video
+      // is buffered by then.
+      function previewVideo(a, on) {
+        var v = a.querySelector('video');
+        if (!v) return;
+        clearTimeout(a._pauseTimer);
+        a._hovering = on;
+        if (!a.querySelector('.vthumb')) {
+          if (on) v.play().catch(function () { }); else v.pause();
+          return;
+        }
+        if (!on) {
+          a.classList.remove('vplay');
+          a._pauseTimer = setTimeout(function () { v.pause(); }, VTHUMB_FADE_BACK);
+          return;
+        }
+        // Back before the video paused: it's still playing, so show it now.
+        if (!v.paused && v.readyState > 2) revealVideo(a);
+        v.play().catch(function () { });
+      }
+
+      function revealVideo(a) {
+        if (a._warm) a.classList.add('vwarm');
+        a.classList.add('vplay');
+        a._warm = true;
+      }
+
       function unloadVideo(a) {
+        clearTimeout(a._pauseTimer);
+        a._hovering = a._warm = false;
+        a.classList.remove('vplay', 'vwarm');
+        var th = a.querySelector('.vthumb');
+        if (th) th.remove();
         var v = a.querySelector('video');
         if (v) {
           v.pause();
