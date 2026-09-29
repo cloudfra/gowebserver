@@ -80,6 +80,12 @@ func TestPopulatedConfig(t *testing.T) {
 			Source:   "/home/upload",
 			Endpoint: "/postage",
 		},
+		FFmpeg: FFmpeg{
+			AcceptLicense:   true,
+			Path:            "/usr/bin/ffmpeg",
+			InstallOnDemand: true,
+			SourceURL:       "https://example.com/ffmpeg.tar.xz",
+		},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -200,6 +206,12 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		Upload: Serve{
 			Source:   "/home/upload",
 			Endpoint: "/postage",
+		},
+		FFmpeg: FFmpeg{
+			AcceptLicense:   true,
+			Path:            "/usr/bin/ffmpeg",
+			InstallOnDemand: true,
+			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
 	}
 

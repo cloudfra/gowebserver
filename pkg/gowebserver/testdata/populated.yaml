@@ -26,3 +26,8 @@ monitoring:
 upload:
   source: /home/upload
   endpoint: /postage
+ffmpeg:
+  acceptLicense: true
+  path: /usr/bin/ffmpeg
+  installOnDemand: true
+  sourceUrl: https://example.com/ffmpeg.tar.xz
