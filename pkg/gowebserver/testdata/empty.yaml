@@ -24,3 +24,8 @@ monitoring:
 upload:
   source: ""
   endpoint: ""
+ffmpeg:
+  acceptLicense: false
+  path: ""
+  installOnDemand: false
+  sourceUrl: ""

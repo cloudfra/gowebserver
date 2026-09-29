@@ -60,7 +60,13 @@ var (
 	monitoringMetricsPath       = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
-	debugFlag        = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+
+	// FFmpeg Flags
+	ffmpegAcceptLicenseFlag   = flag.Bool("ffmpeg.acceptlicense", false, "Accept ffmpeg's license (downloadable builds are GPL). Required before ffmpeg is downloaded.")
+	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg binary to use. Empty uses the installed ffmpeg, if any.")
+	ffmpegInstallOnDemandFlag = flag.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
+	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz or .zip). Empty downloads the latest release for this platform.")
+	debugFlag                 = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -116,6 +122,23 @@ type Config struct {
 	HTTPS      HTTPS      `yaml:"https"`
 	Monitoring Monitoring `yaml:"monitoring"`
 	Upload     Serve      `yaml:"upload"`
+	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
+}
+
+// FFmpeg configures the ffmpeg binary used for video features.
+type FFmpeg struct {
+	// AcceptLicense accepts ffmpeg's license; the downloadable builds are
+	// GPL. ffmpeg is never downloaded without it.
+	AcceptLicense bool `yaml:"acceptLicense"`
+	// Path is the ffmpeg binary to use. Empty uses the installed ffmpeg,
+	// if there is one.
+	Path string `yaml:"path"`
+	// InstallOnDemand downloads ffmpeg the first time it's needed when
+	// none is installed. Requires AcceptLicense.
+	InstallOnDemand bool `yaml:"installOnDemand"`
+	// SourceURL is the ffmpeg build to download (.tar.xz or .zip). Empty
+	// downloads the latest release for this platform.
+	SourceURL string `yaml:"sourceUrl"`
 }
 
 // Serve maps the source to endpoint serving of content.
@@ -233,6 +256,12 @@ func loadFromFlags() (*Config, error) {
 		Upload: Serve{
 			Source:   *uploadPathFlag,
 			Endpoint: *uploadHTTPPathFlag,
+		},
+		FFmpeg: FFmpeg{
+			AcceptLicense:   *ffmpegAcceptLicenseFlag,
+			Path:            *ffmpegPathFlag,
+			InstallOnDemand: *ffmpegInstallOnDemandFlag,
+			SourceURL:       *ffmpegSourceURLFlag,
 		},
 	}, nil
 }
