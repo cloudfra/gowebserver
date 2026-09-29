@@ -670,25 +670,27 @@
       }
     }
 
+    /* Each ground half tilts about its outer end and stretches by
+     * 1/cos(angle), so the inner ends stay joined at the middle. */
     @keyframes ic-cave {
       20% {
         transform: rotate(0);
       }
 
       40% {
-        transform: rotate(24deg);
+        transform: rotate(24deg) scaleX(1.0946);
       }
 
       55% {
-        transform: rotate(28deg);
+        transform: rotate(28deg) scaleX(1.1326);
       }
 
       75% {
-        transform: rotate(-6deg);
+        transform: rotate(-6deg) scaleX(1.0055);
       }
 
       88% {
-        transform: rotate(2deg);
+        transform: rotate(2deg) scaleX(1.0006);
       }
     }
 
@@ -698,19 +700,19 @@
       }
 
       40% {
-        transform: rotate(-24deg);
+        transform: rotate(-24deg) scaleX(1.0946);
       }
 
       55% {
-        transform: rotate(-28deg);
+        transform: rotate(-28deg) scaleX(1.1326);
       }
 
       75% {
-        transform: rotate(6deg);
+        transform: rotate(6deg) scaleX(1.0055);
       }
 
       88% {
-        transform: rotate(-2deg);
+        transform: rotate(-2deg) scaleX(1.0006);
       }
     }
 
