@@ -244,15 +244,19 @@ func (t *thumbnailer) videos() bool {
 }
 
 // handler serves thumbnails for files in fsys and passes every other
-// request to base.
-func (t *thumbnailer) handler(base http.Handler, fsys fs.FS) http.Handler {
-	return &thumbnailHandler{t: t, base: base, fsys: fsys}
+// request to base. source names what fsys serves (its ufs URI): the store
+// is shared by every served filesystem, so each source's thumbnails are
+// kept apart.
+func (t *thumbnailer) handler(base http.Handler, fsys fs.FS, source string) http.Handler {
+	sum := sha256.Sum256([]byte(source))
+	return &thumbnailHandler{t: t, base: base, fsys: fsys, source: hex.EncodeToString(sum[:8])}
 }
 
 type thumbnailHandler struct {
-	t    *thumbnailer
-	base http.Handler
-	fsys fs.FS
+	t      *thumbnailer
+	base   http.Handler
+	fsys   fs.FS
+	source string // hash of the served filesystem's URI
 }
 
 // thumbnail is a generated thumbnail, or a failed one (data nil).
@@ -287,7 +291,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	span.SetAttributes(attribute.String("path", name), attribute.String("spec", spec.key()))
 
-	key := thumbnailPath(name, info, spec)
+	key := path.Join(h.source, thumbnailPath(name, info, spec))
 	sum := sha256.Sum256([]byte(key))
 	etag := `"` + hex.EncodeToString(sum[:12]) + `"`
 
@@ -749,13 +753,15 @@ func exifOrientation(t []byte) int {
 
 // thumbnailStore keeps generated thumbnails as files in an in-memory
 // filesystem (ufs "memory:"), laid out beside the path of the file each was
-// made from: the 512x512 cover thumbnail of photos/a.jpg is stored as
-// photos/a.jpg/512x512-cover@<version>, where the version changes whenever
-// the source file's size or modification time does. Requests load from
-// there first and only decode the source when it isn't stored.
+// made from, under a directory for the served filesystem: the 512x512
+// cover thumbnail of photos/a.jpg is stored as
+// <source>/photos/a.jpg/512x512-cover@<version>, where the version changes
+// whenever the source file's size or modification time does. Requests
+// load from there first and only decode the source when it isn't stored.
 //
-// Nothing is evicted: the store grows with the number of distinct
-// thumbnails made while the server runs.
+// Storing a new version removes the older versions' thumbnails of the same
+// size. Nothing else is evicted: the store grows with the number of
+// distinct thumbnails made while the server runs.
 type thumbnailStore struct {
 	fsys ufs.WriteFS
 }
@@ -767,7 +773,7 @@ func newThumbnailStore() (*thumbnailStore, error) {
 	}
 	wfs, ok := fsys.(ufs.WriteFS)
 	if !ok {
-		return nil, errors.New("memory filesystem is not writable")
+		return nil, errors.Join(errors.New("memory filesystem is not writable"), fsys.Close())
 	}
 	return &thumbnailStore{fsys: wfs}, nil
 }
@@ -781,9 +787,11 @@ func (s *thumbnailStore) get(name string) (*thumbnail, bool) {
 	return &thumbnail{data: data, contentType: http.DetectContentType(data)}, true
 }
 
-// put stores th at name.
+// put stores th at name, a path from thumbnailPath, and removes the
+// thumbnails of the same size made from older versions of the file.
 func (s *thumbnailStore) put(name string, th *thumbnail) error {
-	if err := s.fsys.MkdirAll(path.Dir(name), 0o755); err != nil {
+	dir, base := path.Dir(name), path.Base(name)
+	if err := s.fsys.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	f, err := s.fsys.Create(name)
@@ -793,7 +801,22 @@ func (s *thumbnailStore) put(name string, th *thumbnail) error {
 	if _, err := f.Write(th.data); err != nil {
 		return errors.Join(err, f.Close())
 	}
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	spec, _, _ := strings.Cut(base, "@")
+	entries, err := fs.ReadDir(s.fsys, dir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if n := e.Name(); n != base && strings.HasPrefix(n, spec+"@") {
+			if err := s.fsys.Remove(path.Join(dir, n)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *thumbnailStore) close() error {

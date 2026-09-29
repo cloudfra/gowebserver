@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -138,7 +139,7 @@ func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpegPath string) (http.
 			t.Errorf("close: %v", err)
 		}
 	})
-	return th.handler(base, fsys), &baseCalls
+	return th.handler(base, fsys, "test:"), &baseCalls
 }
 
 func thumbGet(t *testing.T, h http.Handler, target string, header http.Header) *httptest.ResponseRecorder {
@@ -396,21 +397,56 @@ func TestThumbnailCaching(t *testing.T) {
 
 func TestThumbnailStore(t *testing.T) {
 	fsys := fstest.MapFS{"photos/a.jpg": {Data: encodeJPEG(t, stripes(40, 20)), ModTime: time.Unix(1_700_000_000, 0)}}
-	h, _ := newTestThumbnailHandler(t, fsys, "")
-	th := h.(*thumbnailHandler).t
+	base := http.NotFoundHandler()
+	th, err := newThumbnailer(Thumbnails{Enabled: true}, nil, (&monitoringContext{}).getTraceProvider())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := th.close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+	stored := func(th *thumbnailer, pattern string) []string {
+		t.Helper()
+		matches, err := fs.Glob(th.store.fsys, pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return matches
+	}
 
+	h := th.handler(base, fsys, "/srv/photos")
 	rec := thumbGet(t, h, "/photos/a.jpg?width=20&height=20&fit=cover", nil)
 	decodeThumb(t, rec)
 
-	// The thumbnail is a file in the memory filesystem, beside the path
-	// of the photo it was made from.
-	matches, err := fs.Glob(th.store.fsys, "photos/a.jpg/20x20-cover@*")
-	if err != nil || len(matches) != 1 {
-		t.Fatalf("stored thumbnails = %v, %v; want one", matches, err)
+	// The thumbnail is a file in the memory filesystem, beside the path of
+	// the photo it was made from, under a directory for the served
+	// filesystem.
+	matches := stored(th, "*/photos/a.jpg/20x20-cover@*")
+	if len(matches) != 1 {
+		t.Fatalf("stored thumbnails = %v; want one", matches)
 	}
-	stored, err := th.store.fsys.ReadFile(matches[0])
-	if err != nil || !bytes.Equal(stored, rec.Body.Bytes()) {
+	if data, err := th.store.fsys.ReadFile(matches[0]); err != nil || !bytes.Equal(data, rec.Body.Bytes()) {
 		t.Errorf("stored file differs from the response (err %v)", err)
+	}
+
+	// Another served filesystem with a file at the same path has its own.
+	thumbGet(t, th.handler(base, fsys, "/srv/other"), "/photos/a.jpg?width=20&height=20&fit=cover", nil)
+	if n := len(stored(th, "*/photos/a.jpg/20x20-cover@*")); n != 2 {
+		t.Errorf("%d thumbnails for two served filesystems, want 2", n)
+	}
+
+	// Editing the photo replaces its old thumbnail of that size and leaves
+	// other sizes.
+	thumbGet(t, h, "/photos/a.jpg?width=10", nil)
+	fsys["photos/a.jpg"] = &fstest.MapFile{Data: encodeJPEG(t, stripes(80, 40)), ModTime: time.Unix(1_700_000_100, 0)}
+	thumbGet(t, h, "/photos/a.jpg?width=20&height=20&fit=cover", nil)
+	if now := stored(th, "*/photos/a.jpg/20x20-cover@*"); len(now) != 2 || slices.Contains(now, matches[0]) {
+		t.Errorf("after an edit stored %v; want the old version replaced (was %s)", now, matches[0])
+	}
+	if n := len(stored(th, "*/photos/a.jpg/10x0-*")); n != 1 {
+		t.Errorf("%d thumbnails of another size, want 1 left alone", n)
 	}
 }
 

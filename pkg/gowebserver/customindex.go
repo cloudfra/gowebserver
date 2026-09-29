@@ -69,7 +69,7 @@ func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool,
 	if thumbs == nil {
 		return rv, nFS.Close, nil
 	}
-	return thumbs.handler(rv, nFS), nFS.Close, nil
+	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
 }
 
 func cleanPath(path string) string {
