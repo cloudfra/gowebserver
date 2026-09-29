@@ -50,7 +50,7 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **index.go / customindex.go**: Directory listing templates (basic and custom css UI)
 - **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
-- **custom-index.html**: Enhanced HTML template for file browsing. Includes advanced preview features for images and videos.
+- **custom-index.html**: Enhanced file browser template. Media is emitted as a compact JS array and rendered by a virtualized grid (only rows near the viewport are in the DOM); the slideshow mounts only the current slide and its neighbors. Keep both properties when editing, since folders can hold tens of thousands of photos. `testdata/test-modernindex.html` is a golden render of it; regenerate with the `cp` command `TestIndexHTTPHandlerServeHTTP` prints.
 
 ### Request Flow
 
