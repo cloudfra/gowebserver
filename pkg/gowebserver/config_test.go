@@ -86,6 +86,9 @@ func TestPopulatedConfig(t *testing.T) {
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
+		Thumbnails: Thumbnails{
+			CachePath: "/var/cache/gowebserver/thumbnails.db",
+		},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -213,6 +216,9 @@ func TestPopulatedYamlConfig(t *testing.T) {
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
+		Thumbnails: Thumbnails{
+			CachePath: "/var/cache/gowebserver/thumbnails.db",
+		},
 	}
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -268,6 +274,9 @@ func TestDefaultConfiguration(t *testing.T) {
 		Upload: Serve{
 			Source:   "uploaded-files",
 			Endpoint: "/upload.asp",
+		},
+		Thumbnails: Thumbnails{
+			Enabled: true,
 		},
 	}
 

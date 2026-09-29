@@ -42,6 +42,7 @@ sc.exe start gowebserver
   * 7-zip
   * RAR
   * Git repository (HTTPS, SSH)
+* Thumbnails: add `width` and/or `height` to an image or video URL to get a resized copy (see [Thumbnails](#thumbnails)).
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
 
@@ -64,6 +65,22 @@ ffmpeg:
 ```
 
 Without ffmpeg, the features that need it are turned off.
+
+## Thumbnails
+
+Request an image or video with `width` and/or `height` query parameters to get a thumbnail instead of the file, e.g. `photo.jpg?width=512&height=512`. The enhanced index (`-enhancedindex`) uses these for its photo grid, slideshow and video posters.
+
+| Parameter | Meaning |
+| --- | --- |
+| `width`, `height` | Size in pixels, 1 to 4096. With only one, the other follows the file's aspect ratio (never enlarged). |
+| `fit` | How the file fills a `width` x `height` box: `cover` fills it and crops the overflow (default), `contain` fits inside and pads with `background`, `fill` stretches, `inside` fits inside at the file's ratio without padding or enlarging. |
+| `format` | `jpeg`, `png` or `gif`. Defaults to `png` for images with transparency, `jpeg` otherwise. |
+| `background` | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for png and gif, black for jpeg. |
+| `quality` | JPEG quality, 1 to 100 (default 82). |
+
+Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are the frame 10% of the way through the video, made with [ffmpeg](#ffmpeg); without it, video thumbnail requests return 415. Thumbnails are cached in a BoltDB file, so they survive restarts; a thumbnail is replaced when its file changes. Set the file with `thumbnails.cachePath` (`-thumbnails.cachepath`). By default it's in the user cache directory (`~/.cache/gowebserver/thumbnails.db` on Linux), and `memory:` keeps thumbnails in memory only. If the file can't be opened, for example because another gowebserver is using it, thumbnails are kept in memory instead, after waiting up to a minute for the lock. Turn the feature off with `-thumbnails.enabled=false`.
+
+The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, square for photo tiles and 16:9 for video tiles, chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
 ## Downloads
 

@@ -45,7 +45,7 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool) (http.Handler, func() error, error) {
+func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
@@ -58,7 +58,7 @@ func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool)
 		return nil, nilFuncWithError, err
 	}
 
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, tp, enhancedList)
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, tp, enhancedList, thumbs)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
@@ -66,7 +66,10 @@ func newHandlerFromFS(fsSpec string, tp trace.TracerProvider, enhancedList bool)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
-	return rv, nFS.Close, nil
+	if thumbs == nil {
+		return rv, nFS.Close, nil
+	}
+	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
 }
 
 func cleanPath(path string) string {
@@ -149,14 +152,18 @@ func (d *DirEntry) String() string {
 }
 
 type customIndexReport struct {
-	Root                  string
-	RootName              string
-	DirEntries            []*DirEntry
-	SortBy                string
-	UseTimestamp          bool
-	HasNonMediaEntry      bool
-	HasImage              bool
-	HasVideo              bool
+	Root             string
+	RootName         string
+	DirEntries       []*DirEntry
+	SortBy           string
+	UseTimestamp     bool
+	HasNonMediaEntry bool
+	HasImage         bool
+	HasVideo         bool
+	// Thumbnails is set when the grid can request resized images, and
+	// VideoThumbnails when it can request video frames too.
+	Thumbnails            bool
+	VideoThumbnails       bool
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -165,6 +172,7 @@ type customIndexHandler struct {
 	baseHandler  http.Handler
 	baseFS       fs.FS
 	enhancedList bool
+	thumbs       *thumbnailer
 	tp           trace.TracerProvider
 	tmpl         *template.Template
 }
@@ -272,6 +280,8 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					DirEntries:            []*DirEntry{},
 					SortBy:                sortBy,
 					UseTimestamp:          strings.Contains(sortBy, "date"),
+					Thumbnails:            c.thumbs != nil,
+					VideoThumbnails:       c.thumbs.videos(),
 					ApplicationVersion:    internal.Version(),
 					ApplicationBuildstamp: internal.Buildstamp(),
 				}
@@ -370,7 +380,7 @@ func (c *customIndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.baseHandler.ServeHTTP(w, r)
 }
 
-func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvider, enhancedList bool) (http.Handler, error) {
+func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvider, enhancedList bool, thumbs *thumbnailer) (http.Handler, error) {
 	tmpl, err := createTemplate(customIndexHTML)
 	if err != nil {
 		return nil, err
@@ -379,6 +389,7 @@ func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, tp trace.TracerProvi
 		baseHandler:  baseHandler,
 		baseFS:       baseFS,
 		enhancedList: enhancedList,
+		thumbs:       thumbs,
 		tp:           tp,
 		tmpl:         tmpl,
 	}, nil

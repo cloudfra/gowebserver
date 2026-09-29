@@ -31,3 +31,6 @@ ffmpeg:
   path: /usr/bin/ffmpeg
   installOnDemand: true
   sourceUrl: https://example.com/ffmpeg.tar.xz
+thumbnails:
+  enabled: false
+  cachePath: /var/cache/gowebserver/thumbnails.db

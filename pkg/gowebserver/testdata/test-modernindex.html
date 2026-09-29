@@ -1962,6 +1962,16 @@
       opacity: 1;
     }
 
+     
+    .tile.vid.vplay .vthumb {
+      opacity: 0;
+      transition-duration: 0.6s;
+    }
+
+    .tile.vid.vwarm.vplay .vthumb {
+      transition-duration: 0.15s;
+    }
+
     .tile::after {
       content: "";
       position: absolute;
@@ -2460,20 +2470,21 @@
       }
     }
 
+     
     .ss-btn:is(:hover, :focus-visible) .i-bar {
-      animation: ss-bob 0.8s ease-in-out infinite alternate;
+      animation: ss-bob 0.8s ease-in-out;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-bar2 {
-      animation-delay: -0.4s;
+      animation-direction: reverse;
     }
 
     @keyframes ss-bob {
-      from {
+      25% {
         transform: translateY(-2px);
       }
 
-      to {
+      75% {
         transform: translateY(2px);
       }
     }
@@ -2917,6 +2928,35 @@
       display: block;
     }
 
+     
+    .ss-strip button {
+      transform-origin: 50% 100%;
+    }
+
+    .ss-strip.docking button {
+      transition: opacity 0.2s, transform 0.09s linear, box-shadow 0.2s;
+    }
+
+     
+    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .ss.is-fs.strip-on .ss-bottom {
+      opacity: 1;
+      transform: none;
+    }
+
+    .ss.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
+    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
+      pointer-events: none;
+    }
+
+    .ss.strip-on {
+      cursor: auto;
+    }
+
     .ss.chrome-off .ss-top,
     .ss.chrome-off .ss-nav,
     .ss.chrome-off .ss-bottom {
@@ -2934,6 +2974,12 @@
 
     .ss.chrome-off {
       cursor: none;
+    }
+
+     
+    .ss.chrome-off .ss-btn,
+    .ss.chrome-off .ss-btn * {
+      animation: none !important;
     }
 
     @media (hover: none), (pointer: coarse), (max-width: 700px) {
@@ -3380,7 +3426,10 @@
   <script>
     window.GOWS = {
       sort: "name",
-      thumbs: false,
+      
+      
+      thumbs:  false ,
+      videoThumbs:  false ,
       
       media: [
       ]
@@ -3390,7 +3439,7 @@
     (function () {
       'use strict';
 
-      var CFG = window.GOWS || { sort: 'name', thumbs: false, media: [] };
+      var CFG = window.GOWS || { sort: 'name', thumbs: false, videoThumbs: false, media: [] };
       var doc = document;
       var root = doc.documentElement;
       var $ = function (id) { return doc.getElementById(id); };
@@ -3427,11 +3476,39 @@
 
       
       
-      function thumbURL(item, px) {
-        if (!CFG.thumbs || item.video) return item.url;
-        var want = px * Math.min(window.devicePixelRatio || 1, 2);
-        var size = want <= 256 ? 256 : want <= 512 ? 512 : 1280;
-        return item.url + '?thumb=' + size;
+      
+      
+      
+      
+      
+      var THUMB_SIZES = [128, 256, 512, 1024];
+      var THUMB_DPR = Math.min(window.devicePixelRatio || 1, 2);
+      var tileThumb = { photo: 0, video: 0 };
+      function hasThumb(item) {
+        return CFG.thumbs && (!item.video || CFG.videoThumbs);
+      }
+      
+      
+      
+      
+      function tileThumbURL(item, cssW) {
+        if (!hasThumb(item)) return item.url;
+        var kind = item.video ? 'video' : 'photo';
+        
+        var want = cssW * THUMB_DPR / 1.15;
+        var s = THUMB_SIZES[THUMB_SIZES.length - 1];
+        for (var i = 0; i < THUMB_SIZES.length; i++) {
+          if (THUMB_SIZES[i] >= want) { s = THUMB_SIZES[i]; break; }
+        }
+        s = tileThumb[kind] = Math.max(tileThumb[kind], s);
+        var h = item.video ? Math.round(s * 9 / 16) : s;
+        return item.url + '?width=' + s + '&height=' + h + '&fit=cover';
+      }
+      
+      
+      function previewURL(item) {
+        if (!hasThumb(item)) return item.url;
+        return item.url + '?width=1024&height=1024&fit=inside';
       }
 
       
@@ -3809,7 +3886,7 @@
           var img = a.firstChild;
           img.onload = function () { a.classList.add('ready'); };
           img.onerror = function () { a.classList.add('err'); };
-          img.src = thumbURL(it, parseFloat(a.style.width));
+          img.src = tileThumbURL(it, parseFloat(a.style.width));
         }
 
         function render() {
@@ -3948,14 +4025,12 @@
         el.addEventListener('pointerover', function (e) {
           if (!finePointer.matches) return;
           var a = e.target.closest('.tile.vid');
-          var v = a && a.querySelector('video');
-          if (v) v.play().catch(function () { });
+          if (a) previewVideo(a, true);
         });
         el.addEventListener('pointerout', function (e) {
           var a = e.target.closest('.tile.vid');
           if (!a || a.contains(e.relatedTarget)) return;
-          var v = a.querySelector('video');
-          if (v) v.pause();
+          previewVideo(a, false);
         });
 
         var lastWidth = 0;
@@ -4024,13 +4099,67 @@
         }, { once: true });
         v.addEventListener('error', function () { a.classList.add('err'); release(); }, { once: true });
         setTimeout(release, 10000);
+        v.addEventListener('playing', function () { if (a._hovering) revealVideo(a); });
         
         
-        v.src = it.url + '#t=0.5';
+        
+        
+        
+        if (CFG.videoThumbs) {
+          var th = doc.createElement('img');
+          th.className = 'vthumb';
+          th.alt = '';
+          th.decoding = 'async';
+          th.draggable = false;
+          th.src = tileThumbURL(it, parseFloat(a.style.width));
+          a.insertBefore(th, a.firstChild);
+          v.src = it.url;
+        } else {
+          v.src = it.url + '#t=0.5';
+        }
         a.insertBefore(v, a.firstChild);
       }
 
+      
+      
+      var VTHUMB_FADE_BACK = 400;
+
+      
+      
+      
+      
+      
+      function previewVideo(a, on) {
+        var v = a.querySelector('video');
+        if (!v) return;
+        clearTimeout(a._pauseTimer);
+        a._hovering = on;
+        if (!a.querySelector('.vthumb')) {
+          if (on) v.play().catch(function () { }); else v.pause();
+          return;
+        }
+        if (!on) {
+          a.classList.remove('vplay');
+          a._pauseTimer = setTimeout(function () { v.pause(); }, VTHUMB_FADE_BACK);
+          return;
+        }
+        
+        if (!v.paused && v.readyState > 2) revealVideo(a);
+        v.play().catch(function () { });
+      }
+
+      function revealVideo(a) {
+        if (a._warm) a.classList.add('vwarm');
+        a.classList.add('vplay');
+        a._warm = true;
+      }
+
       function unloadVideo(a) {
+        clearTimeout(a._pauseTimer);
+        a._hovering = a._warm = false;
+        a.classList.remove('vplay', 'vwarm');
+        var th = a.querySelector('.vthumb');
+        if (th) th.remove();
         var v = a.querySelector('video');
         if (v) {
           v.pause();
@@ -4165,6 +4294,8 @@
           var on = isFullscreen();
           btnFull.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
           btnFull.classList.toggle('is-full', on);
+          dlg.classList.toggle('is-fs', on);
+          if (!on) hideStrip();
         }
         doc.addEventListener('fullscreenchange', syncFullscreenButton);
         doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
@@ -4216,6 +4347,7 @@
             });
             v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
             v.addEventListener('ended', function () { if (auto && list[idx] === it) step(1, true); });
+            if (CFG.videoThumbs) v.poster = previewURL(it);
             v.src = it.url;
             sizeMedia(v);
             div.appendChild(v);
@@ -4225,7 +4357,7 @@
             img.decoding = 'async';
             img.draggable = false;
             var full = it.url;
-            var preview = thumbURL(it, 1280);
+            var preview = previewURL(it);
             img._thumb = preview !== full;
             img.onload = function () {
               sizeMedia(img);
@@ -4327,17 +4459,92 @@
               b.type = 'button';
               b._k = k;
               b.setAttribute('aria-label', list[k].name);
-              b.innerHTML = list[k].video ? svgUse('ui-play') : '<img alt="" decoding="async" src="' + escapeHTML(thumbURL(list[k], 44)) + '">';
+              b.innerHTML = list[k].video && !CFG.videoThumbs ? svgUse('ui-play') :
+                '<img alt="" decoding="async" src="' + escapeHTML(tileThumbURL(list[k], 0)) + '">';
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
           }
+          
+          if (dockX !== null) dock();
         }
 
         strip.addEventListener('click', function (e) {
           var b = e.target.closest('button');
           if (b) go(b._k, 420);
         });
+
+        
+        
+        
+        
+        var STRIP_ZONE = 120, stripTimer = 0;
+        function revealStrip(hideAfter) {
+          dlg.classList.add('strip-on');
+          clearTimeout(stripTimer);
+          stripTimer = hideAfter ? setTimeout(hideStrip, hideAfter) : 0;
+        }
+        function hideStrip() {
+          clearTimeout(stripTimer);
+          stripTimer = 0;
+          dlg.classList.remove('strip-on');
+        }
+        function stripZone(e) {
+          if (!isFullscreen() || strip.hidden) return;
+          var near = e.clientY > frame.getBoundingClientRect().bottom - STRIP_ZONE;
+          if (e.pointerType !== 'mouse') {
+            if (near) revealStrip(3000);
+          } else if (near) {
+            revealStrip(0);
+          } else if (dlg.classList.contains('strip-on') && !stripTimer) {
+            stripTimer = setTimeout(hideStrip, 400);
+          }
+        }
+        dlg.addEventListener('pointermove', stripZone);
+        dlg.addEventListener('pointerdown', stripZone);
+
+        
+        
+        
+        
+        
+        
+        var DOCK_MAX = 1.9, DOCK_REACH = 130, dockX = null;
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        function dock() {
+          var buttons = strip.children;
+          var scales = [], extra = 0;
+          for (var i = 0; i < buttons.length; i++) {
+            var b = buttons[i];
+            var d = Math.abs(dockX - (b.offsetLeft + b.offsetWidth / 2));
+            var s = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
+            scales.push(s);
+            extra += b.offsetWidth * (s - 1);
+          }
+          
+          
+          var before = 0;
+          for (var j = 0; j < buttons.length; j++) {
+            var grow = buttons[j].offsetWidth * (scales[j] - 1);
+            var shift = before + grow / 2 - extra / 2;
+            before += grow;
+            var lift = buttons[j].hasAttribute('aria-current') ? ' translateY(-4px)' : '';
+            buttons[j].style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + scales[j].toFixed(3) + ')';
+          }
+        }
+        function undock() {
+          dockX = null;
+          strip.classList.remove('docking');
+          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; });
+        }
+        strip.addEventListener('pointermove', function (e) {
+          if (e.pointerType !== 'mouse' || reduceMotion.matches) return;
+          
+          dockX = e.clientX - strip.offsetParent.getBoundingClientRect().left;
+          strip.classList.add('docking');
+          dock();
+        });
+        strip.addEventListener('pointerleave', undock);
 
         function durationFor(v) {
           return Math.round(420 - Math.min(Math.abs(v || 0), 2) * 110);
@@ -4684,6 +4891,8 @@
           dx = 0;
           zoom = { z: 1, x: 0, y: 0 };
           ambient.reset();
+          undock();
+          hideStrip();
           strip.innerHTML = '';
           dlg.querySelector('.ss-bg').style.opacity = '';
           root.classList.add('ss-lock');
