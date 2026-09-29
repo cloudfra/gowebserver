@@ -4532,17 +4532,23 @@
 
         
         
-        var wheelAcc = 0, wheelLock = 0;
+        
+        
+        
+        var WHEEL_GESTURE_GAP = 200;
+        var wheelAcc = 0, wheelSpent = false, wheelIdle = 0;
         stage.addEventListener('wheel', function (e) {
           e.preventDefault();
           showChrome();
           if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) && zoom.z === 1) {
-            if (performance.now() < wheelLock) return;
+            clearTimeout(wheelIdle);
+            wheelIdle = setTimeout(function () { wheelSpent = false; wheelAcc = 0; }, WHEEL_GESTURE_GAP);
+            if (wheelSpent) return;
             wheelAcc += e.deltaX;
             if (Math.abs(wheelAcc) > 60) {
               step(wheelAcc > 0 ? 1 : -1);
               wheelAcc = 0;
-              wheelLock = performance.now() + 450;
+              wheelSpent = true;
             }
             return;
           }
