@@ -47,6 +47,7 @@ type webServerImpl struct {
 	uploadHTTPPath      string
 	enhancedListMode    bool
 	enableDebugMethods  bool
+	thumbnails          Thumbnails
 	monitoringCtx       *monitoringContext
 
 	httpListenPort  int
@@ -135,6 +136,13 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		})
 	}
 
+	// One thumbnailer (and store) is shared by every served filesystem.
+	thumbs, err := newThumbnailer(ws.thumbnails, ws.monitoringCtx.getTraceProvider())
+	if err != nil {
+		return err
+	}
+	allCleanups = append(allCleanups, thumbs.close)
+
 	mounts := map[string]string{}
 	rootPath := ""
 	for _, paths := range ws.fileSystemServePath {
@@ -160,7 +168,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode, thumbs)
 			if err != nil {
 				return err
 			}
@@ -177,7 +185,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx.getTraceProvider(), ws.enhancedListMode, thumbs)
 		if err != nil {
 			return err
 		}
@@ -310,6 +318,7 @@ func New(conf *Config) (WebServer, error) {
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
 		enableDebugMethods:  conf.Debug,
+		thumbnails:          conf.Thumbnails,
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,
 		verbose:             conf.Verbose,

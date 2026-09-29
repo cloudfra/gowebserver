@@ -26,3 +26,6 @@ monitoring:
 upload:
   source: /home/upload
   endpoint: /postage
+thumbnails:
+  enabled: false
+  ffmpeg: ""

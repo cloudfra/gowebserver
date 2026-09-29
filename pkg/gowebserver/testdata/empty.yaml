@@ -24,3 +24,6 @@ monitoring:
 upload:
   source: ""
   endpoint: ""
+thumbnails:
+  enabled: false
+  ffmpeg: ""

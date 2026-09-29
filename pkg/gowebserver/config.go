@@ -60,7 +60,11 @@ var (
 	monitoringMetricsPath       = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
-	debugFlag        = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+
+	// Thumbnail Flags
+	thumbnailsEnabledFlag = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
+	thumbnailsFFmpegFlag  = flag.String("thumbnails.ffmpeg", "", "ffmpeg binary for video thumbnails. Empty looks it up on PATH; without it videos have no thumbnails.")
+	debugFlag             = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -116,6 +120,16 @@ type Config struct {
 	HTTPS      HTTPS      `yaml:"https"`
 	Monitoring Monitoring `yaml:"monitoring"`
 	Upload     Serve      `yaml:"upload"`
+	Thumbnails Thumbnails `yaml:"thumbnails"`
+}
+
+// Thumbnails configures resized images and video frames, served when a
+// file is requested with width or height query parameters.
+type Thumbnails struct {
+	Enabled bool `yaml:"enabled"`
+	// FFmpeg is the ffmpeg binary used for video thumbnails. Empty looks it
+	// up on PATH; without it videos have no thumbnails.
+	FFmpeg string `yaml:"ffmpeg"`
 }
 
 // Serve maps the source to endpoint serving of content.
@@ -233,6 +247,10 @@ func loadFromFlags() (*Config, error) {
 		Upload: Serve{
 			Source:   *uploadPathFlag,
 			Endpoint: *uploadHTTPPathFlag,
+		},
+		Thumbnails: Thumbnails{
+			Enabled: *thumbnailsEnabledFlag,
+			FFmpeg:  *thumbnailsFFmpegFlag,
 		},
 	}, nil
 }

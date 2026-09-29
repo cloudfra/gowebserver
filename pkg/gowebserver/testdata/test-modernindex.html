@@ -3380,7 +3380,10 @@
   <script>
     window.GOWS = {
       sort: "name",
-      thumbs: false,
+      
+      
+      thumbs:  false ,
+      videoThumbs:  false ,
       
       media: [
       ]
@@ -3390,7 +3393,7 @@
     (function () {
       'use strict';
 
-      var CFG = window.GOWS || { sort: 'name', thumbs: false, media: [] };
+      var CFG = window.GOWS || { sort: 'name', thumbs: false, videoThumbs: false, media: [] };
       var doc = document;
       var root = doc.documentElement;
       var $ = function (id) { return doc.getElementById(id); };
@@ -3427,11 +3430,20 @@
 
       
       
-      function thumbURL(item, px) {
-        if (!CFG.thumbs || item.video) return item.url;
-        var want = px * Math.min(window.devicePixelRatio || 1, 2);
-        var size = want <= 256 ? 256 : want <= 512 ? 512 : 1280;
-        return item.url + '?thumb=' + size;
+      
+      
+      
+      
+      var THUMB_STEPS = [96, 160, 256, 384, 512, 768, 1024, 1536, 2048];
+      function thumbURL(item, w, h, fit) {
+        if (!CFG.thumbs || (item.video && !CFG.videoThumbs)) return item.url;
+        var want = w * Math.min(window.devicePixelRatio || 1, 2);
+        var tw = THUMB_STEPS[THUMB_STEPS.length - 1];
+        for (var i = 0; i < THUMB_STEPS.length; i++) {
+          if (THUMB_STEPS[i] >= want) { tw = THUMB_STEPS[i]; break; }
+        }
+        var th = Math.max(1, Math.round(tw * h / w));
+        return item.url + '?width=' + tw + '&height=' + th + '&fit=' + fit;
       }
 
       
@@ -3809,7 +3821,7 @@
           var img = a.firstChild;
           img.onload = function () { a.classList.add('ready'); };
           img.onerror = function () { a.classList.add('err'); };
-          img.src = thumbURL(it, parseFloat(a.style.width));
+          img.src = thumbURL(it, parseFloat(a.style.width), parseFloat(a.style.height), 'cover');
         }
 
         function render() {
@@ -4026,7 +4038,13 @@
         setTimeout(release, 10000);
         
         
-        v.src = it.url + '#t=0.5';
+        
+        if (CFG.videoThumbs) {
+          v.poster = thumbURL(it, parseFloat(a.style.width), parseFloat(a.style.height), 'cover');
+          v.src = it.url;
+        } else {
+          v.src = it.url + '#t=0.5';
+        }
         a.insertBefore(v, a.firstChild);
       }
 
@@ -4216,6 +4234,7 @@
             });
             v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
             v.addEventListener('ended', function () { if (auto && list[idx] === it) step(1, true); });
+            if (CFG.videoThumbs) v.poster = thumbURL(it, 1280, 1280, 'inside');
             v.src = it.url;
             sizeMedia(v);
             div.appendChild(v);
@@ -4225,7 +4244,7 @@
             img.decoding = 'async';
             img.draggable = false;
             var full = it.url;
-            var preview = thumbURL(it, 1280);
+            var preview = thumbURL(it, 1280, 1280, 'inside');
             img._thumb = preview !== full;
             img.onload = function () {
               sizeMedia(img);
@@ -4327,7 +4346,8 @@
               b.type = 'button';
               b._k = k;
               b.setAttribute('aria-label', list[k].name);
-              b.innerHTML = list[k].video ? svgUse('ui-play') : '<img alt="" decoding="async" src="' + escapeHTML(thumbURL(list[k], 44)) + '">';
+              b.innerHTML = list[k].video && !CFG.videoThumbs ? svgUse('ui-play') :
+                '<img alt="" decoding="async" src="' + escapeHTML(thumbURL(list[k], 44, 44, 'cover')) + '">';
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');

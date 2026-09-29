@@ -42,8 +42,23 @@ sc.exe start gowebserver
   * 7-zip
   * RAR
   * Git repository (HTTPS, SSH)
+* Thumbnails: add `width` and/or `height` to an image or video URL to get a resized copy (see [Thumbnails](#thumbnails)).
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
+
+## Thumbnails
+
+Request an image or video with `width` and/or `height` query parameters to get a thumbnail instead of the file, e.g. `photo.jpg?width=512&height=512`. The enhanced index (`-enhancedindex`) uses these for its photo grid, slideshow and video posters.
+
+| Parameter | Meaning |
+| --- | --- |
+| `width`, `height` | Size in pixels, 1 to 4096. With only one, the other follows the file's aspect ratio (never enlarged). |
+| `fit` | How the file fills a `width` x `height` box: `cover` fills it and crops the overflow (default), `contain` fits inside and pads with `background`, `fill` stretches, `inside` fits inside at the file's ratio without padding or enlarging. |
+| `format` | `jpeg`, `png` or `gif`. Defaults to `png` for images with transparency, `jpeg` otherwise. |
+| `background` | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for png and gif, black for jpeg. |
+| `quality` | JPEG quality, 1 to 100 (default 82). |
+
+Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are a frame about a second in, made with [ffmpeg](https://ffmpeg.org) when it's on `PATH` or set with `-thumbnails.ffmpeg`; without it, video thumbnail requests return 415. Thumbnails are kept in memory for the life of the server. Turn the feature off with `-thumbnails.enabled=false`.
 
 ## Downloads
 
