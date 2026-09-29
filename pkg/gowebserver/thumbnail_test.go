@@ -130,7 +130,7 @@ func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpegPath string) (http.
 			t.Fatal(err)
 		}
 	}
-	th, err := newThumbnailer(Thumbnails{Enabled: true}, ff, filepath.Join(t.TempDir(), "thumbnails.db"), mc.getTraceProvider())
+	th, err := newThumbnailer(Thumbnails{Enabled: true, CachePath: filepath.Join(t.TempDir(), "thumbnails.db")}, ff, mc.getTraceProvider())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +403,7 @@ func TestThumbnailStore(t *testing.T) {
 	open := func() {
 		t.Helper()
 		var err error
-		if th, err = newThumbnailer(Thumbnails{Enabled: true}, nil, db, (&monitoringContext{}).getTraceProvider()); err != nil {
+		if th, err = newThumbnailer(Thumbnails{Enabled: true, CachePath: db}, nil, (&monitoringContext{}).getTraceProvider()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -467,6 +467,29 @@ func TestThumbnailStore(t *testing.T) {
 	}
 	if n := len(stored(th, "*/photos/a.jpg/10x0-*")); n != 1 {
 		t.Errorf("%d thumbnails of another size, want 1 left alone", n)
+	}
+}
+
+func TestThumbnailStoreMemory(t *testing.T) {
+	// "memory:" keeps thumbnails in memory: nothing is written to the
+	// user cache directory.
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	t.Setenv("HOME", cache)
+	fsys := fstest.MapFS{"a.jpg": {Data: encodeJPEG(t, stripes(40, 20))}}
+	th, err := newThumbnailer(Thumbnails{Enabled: true, CachePath: thumbnailCacheMemory}, nil, (&monitoringContext{}).getTraceProvider())
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodeThumb(t, thumbGet(t, th.handler(http.NotFoundHandler(), fsys, "test:"), "/a.jpg?width=10", nil))
+	if err := th.close(); err != nil {
+		t.Fatal(err)
+	}
+	if dbs, err := filepath.Glob(filepath.Join(cache, "*", "*", "thumbnails.db")); err != nil || len(dbs) != 0 {
+		t.Errorf("databases %v (err %v); want none", dbs, err)
+	}
+	if dbs, err := filepath.Glob(filepath.Join(cache, "*", "thumbnails.db")); err != nil || len(dbs) != 0 {
+		t.Errorf("databases %v (err %v); want none", dbs, err)
 	}
 }
 

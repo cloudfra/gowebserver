@@ -31,3 +31,4 @@ ffmpeg:
   sourceUrl: ""
 thumbnails:
   enabled: false
+  cachePath: ""

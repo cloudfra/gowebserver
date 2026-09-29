@@ -68,8 +68,9 @@ var (
 	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
 
 	// Thumbnail Flags
-	thumbnailsEnabledFlag = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
-	debugFlag             = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
+	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
+	debugFlag               = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -152,6 +153,10 @@ type Thumbnails struct {
 	// Enabled turns thumbnails on. Video thumbnails also need ffmpeg; see
 	// FFmpeg.
 	Enabled bool `yaml:"enabled"`
+	// CachePath is the BoltDB file that caches thumbnails across restarts.
+	// Empty uses <user cache dir>/gowebserver/thumbnails.db; "memory:"
+	// keeps them in memory only, for the life of the server.
+	CachePath string `yaml:"cachePath"`
 }
 
 // Serve maps the source to endpoint serving of content.
@@ -277,7 +282,8 @@ func loadFromFlags() (*Config, error) {
 			SourceURL:       *ffmpegSourceURLFlag,
 		},
 		Thumbnails: Thumbnails{
-			Enabled: *thumbnailsEnabledFlag,
+			Enabled:   *thumbnailsEnabledFlag,
+			CachePath: *thumbnailsCachePathFlag,
 		},
 	}, nil
 }

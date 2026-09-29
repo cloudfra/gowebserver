@@ -86,6 +86,9 @@ func TestPopulatedConfig(t *testing.T) {
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
+		Thumbnails: Thumbnails{
+			CachePath: "/var/cache/gowebserver/thumbnails.db",
+		},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -212,6 +215,9 @@ func TestPopulatedYamlConfig(t *testing.T) {
 			Path:            "/usr/bin/ffmpeg",
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
+		},
+		Thumbnails: Thumbnails{
+			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
 	}
 

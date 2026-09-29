@@ -214,14 +214,26 @@ type thumbnailer struct {
 	tp    trace.TracerProvider
 }
 
+// thumbnailCacheMemory is the Thumbnails.CachePath that keeps thumbnails
+// in memory only.
+const thumbnailCacheMemory = "memory:"
+
 // newThumbnailer makes thumbnails and keeps them in the bolt database at
-// cachePath, or in memory when cachePath is empty or can't be opened.
-func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, cachePath string, tp trace.TracerProvider) (*thumbnailer, error) {
+// conf.CachePath (see Thumbnails), or in memory when that's
+// thumbnailCacheMemory or can't be opened.
+func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, tp trace.TracerProvider) (*thumbnailer, error) {
 	if !conf.Enabled {
 		return nil, nil
 	}
 	if ff == nil {
 		slog.Info("video thumbnails are disabled because ffmpeg is unavailable")
+	}
+	cachePath := conf.CachePath
+	switch cachePath {
+	case "":
+		cachePath = defaultThumbnailCachePath()
+	case thumbnailCacheMemory:
+		cachePath = ""
 	}
 	store, err := newThumbnailStore(cachePath)
 	if err != nil {
@@ -793,7 +805,7 @@ func newThumbnailStore(dbPath string) (*thumbnailStore, error) {
 		}
 		slog.Warn("cannot open the thumbnail cache; keeping thumbnails in memory", "path", dbPath, "error", err)
 	}
-	return openThumbnailStore("memory:")
+	return openThumbnailStore(thumbnailCacheMemory)
 }
 
 func openThumbnailStore(uri string) (*thumbnailStore, error) {
