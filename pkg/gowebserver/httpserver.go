@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -48,6 +49,7 @@ type webServerImpl struct {
 	enhancedListMode    bool
 	enableDebugMethods  bool
 	monitoringCtx       *monitoringContext
+	ffmpeg              *ffmpeg.FFmpeg // nil when ffmpeg is unavailable
 
 	httpListenPort  int
 	httpsListenPort int
@@ -313,6 +315,7 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,
 		verbose:             conf.Verbose,
+		ffmpeg:              newFFmpeg(conf.FFmpeg),
 	}
 
 	return ws, nil

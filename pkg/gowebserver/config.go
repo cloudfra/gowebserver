@@ -65,7 +65,7 @@ var (
 	ffmpegAcceptLicenseFlag   = flag.Bool("ffmpeg.acceptlicense", false, "Accept ffmpeg's license (downloadable builds are GPL). Required before ffmpeg is downloaded.")
 	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg binary to use. Empty uses the installed ffmpeg, if any.")
 	ffmpegInstallOnDemandFlag = flag.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
-	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz or .zip). Empty downloads the latest release for this platform.")
+	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
 	debugFlag                 = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
@@ -136,8 +136,9 @@ type FFmpeg struct {
 	// InstallOnDemand downloads ffmpeg the first time it's needed when
 	// none is installed. Requires AcceptLicense.
 	InstallOnDemand bool `yaml:"installOnDemand"`
-	// SourceURL is the ffmpeg build to download (.tar.xz or .zip). Empty
-	// downloads the latest release for this platform.
+	// SourceURL is the ffmpeg build to download (.tar.xz, .tar.gz or
+	// .zip). Append #sha256=<hex> to verify it. Empty downloads the latest
+	// release for this platform.
 	SourceURL string `yaml:"sourceUrl"`
 }
 
