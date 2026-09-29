@@ -27,6 +27,11 @@ import (
 	"github.com/cloudfra/ufs"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	// Drivers for the ufs URIs that can be served (git repositories and
+	// Google Cloud Storage buckets); they register when imported.
+	_ "github.com/cloudfra/ufs/drivers/gcsfs"
+	_ "github.com/cloudfra/ufs/drivers/gitfs"
 )
 
 // WebServer is a convenience wrapper for Go's HTTP/HTTPS Web serving API.
@@ -139,7 +144,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	}
 
 	// One thumbnailer (and store) is shared by every served filesystem.
-	thumbs, err := newThumbnailer(ws.thumbnails, ws.ffmpeg, ws.monitoringCtx.getTraceProvider())
+	thumbs, err := newThumbnailer(ws.thumbnails, ws.ffmpeg, defaultThumbnailCachePath(), ws.monitoringCtx.getTraceProvider())
 	if err != nil {
 		return err
 	}

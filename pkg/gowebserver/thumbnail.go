@@ -35,6 +35,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -42,6 +43,8 @@ import (
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
+	// Registers the bolt: filesystem that stores thumbnails.
+	_ "github.com/cloudfra/ufs/drivers/boltfs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/image/draw"
@@ -211,14 +214,16 @@ type thumbnailer struct {
 	tp    trace.TracerProvider
 }
 
-func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, tp trace.TracerProvider) (*thumbnailer, error) {
+// newThumbnailer makes thumbnails and keeps them in the bolt database at
+// cachePath, or in memory when cachePath is empty or can't be opened.
+func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, cachePath string, tp trace.TracerProvider) (*thumbnailer, error) {
 	if !conf.Enabled {
 		return nil, nil
 	}
 	if ff == nil {
 		slog.Info("video thumbnails are disabled because ffmpeg is unavailable")
 	}
-	store, err := newThumbnailStore()
+	store, err := newThumbnailStore(cachePath)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +250,8 @@ func (t *thumbnailer) videos() bool {
 
 // handler serves thumbnails for files in fsys and passes every other
 // request to base. source names what fsys serves (its ufs URI): the store
-// is shared by every served filesystem, so each source's thumbnails are
-// kept apart.
+// is shared by every served filesystem and outlives the server, so each
+// source's thumbnails are kept apart.
 func (t *thumbnailer) handler(base http.Handler, fsys fs.FS, source string) http.Handler {
 	sum := sha256.Sum256([]byte(source))
 	return &thumbnailHandler{t: t, base: base, fsys: fsys, source: hex.EncodeToString(sum[:8])}
@@ -751,29 +756,59 @@ func exifOrientation(t []byte) int {
 	return 1
 }
 
-// thumbnailStore keeps generated thumbnails as files in an in-memory
-// filesystem (ufs "memory:"), laid out beside the path of the file each was
-// made from, under a directory for the served filesystem: the 512x512
-// cover thumbnail of photos/a.jpg is stored as
+// thumbnailStore keeps generated thumbnails as files in a ufs filesystem:
+// a BoltDB file ("bolt:"), so they survive restarts, or memory ("memory:")
+// when there's no database. Files are laid out beside the path of the file
+// each was made from, under a directory for the served filesystem: the
+// 512x512 cover thumbnail of photos/a.jpg is stored as
 // <source>/photos/a.jpg/512x512-cover@<version>, where the version changes
 // whenever the source file's size or modification time does. Requests
 // load from there first and only decode the source when it isn't stored.
 //
 // Storing a new version removes the older versions' thumbnails of the same
 // size. Nothing else is evicted: the store grows with the number of
-// distinct thumbnails made while the server runs.
+// distinct thumbnails made.
 type thumbnailStore struct {
 	fsys ufs.WriteFS
 }
 
-func newThumbnailStore() (*thumbnailStore, error) {
-	fsys, err := ufs.New(context.Background(), "memory:")
+// defaultThumbnailCachePath is where thumbnails are kept between runs.
+func defaultThumbnailCachePath() string {
+	dir, err := os.UserCacheDir()
+	if err != nil || dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "gowebserver", "thumbnails.db")
+}
+
+// newThumbnailStore opens the bolt database at dbPath, creating it if
+// needed. When dbPath is empty or can't be opened (for example because
+// another server holds its lock), thumbnails are kept in memory instead.
+func newThumbnailStore(dbPath string) (*thumbnailStore, error) {
+	if dbPath != "" {
+		s, err := openThumbnailStore("bolt:" + dbPath)
+		if err == nil {
+			slog.Info("thumbnails are cached", "path", dbPath)
+			return s, nil
+		}
+		slog.Warn("cannot open the thumbnail cache; keeping thumbnails in memory", "path", dbPath, "error", err)
+	}
+	return openThumbnailStore("memory:")
+}
+
+func openThumbnailStore(uri string) (*thumbnailStore, error) {
+	if dbPath, ok := strings.CutPrefix(uri, "bolt:"); ok {
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+			return nil, err
+		}
+	}
+	fsys, err := ufs.New(context.Background(), uri)
 	if err != nil {
 		return nil, err
 	}
 	wfs, ok := fsys.(ufs.WriteFS)
 	if !ok {
-		return nil, errors.Join(errors.New("memory filesystem is not writable"), fsys.Close())
+		return nil, errors.Join(fmt.Errorf("%s is not writable", uri), fsys.Close())
 	}
 	return &thumbnailStore{fsys: wfs}, nil
 }

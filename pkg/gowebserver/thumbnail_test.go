@@ -130,7 +130,7 @@ func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpegPath string) (http.
 			t.Fatal(err)
 		}
 	}
-	th, err := newThumbnailer(Thumbnails{Enabled: true}, ff, mc.getTraceProvider())
+	th, err := newThumbnailer(Thumbnails{Enabled: true}, ff, filepath.Join(t.TempDir(), "thumbnails.db"), mc.getTraceProvider())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,17 +396,24 @@ func TestThumbnailCaching(t *testing.T) {
 }
 
 func TestThumbnailStore(t *testing.T) {
-	fsys := fstest.MapFS{"photos/a.jpg": {Data: encodeJPEG(t, stripes(40, 20)), ModTime: time.Unix(1_700_000_000, 0)}}
+	db := filepath.Join(t.TempDir(), "cache", "thumbnails.db")
+	fsys := &countingFS{MapFS: fstest.MapFS{"photos/a.jpg": {Data: encodeJPEG(t, stripes(40, 20)), ModTime: time.Unix(1_700_000_000, 0)}}}
 	base := http.NotFoundHandler()
-	th, err := newThumbnailer(Thumbnails{Enabled: true}, nil, (&monitoringContext{}).getTraceProvider())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := th.close(); err != nil {
-			t.Errorf("close: %v", err)
+	var th *thumbnailer
+	open := func() {
+		t.Helper()
+		var err error
+		if th, err = newThumbnailer(Thumbnails{Enabled: true}, nil, db, (&monitoringContext{}).getTraceProvider()); err != nil {
+			t.Fatal(err)
 		}
-	})
+	}
+	closeStore := func() {
+		t.Helper()
+		if err := th.close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	open()
 	stored := func(th *thumbnailer, pattern string) []string {
 		t.Helper()
 		matches, err := fs.Glob(th.store.fsys, pattern)
@@ -420,9 +427,8 @@ func TestThumbnailStore(t *testing.T) {
 	rec := thumbGet(t, h, "/photos/a.jpg?width=20&height=20&fit=cover", nil)
 	decodeThumb(t, rec)
 
-	// The thumbnail is a file in the memory filesystem, beside the path of
-	// the photo it was made from, under a directory for the served
-	// filesystem.
+	// The thumbnail is a file in the bolt database, beside the path of the
+	// photo it was made from, under a directory for the served filesystem.
 	matches := stored(th, "*/photos/a.jpg/20x20-cover@*")
 	if len(matches) != 1 {
 		t.Fatalf("stored thumbnails = %v; want one", matches)
@@ -436,17 +442,52 @@ func TestThumbnailStore(t *testing.T) {
 	if n := len(stored(th, "*/photos/a.jpg/20x20-cover@*")); n != 2 {
 		t.Errorf("%d thumbnails for two served filesystems, want 2", n)
 	}
+	closeStore()
+
+	// After a restart, thumbnails come from the database without reading
+	// the photo.
+	open()
+	defer closeStore()
+	h = th.handler(base, fsys, "/srv/photos")
+	opens := fsys.opens.Load()
+	if again := thumbGet(t, h, "/photos/a.jpg?width=20&height=20&fit=cover", nil); !bytes.Equal(again.Body.Bytes(), rec.Body.Bytes()) {
+		t.Error("thumbnail changed across a restart")
+	}
+	if fsys.opens.Load() != opens {
+		t.Error("read the photo instead of the stored thumbnail after a restart")
+	}
 
 	// Editing the photo replaces its old thumbnail of that size and leaves
 	// other sizes.
 	thumbGet(t, h, "/photos/a.jpg?width=10", nil)
-	fsys["photos/a.jpg"] = &fstest.MapFile{Data: encodeJPEG(t, stripes(80, 40)), ModTime: time.Unix(1_700_000_100, 0)}
+	fsys.MapFS["photos/a.jpg"] = &fstest.MapFile{Data: encodeJPEG(t, stripes(80, 40)), ModTime: time.Unix(1_700_000_100, 0)}
 	thumbGet(t, h, "/photos/a.jpg?width=20&height=20&fit=cover", nil)
 	if now := stored(th, "*/photos/a.jpg/20x20-cover@*"); len(now) != 2 || slices.Contains(now, matches[0]) {
 		t.Errorf("after an edit stored %v; want the old version replaced (was %s)", now, matches[0])
 	}
 	if n := len(stored(th, "*/photos/a.jpg/10x0-*")); n != 1 {
 		t.Errorf("%d thumbnails of another size, want 1 left alone", n)
+	}
+}
+
+func TestThumbnailStoreFallback(t *testing.T) {
+	// A path that can't hold a database falls back to memory.
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := newThumbnailStore(filepath.Join(blocker, "thumbnails.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.put("x/1x1-cover@v", &thumbnail{data: []byte("thumb")}); err != nil {
+		t.Fatal(err)
+	}
+	if th, ok := s.get("x/1x1-cover@v"); !ok || string(th.data) != "thumb" {
+		t.Errorf("get = %v, %v", th, ok)
+	}
+	if err := s.close(); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -78,7 +78,7 @@ Request an image or video with `width` and/or `height` query parameters to get a
 | `background` | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for png and gif, black for jpeg. |
 | `quality` | JPEG quality, 1 to 100 (default 82). |
 
-Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are the frame 10% of the way through the video, made with [ffmpeg](#ffmpeg); without it, video thumbnail requests return 415. Thumbnails are kept in memory for the life of the server; a thumbnail is replaced when its file changes. Turn the feature off with `-thumbnails.enabled=false`.
+Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are the frame 10% of the way through the video, made with [ffmpeg](#ffmpeg); without it, video thumbnail requests return 415. Thumbnails are cached in a BoltDB file in the user cache directory (`~/.cache/gowebserver/thumbnails.db` on Linux), so they survive restarts; a thumbnail is replaced when its file changes. If the file can't be opened, for example because another gowebserver is using it, thumbnails are kept in memory instead, after waiting up to a minute for the lock. Turn the feature off with `-thumbnails.enabled=false`.
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, square for photo tiles and 16:9 for video tiles, chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
