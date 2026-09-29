@@ -701,9 +701,15 @@ func renderThumbnail(src image.Image, orientation int, spec *thumbnailSpec) *ima
 func scaleImage(src image.Image, w, h int) *image.NRGBA {
 	b := src.Bounds()
 	if m, ok := src.(*image.YCbCr); ok {
-		// Leave Catmull-Rom at least a 1.5x reduction, for sharpness.
+		// Leave Catmull-Rom a 2-4x reduction for sharpness, or for 2-4x
+		// overall (a slideshow's screen-sized version), shrink by 2 and let
+		// it do the last 1-2x on a quarter of the pixels.
 		ratio := min(float64(b.Dx())/float64(w), float64(b.Dy())/float64(h))
-		if k := max(int(ratio/2), min(2, int(ratio/1.5))); k >= 2 {
+		k := int(ratio / 2)
+		if ratio >= 2 {
+			k = max(k, 2)
+		}
+		if k >= 2 {
 			src = shrinkYCbCr(m, k)
 			b = src.Bounds()
 		}

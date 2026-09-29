@@ -3506,9 +3506,10 @@
       }
       
       
+      var PREVIEW_PX = 1024;
       function previewURL(item) {
         if (!hasThumb(item)) return item.url;
-        return item.url + '?width=1024&height=1024&fit=inside';
+        return item.url + '?width=' + PREVIEW_PX + '&height=' + PREVIEW_PX + '&fit=inside';
       }
 
       
@@ -4356,15 +4357,20 @@
             img.alt = it.name;
             img.decoding = 'async';
             img.draggable = false;
-            var full = it.url;
+            
+            img.fetchPriority = k === idx ? 'high' : 'low';
             var preview = previewURL(it);
-            img._thumb = preview !== full;
+            img._thumb = preview !== it.url;
+            img._box = PREVIEW_PX;
             img.onload = function () {
+              img.onload = null;
+              settleSize(img);
               sizeMedia(img);
+              img._amb = ambientSource(img);
               img.classList.add('ready');
               if (list[idx] === it) {
-                ambient.show(img);
-                maybeUpgrade(img, it);
+                ambient.show(img._amb);
+                upgrade(div, it);
               }
             };
             img.src = preview;
@@ -4375,22 +4381,99 @@
         }
 
         
-        function maybeUpgrade(img, it) {
-          if (!img._thumb || img._upgrading) return;
-          img._upgrading = true;
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        var SHARP_PX = 2048;
+
+        
+        
+        
+        function settleSize(img) {
+          if (img._thumb && img.naturalWidth < img._box && img.naturalHeight < img._box) img._thumb = false;
+        }
+
+        function upgrade(div, it, original) {
+          var img = div && div.firstChild;
+          if (!img || img.tagName !== 'IMG' || !img._thumb) return;
+          if (div._pending) {
+            
+            if (!original || div._pending._original) return;
+            cancelUpgrade(div);
+          }
+          var target;
+          if (original) {
+            target = { url: it.url, box: Infinity };
+          } else {
+            var shown = fitRect(img.naturalWidth, img.naturalHeight, Infinity);
+            var need = Math.max(shown.w, shown.h) * Math.min(window.devicePixelRatio || 1, 3);
+            if (need <= img._box) return;
+            target = need <= SHARP_PX && img._box < SHARP_PX ?
+              { url: it.url + '?width=' + SHARP_PX + '&height=' + SHARP_PX + '&fit=inside', box: SHARP_PX } :
+              { url: it.url, box: Infinity };
+          }
           var hi = new Image();
-          hi.decoding = 'async';
-          hi.onload = function () {
-            if (!img.isConnected) return;
-            img.onload = null;
-            img._thumb = false;
-            img.src = it.url;
-            sizeMedia(img);
+          hi.alt = img.alt;
+          hi.draggable = false;
+          hi.fetchPriority = 'high';
+          hi._original = target.box === Infinity;
+          div._pending = hi;
+          hi.src = target.url;
+          var swap = function () {
+            if (div._pending !== hi) return;
+            div._pending = null;
+            var cur = div.firstChild;
+            if (!cur || !cur.isConnected) return;
+            hi._thumb = target.box !== Infinity;
+            hi._box = target.box;
+            settleSize(hi);
+            hi._amb = cur._amb;
+            hi.className = cur.className;
+            hi.style.cssText = cur.style.cssText;
+            div.replaceChild(hi, cur);
+            cur.removeAttribute('src');
+            sizeMedia(hi);
+            
+            if (slides.get(idx) === div) applyZoom(false);
           };
-          hi.src = it.url;
+          
+          
+          hi.decode().then(swap, function () {
+            if (hi.complete && hi.naturalWidth) swap();
+            else if (div._pending === hi) div._pending = null;
+          });
+        }
+
+        function cancelUpgrade(div) {
+          if (!div || !div._pending) return;
+          div._pending.removeAttribute('src');
+          div._pending = null;
+        }
+
+        
+        
+        
+        
+        function ambientSource(img) {
+          var c = doc.createElement('canvas');
+          c.width = 32;
+          c.height = 24;
+          try {
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          } catch (e) {
+            return img;
+          }
+          return c;
         }
 
         function unmountSlide(div) {
+          cancelUpgrade(div);
           var m = div.firstChild;
           if (m && m.tagName === 'VIDEO') { m.pause(); m.removeAttribute('src'); m.load(); }
           else if (m) m.removeAttribute('src');
@@ -4413,7 +4496,10 @@
           }
           var cur = slides.get(idx);
           var m = cur && cur.firstChild;
-          if (m && m.tagName === 'IMG' && m.classList.contains('ready')) { ambient.show(m); maybeUpgrade(m, list[idx]); }
+          if (m && m.tagName === 'IMG' && m.classList.contains('ready')) { ambient.show(m._amb || m); upgrade(cur, list[idx]); }
+          
+          
+          if (m && m.tagName === 'IMG') m.fetchPriority = 'high';
           if (m && m.tagName === 'VIDEO' && m.readyState >= 2) ambient.show(m);
         }
 
@@ -4460,7 +4546,7 @@
               b._k = k;
               b.setAttribute('aria-label', list[k].name);
               b.innerHTML = list[k].video && !CFG.videoThumbs ? svgUse('ui-play') :
-                '<img alt="" decoding="async" src="' + escapeHTML(tileThumbURL(list[k], 0)) + '">';
+                '<img alt="" decoding="async" fetchpriority="low" src="' + escapeHTML(tileThumbURL(list[k], 0)) + '">';
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
@@ -4555,6 +4641,9 @@
           var prev = currentMedia();
           if (prev && prev.tagName === 'VIDEO') prev.pause();
           resetZoom(false);
+          
+          
+          cancelUpgrade(slides.get(idx));
           idx = k;
           dx = 0;
           mountWindow();
@@ -4617,6 +4706,8 @@
           if (z === 1) { zoom.x = 0; zoom.y = 0; }
           clampPan();
           applyZoom(animate);
+          
+          if (zoom.z > 1.2) upgrade(slides.get(idx), list[idx], true);
         }
 
         
