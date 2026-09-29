@@ -2710,8 +2710,8 @@
     }
 
     /* Close: an old TV switching off. The X's strokes fold flat into one
-     * line while the button squeezes, the line shrinks to a dot, the dot
-     * flares and fades to nothing, then the X comes back and settles.
+     * line while the button squeezes, the line carries straight on into a
+     * dot, the dot fades to nothing, then the X comes back and settles.
      * Once per hover, so it ends at rest. The strokes don't scale with
      * their transform, so the shrunk line stays a round dot, not a
      * squashed sliver. */
@@ -2721,53 +2721,45 @@
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-x1 {
-      animation: ss-tv-off-1 1.8s var(--ease-out);
+      animation: ss-tv-off-1 1.5s linear;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-x2 {
-      animation: ss-tv-off-2 1.8s var(--ease-out);
+      animation: ss-tv-off-2 1.5s linear;
     }
 
     /* The strokes are diagonals: -45deg and 45deg lay them flat. Transforms
        apply right to left, so each is rotated flat first and then scaled
-       along its length; the other way round squashes it sideways. */
+       along its length; the other way round squashes it sideways. Each
+       segment sets its own easing, and nothing overshoots or holds still. */
     @keyframes ss-tv-off-1 {
       0% {
         transform: none;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
       }
 
-      18%,
-      24% {
+      /* Flat, and still moving: the shrink carries straight on. */
+      16% {
         transform: scaleX(0.9) rotate(-45deg);
-        animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.35);
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
       }
 
-      42% {
+      /* The dot keeps its size and fades out. */
+      36% {
         transform: scaleX(0.02) rotate(-45deg);
-        stroke-width: 1.7;
         opacity: 1;
+        animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
       }
 
-      50% {
+      58% {
         transform: scaleX(0.02) rotate(-45deg);
-        stroke-width: 2.8;
-        opacity: 1;
+        opacity: 0;
       }
 
       66% {
-        transform: scaleX(0.02) rotate(-45deg);
-        stroke-width: 1.4;
+        transform: scale(0.7);
         opacity: 0;
-      }
-
-      74% {
-        transform: scale(0.6);
-        opacity: 0;
-      }
-
-      90% {
-        transform: scale(1.06);
-        opacity: 1;
+        animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
       }
 
       100% {
@@ -2779,40 +2771,31 @@
     @keyframes ss-tv-off-2 {
       0% {
         transform: none;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
       }
 
-      18%,
-      24% {
+      /* Flat, and still moving: the shrink carries straight on. */
+      16% {
         transform: scaleX(0.9) rotate(45deg);
-        animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.35);
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
       }
 
-      42% {
+      /* The dot keeps its size and fades out. */
+      36% {
         transform: scaleX(0.02) rotate(45deg);
-        stroke-width: 1.7;
         opacity: 1;
+        animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
       }
 
-      50% {
+      58% {
         transform: scaleX(0.02) rotate(45deg);
-        stroke-width: 2.8;
-        opacity: 1;
+        opacity: 0;
       }
 
       66% {
-        transform: scaleX(0.02) rotate(45deg);
-        stroke-width: 1.4;
+        transform: scale(0.7);
         opacity: 0;
-      }
-
-      74% {
-        transform: scale(0.6);
-        opacity: 0;
-      }
-
-      90% {
-        transform: scale(1.06);
-        opacity: 1;
+        animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
       }
 
       100% {
@@ -2844,7 +2827,7 @@
 
       /* Close: the icon squeezes as its strokes fold into a line. */
       #ss-close:hover > svg {
-        animation: btn-shut 1.8s var(--ease-out);
+        animation: btn-shut 1.5s linear;
       }
 
       /* Theme: the icon squashes and spins over. */
@@ -2911,18 +2894,18 @@
     }
 
     @keyframes btn-shut {
-
-      0%,
-      100% {
+      0% {
         scale: 1;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
       }
 
-      18%,
-      24% {
+      16% {
         scale: 1.04 0.86;
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
       }
 
-      42% {
+      36%,
+      100% {
         scale: 1;
       }
     }
