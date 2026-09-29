@@ -39,6 +39,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
@@ -48,7 +49,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/image/draw"
-	"golang.org/x/sync/singleflight"
 
 	// Decoders for image.Decode.
 	_ "golang.org/x/image/bmp"
@@ -209,9 +209,75 @@ type thumbnailer struct {
 	ffmpeg *ffmpeg.FFmpeg // nil when video thumbnails are unavailable
 	// Decoding a large photo takes a lot of memory, so at most one
 	// thumbnail per CPU is made at a time.
-	sem   chan struct{}
-	group singleflight.Group
-	tp    trace.TracerProvider
+	sem chan struct{}
+	tp  trace.TracerProvider
+
+	mu      sync.Mutex
+	renders map[string]*render // by store key, while being made
+}
+
+// render is a thumbnail being made, shared by every request waiting for
+// it. It's cancelled when they have all gone, such as when the grid drops
+// tiles that were scrolled past, so it stops using a render slot or ffmpeg.
+type render struct {
+	done      chan struct{}
+	th        *thumbnail // set before done closes
+	err       error
+	waiters   int  // guarded by thumbnailer.mu
+	abandoned bool // guarded by thumbnailer.mu; cancelled, don't join
+	cancel    context.CancelFunc
+}
+
+// shared returns the thumbnail at key, made by mk, which is shared with
+// any other request for the same key, and stores it. It returns ctx's
+// error if ctx ends first.
+func (t *thumbnailer) shared(ctx context.Context, key string, mk func(context.Context) (*thumbnail, error)) (*thumbnail, error) {
+	t.mu.Lock()
+	r := t.renders[key]
+	if r == nil || r.abandoned {
+		rctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		r = &render{done: make(chan struct{}), cancel: cancel}
+		t.renders[key] = r
+		go t.run(rctx, key, r, mk)
+	}
+	r.waiters++
+	t.mu.Unlock()
+
+	select {
+	case <-r.done:
+		return r.th, r.err
+	case <-ctx.Done():
+		t.mu.Lock()
+		r.waiters--
+		if r.waiters == 0 {
+			select {
+			case <-r.done:
+			default:
+				r.abandoned = true
+				r.cancel()
+			}
+		}
+		t.mu.Unlock()
+		return nil, ctx.Err()
+	}
+}
+
+// run makes and stores r's thumbnail, then hands it to the waiting
+// requests.
+func (t *thumbnailer) run(ctx context.Context, key string, r *render, mk func(context.Context) (*thumbnail, error)) {
+	defer r.cancel()
+	r.th, r.err = mk(ctx)
+	if r.err == nil {
+		if err := t.store.put(key, r.th); err != nil {
+			slog.Warn("failed to store thumbnail", "path", key, "error", err)
+		}
+	}
+	close(r.done)
+	t.mu.Lock()
+	if t.renders[key] == r {
+		delete(t.renders, key)
+	}
+	t.mu.Unlock()
 }
 
 // thumbnailCacheMemory is the Thumbnails.CachePath that keeps thumbnails
@@ -240,10 +306,11 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, tp trace.TracerProvider)
 		return nil, err
 	}
 	return &thumbnailer{
-		store:  store,
-		ffmpeg: ff,
-		sem:    make(chan struct{}, runtime.NumCPU()),
-		tp:     tp,
+		store:   store,
+		ffmpeg:  ff,
+		sem:     make(chan struct{}, runtime.NumCPU()),
+		tp:      tp,
+		renders: map[string]*render{},
 	}, nil
 }
 
@@ -315,22 +382,14 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	th, cached := h.t.store.get(key)
 	span.SetAttributes(attribute.Bool("cached", cached))
 	if !cached {
-		// Concurrent requests for the same thumbnail share one render. It
-		// isn't tied to the first request's cancellation, since others may
-		// be waiting on it.
-		v, err, _ := h.t.group.Do(key, func() (any, error) {
-			th, err := h.make(context.WithoutCancel(ctx), name, video, spec)
-			if err != nil {
-				return nil, err
-			}
-			if err := h.t.store.put(key, th); err != nil {
-				slog.Warn("failed to store thumbnail", "path", key, "error", err)
-			}
-			return th, nil
+		var err error
+		th, err = h.t.shared(ctx, key, func(ctx context.Context) (*thumbnail, error) {
+			return h.make(ctx, name, video, spec)
 		})
 		switch {
 		case err == nil:
-			th = v.(*thumbnail)
+		case r.Context().Err() != nil:
+			return // the client went away
 		case errors.Is(err, errThumbnailUnsupported):
 			th = &thumbnail{}
 		default:
@@ -382,6 +441,10 @@ func (h *thumbnailHandler) make(ctx context.Context, name string, video bool, sp
 		src, orientation, err = h.decodeImage(name)
 	}
 	if err != nil {
+		return nil, err
+	}
+	// Decoding can't be interrupted, but scaling can be skipped.
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	// Without a format, the file's own transparency decides: png keeps it,
@@ -628,19 +691,120 @@ func renderThumbnail(src image.Image, orientation int, spec *thumbnailSpec) *ima
 }
 
 // scaleImage resizes src to w x h. Catmull-Rom gives the sharpest result
-// but costs about twice what bilinear does on a large photo, so big
-// reductions first go bilinear to twice the target size, then Catmull-Rom
-// the rest of the way; the result is nearly identical.
+// but costs a lot on a large photo, so big reductions of a JPEG (or other
+// *image.YCbCr) first shrink by a whole factor on every core, averaging
+// blocks, to between two and four times the target, and big reductions of
+// other images go bilinear to twice the target; Catmull-Rom does the rest.
+//
+// Scaling writes to *image.RGBA because x/image/draw has fast paths for it;
+// into *image.NRGBA every pixel goes through the slow generic path.
 func scaleImage(src image.Image, w, h int) *image.NRGBA {
 	b := src.Bounds()
+	if m, ok := src.(*image.YCbCr); ok {
+		// Leave Catmull-Rom at least a 1.5x reduction, for sharpness.
+		ratio := min(float64(b.Dx())/float64(w), float64(b.Dy())/float64(h))
+		if k := max(int(ratio/2), min(2, int(ratio/1.5))); k >= 2 {
+			src = shrinkYCbCr(m, k)
+			b = src.Bounds()
+		}
+	}
 	if b.Dx() > 4*w && b.Dy() > 4*h {
-		mid := image.NewNRGBA(image.Rect(0, 0, 2*w, 2*h))
+		mid := image.NewRGBA(image.Rect(0, 0, 2*w, 2*h))
 		draw.BiLinear.Scale(mid, mid.Bounds(), src, b, draw.Src, nil)
 		src, b = mid, mid.Bounds()
 	}
-	out := image.NewNRGBA(image.Rect(0, 0, w, h))
+	out := image.NewRGBA(image.Rect(0, 0, w, h))
 	draw.CatmullRom.Scale(out, out.Bounds(), src, b, draw.Src, nil)
+	return toNRGBA(out)
+}
+
+// minShrinkRows is the fewest rows of output a goroutine shrinks; smaller
+// bands cost more to coordinate than they save.
+const minShrinkRows = 16
+
+// shrinkYCbCr shrinks m by the factor k in each direction, each output
+// pixel the average of a k x k block (smaller at the right and bottom
+// edges), with rows split across every core. Y, Cb and Cr are averaged and
+// converted to RGB once per output pixel: the conversion is linear (up to
+// clamping), so that matches averaging RGB, at a fraction of the cost.
+func shrinkYCbCr(m *image.YCbCr, k int) *image.RGBA {
+	r := m.Rect
+	w, h := (r.Dx()+k-1)/k, (r.Dy()+k-1)/k
+	out := image.NewRGBA(image.Rect(0, 0, w, h))
+	cx, cy := chromaShift(m.SubsampleRatio)
+	n := max(1, min(runtime.GOMAXPROCS(0), h/minShrinkRows))
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func(y0, y1 int) {
+			defer wg.Done()
+			for oy := y0; oy < y1; oy++ {
+				ya := r.Min.Y + oy*k
+				yb := min(ya+k, r.Max.Y)
+				px := out.Pix[oy*out.Stride:]
+				for ox := range w {
+					xa := r.Min.X + ox*k
+					xb := min(xa+k, r.Max.X)
+					var ys, cbs, crs uint32
+					for y := ya; y < yb; y++ {
+						off := (y-r.Min.Y)*m.YStride - r.Min.X
+						for _, v := range m.Y[off+xa : off+xb] {
+							ys += uint32(v)
+						}
+					}
+					// Chroma samples covering the block, which with
+					// subsampling cover fewer, larger areas.
+					var cn uint32
+					for y := ya >> cy; y <= (yb-1)>>cy; y++ {
+						off := (y-r.Min.Y>>cy)*m.CStride - r.Min.X>>cx
+						for x := xa >> cx; x <= (xb-1)>>cx; x++ {
+							cbs += uint32(m.Cb[off+x])
+							crs += uint32(m.Cr[off+x])
+							cn++
+						}
+					}
+					yn := uint32((yb - ya) * (xb - xa))
+					cr, cg, cb := color.YCbCrToRGB(uint8((ys+yn/2)/yn), uint8((cbs+cn/2)/cn), uint8((crs+cn/2)/cn))
+					px[ox*4], px[ox*4+1], px[ox*4+2], px[ox*4+3] = cr, cg, cb, 0xff
+				}
+			}
+		}(h*i/n, h*(i+1)/n)
+	}
+	wg.Wait()
 	return out
+}
+
+// chromaShift returns how many bits a pixel's x and y shift right to find
+// its chroma sample, for a subsample ratio.
+func chromaShift(ratio image.YCbCrSubsampleRatio) (int, int) {
+	switch ratio {
+	case image.YCbCrSubsampleRatio422:
+		return 1, 0
+	case image.YCbCrSubsampleRatio420:
+		return 1, 1
+	case image.YCbCrSubsampleRatio440:
+		return 0, 1
+	case image.YCbCrSubsampleRatio411:
+		return 2, 0
+	case image.YCbCrSubsampleRatio410:
+		return 2, 1
+	}
+	return 0, 0
+}
+
+// toNRGBA converts m, which is alpha-premultiplied, to non-premultiplied
+// color in place. Opaque pixels, all of them for a photo, are the same in
+// both.
+func toNRGBA(m *image.RGBA) *image.NRGBA {
+	p := m.Pix
+	for i := 0; i+3 < len(p); i += 4 {
+		if a := uint32(p[i+3]); a != 0 && a != 0xff {
+			p[i] = uint8(min(0xff, (uint32(p[i])*0xff+a/2)/a))
+			p[i+1] = uint8(min(0xff, (uint32(p[i+1])*0xff+a/2)/a))
+			p[i+2] = uint8(min(0xff, (uint32(p[i+2])*0xff+a/2)/a))
+		}
+	}
+	return &image.NRGBA{Pix: p, Stride: m.Stride, Rect: m.Rect}
 }
 
 // orient applies an EXIF orientation (1 to 8) to img.
@@ -798,7 +962,7 @@ func defaultThumbnailCachePath() string {
 // another server holds its lock), thumbnails are kept in memory instead.
 func newThumbnailStore(dbPath string) (*thumbnailStore, error) {
 	if dbPath != "" {
-		s, err := openThumbnailStore("bolt:" + dbPath)
+		s, err := openBoltThumbnailStore(dbPath)
 		if err == nil {
 			slog.Info("thumbnails are cached", "path", dbPath)
 			return s, nil
@@ -808,12 +972,33 @@ func newThumbnailStore(dbPath string) (*thumbnailStore, error) {
 	return openThumbnailStore(thumbnailCacheMemory)
 }
 
-func openThumbnailStore(uri string) (*thumbnailStore, error) {
-	if dbPath, ok := strings.CutPrefix(uri, "bolt:"); ok {
-		if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-			return nil, err
-		}
+// openBoltThumbnailStore opens (creating if needed) the bolt database at
+// dbPath.
+func openBoltThumbnailStore(dbPath string) (*thumbnailStore, error) {
+	// ufs parses the path as part of a URI, so a # or ? would cut it short
+	// and the database would silently land somewhere else.
+	if strings.ContainsAny(dbPath, "#?") {
+		return nil, errors.New("the path can't contain # or ?")
 	}
+	dbPath, err := filepath.Abs(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		return nil, err
+	}
+	s, err := openThumbnailStore("bolt:" + dbPath)
+	if err != nil {
+		return nil, err
+	}
+	// Make sure the database is where it was asked to be.
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, errors.Join(fmt.Errorf("the database wasn't created at %s: %w", dbPath, err), s.close())
+	}
+	return s, nil
+}
+
+func openThumbnailStore(uri string) (*thumbnailStore, error) {
 	fsys, err := ufs.New(context.Background(), uri)
 	if err != nil {
 		return nil, err

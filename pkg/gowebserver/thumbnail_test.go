@@ -16,6 +16,8 @@ package gowebserver
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -29,6 +31,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
@@ -490,6 +493,189 @@ func TestThumbnailStoreMemory(t *testing.T) {
 	}
 	if dbs, err := filepath.Glob(filepath.Join(cache, "*", "thumbnails.db")); err != nil || len(dbs) != 0 {
 		t.Errorf("databases %v (err %v); want none", dbs, err)
+	}
+}
+
+func TestThumbnailShared(t *testing.T) {
+	th, err := newThumbnailer(Thumbnails{Enabled: true, CachePath: thumbnailCacheMemory}, nil, (&monitoringContext{}).getTraceProvider())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := th.close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+	result := &thumbnail{data: []byte("thumb")}
+	// blockingRender counts its runs and waits for release (or its
+	// context) before returning; cancelled reports its context ending.
+	blockingRender := func(runs *atomic.Int32, release, cancelled chan struct{}) func(context.Context) (*thumbnail, error) {
+		return func(ctx context.Context) (*thumbnail, error) {
+			runs.Add(1)
+			select {
+			case <-release:
+				return result, nil
+			case <-ctx.Done():
+				close(cancelled)
+				return nil, ctx.Err()
+			}
+		}
+	}
+	waitFor := func(what string, cond func() bool) {
+		t.Helper()
+		for deadline := time.Now().Add(5 * time.Second); !cond(); time.Sleep(time.Millisecond) {
+			if time.Now().After(deadline) {
+				t.Fatalf("timed out waiting for %s", what)
+			}
+		}
+	}
+	waiters := func(key string) int {
+		th.mu.Lock()
+		defer th.mu.Unlock()
+		if r := th.renders[key]; r != nil {
+			return r.waiters
+		}
+		return 0
+	}
+
+	t.Run("one render for concurrent requests", func(t *testing.T) {
+		var runs atomic.Int32
+		release, cancelled := make(chan struct{}), make(chan struct{})
+		mk := blockingRender(&runs, release, cancelled)
+		var wg sync.WaitGroup
+		for range 5 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if got, err := th.shared(t.Context(), "a", mk); err != nil || got != result {
+					t.Errorf("shared = %v, %v", got, err)
+				}
+			}()
+		}
+		waitFor("5 waiters", func() bool { return waiters("a") == 5 })
+		close(release)
+		wg.Wait()
+		if n := runs.Load(); n != 1 {
+			t.Errorf("rendered %d times, want once", n)
+		}
+	})
+
+	t.Run("cancelled when every request leaves", func(t *testing.T) {
+		var runs atomic.Int32
+		release, cancelled := make(chan struct{}), make(chan struct{})
+		mk := blockingRender(&runs, release, cancelled)
+		ctx1, cancel1 := context.WithCancel(t.Context())
+		ctx2, cancel2 := context.WithCancel(t.Context())
+		errs := make(chan error, 2)
+		for _, ctx := range []context.Context{ctx1, ctx2} {
+			go func() {
+				_, err := th.shared(ctx, "b", mk)
+				errs <- err
+			}()
+		}
+		waitFor("2 waiters", func() bool { return waiters("b") == 2 })
+		cancel1()
+		if err := <-errs; !errors.Is(err, context.Canceled) {
+			t.Errorf("first request: %v, want context.Canceled", err)
+		}
+		select {
+		case <-cancelled:
+			t.Fatal("render cancelled while a request still waited for it")
+		case <-time.After(20 * time.Millisecond):
+		}
+		cancel2()
+		<-errs
+		select {
+		case <-cancelled:
+		case <-time.After(5 * time.Second):
+			t.Fatal("render kept going after every request left")
+		}
+
+		// A new request after that starts a fresh render.
+		var again atomic.Int32
+		fresh := make(chan struct{})
+		close(fresh)
+		if got, err := th.shared(t.Context(), "b", blockingRender(&again, fresh, make(chan struct{}))); err != nil || got != result {
+			t.Errorf("after abandoning: %v, %v", got, err)
+		}
+		if again.Load() != 1 {
+			t.Error("a request after the render was abandoned didn't start a new one")
+		}
+	})
+}
+
+func TestThumbnailStoreUnsafePath(t *testing.T) {
+	// ufs would cut the path short at a # and put the database somewhere
+	// else, so such paths fall back to memory and create nothing.
+	dir := t.TempDir()
+	s, err := newThumbnailStore(filepath.Join(dir, "a#b", "thumbnails.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.put("x/1x1-cover@v", &thumbnail{data: []byte("thumb")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.close(); err != nil {
+		t.Fatal(err)
+	}
+	if left, err := os.ReadDir(dir); err != nil || len(left) != 0 {
+		t.Errorf("created %v (err %v); want nothing", left, err)
+	}
+}
+
+func TestShrinkYCbCr(t *testing.T) {
+	// Left half one color, right half another, in 4:2:0 like most JPEGs.
+	left, right := color.RGBA{200, 40, 40, 255}, color.RGBA{30, 90, 220, 255}
+	src := image.NewRGBA(image.Rect(0, 0, 640, 480))
+	for y := range 480 {
+		for x := range 640 {
+			c := left
+			if x >= 320 {
+				c = right
+			}
+			src.SetRGBA(x, y, c)
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, src, &jpeg.Options{Quality: 100}); err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := jpeg.Decode(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok := decoded.(*image.YCbCr)
+	if !ok {
+		t.Fatalf("decoded %T, want *image.YCbCr", decoded)
+	}
+
+	// 640/7 doesn't divide evenly: the last column averages a partial block.
+	out := shrinkYCbCr(m, 7)
+	if b := out.Bounds(); b.Dx() != 92 || b.Dy() != 69 {
+		t.Errorf("size = %dx%d, want 92x69", b.Dx(), b.Dy())
+	}
+	near := func(got, want color.RGBA) bool {
+		d := func(a, b uint8) bool { return a-b < 6 || b-a < 6 }
+		return d(got.R, want.R) && d(got.G, want.G) && d(got.B, want.B) && got.A == 0xff
+	}
+	for _, p := range []struct {
+		x, y int
+		want color.RGBA
+	}{{5, 30, left}, {40, 5, left}, {50, 60, right}, {91, 68, right}} {
+		if got := out.RGBAAt(p.x, p.y); !near(got, p.want) {
+			t.Errorf("pixel (%d,%d) = %v, want about %v", p.x, p.y, got, p.want)
+		}
+	}
+
+	// The whole path: a big reduction goes through the shrink and ends at
+	// the requested size, still split down the middle.
+	th := scaleImage(m, 64, 48)
+	if b := th.Bounds(); b.Dx() != 64 || b.Dy() != 48 {
+		t.Errorf("scaled to %dx%d, want 64x48", b.Dx(), b.Dy())
+	}
+	l, r := th.NRGBAAt(10, 24), th.NRGBAAt(54, 24)
+	if !near(color.RGBA(l), left) || !near(color.RGBA(r), right) {
+		t.Errorf("scaled halves %v and %v, want about %v and %v", l, r, left, right)
 	}
 }
 
