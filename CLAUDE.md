@@ -19,6 +19,7 @@ make lint             # Run go fmt and go vet
 make deps             # Download and tidy dependencies
 make run              # Build and run locally on port 8181
 make presubmit        # Run complete CI checks locally
+make FFMPEG=1 all     # Build with a static ffmpeg embedded (Makefile_ffmpeg.mk)
 ```
 
 Go version: 1.24+
@@ -51,6 +52,8 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
 - **richview.go / rich-view.html**: Syntax-highlighted text viewer (`?view=rich`), styled to match the file browser
+- **thumbnail.go**: `?width=&height=` thumbnails of images and videos, stored in a ufs `memory:` filesystem
+- **pkg/ffmpeg/**: Runs ffmpeg (explicit path, embedded with `-tags ffmpeg`, or PATH); the embedded copy is extracted on first use
 - **custom-index.html**: Enhanced file browser template. Media is emitted as a compact JS array and rendered by a virtualized grid (only rows near the viewport are in the DOM); the slideshow mounts only the current slide and its neighbors. Keep both properties when editing, since folders can hold tens of thousands of photos. `testdata/test-modernindex.html` is a golden render of it; regenerate with the `cp` command `TestIndexHTTPHandlerServeHTTP` prints.
 
 Filesystem handlers are mounted with `http.StripPrefix`, so `r.URL.Path` lacks the serve path (e.g. `/e`). Build links and redirects relative to the request (`relativeURL`, `redirectRelative`), never from `r.URL.Path`.

@@ -34,13 +34,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -203,7 +203,7 @@ func parseHexColor(v string) (color.NRGBA, error) {
 // filesystem.
 type thumbnailer struct {
 	store  *thumbnailStore
-	ffmpeg string // empty when video thumbnails are unavailable
+	ffmpeg *ffmpeg.FFmpeg // nil when video thumbnails are unavailable
 	// Decoding a large photo takes a lot of memory, so at most one
 	// thumbnail per CPU is made at a time.
 	sem   chan struct{}
@@ -215,14 +215,14 @@ func newThumbnailer(conf Thumbnails, tp trace.TracerProvider) (*thumbnailer, err
 	if !conf.Enabled {
 		return nil, nil
 	}
-	ffmpeg := conf.FFmpeg
-	if ffmpeg == "" {
-		if p, err := exec.LookPath("ffmpeg"); err == nil {
-			ffmpeg = p
-		}
-	}
-	if ffmpeg == "" {
-		slog.Info("ffmpeg not found; video thumbnails are disabled")
+	// An explicit path, else the embedded ffmpeg (extracted the first
+	// time a video thumbnail is made), else ffmpeg on PATH.
+	ff, err := ffmpeg.Find(conf.FFmpeg)
+	if err != nil {
+		slog.Info("video thumbnails are disabled", "reason", err)
+		ff = nil
+	} else {
+		slog.Info("video thumbnails use ffmpeg", "source", ff.Source())
 	}
 	store, err := newThumbnailStore()
 	if err != nil {
@@ -230,7 +230,7 @@ func newThumbnailer(conf Thumbnails, tp trace.TracerProvider) (*thumbnailer, err
 	}
 	return &thumbnailer{
 		store:  store,
-		ffmpeg: ffmpeg,
+		ffmpeg: ff,
 		sem:    make(chan struct{}, runtime.NumCPU()),
 		tp:     tp,
 	}, nil
@@ -246,7 +246,7 @@ func (t *thumbnailer) close() error {
 
 // videos reports whether video thumbnails are available.
 func (t *thumbnailer) videos() bool {
-	return t != nil && t.ffmpeg != ""
+	return t != nil && t.ffmpeg != nil
 }
 
 // handler serves thumbnails for files in fsys and passes every other
@@ -424,7 +424,7 @@ func (h *thumbnailHandler) decodeImage(name string) (image.Image, int, error) {
 // usual layout), the file is copied to a temporary file up to
 // thumbnailMaxVideoCopy bytes.
 func (h *thumbnailHandler) videoFrame(ctx context.Context, name string) (image.Image, error) {
-	if h.t.ffmpeg == "" {
+	if h.t.ffmpeg == nil {
 		return nil, errThumbnailUnsupported
 	}
 	f, err := h.fsys.Open(name)
@@ -483,12 +483,12 @@ func (h *thumbnailHandler) copyToTemp(name string) (string, error) {
 	return tmp.Name(), nil
 }
 
-// ffmpegFrames tries a frame a second in, then the first frame. When pipe
-// is set, input is "pipe:0" and the file pipe (in h.fsys) is opened afresh
-// for each attempt and fed to ffmpeg's stdin.
+// ffmpegFrames tries a frame a second in, then the first frame (for very
+// short videos). When pipe is set, input is "pipe:0" and the file pipe (in
+// h.fsys) is opened afresh for each attempt and fed to ffmpeg's stdin.
 func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string) (image.Image, error) {
 	var last error
-	for _, at := range []string{"1", "0"} {
+	for _, at := range []time.Duration{time.Second, 0} {
 		img, err := h.ffmpegFrame(ctx, input, pipe, at)
 		if err == nil {
 			return img, nil
@@ -502,13 +502,10 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string)
 	return nil, errThumbnailUnsupported
 }
 
-func (h *thumbnailHandler) ffmpegFrame(ctx context.Context, input, pipe, at string) (image.Image, error) {
+func (h *thumbnailHandler) ffmpegFrame(ctx context.Context, input, pipe string, at time.Duration) (image.Image, error) {
 	ctx, cancel := context.WithTimeout(ctx, thumbnailVideoTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, h.t.ffmpeg,
-		"-hide_banner", "-loglevel", "error", "-nostdin",
-		"-ss", at, "-i", input,
-		"-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "pipe:1")
+	var stdin io.Reader
 	if pipe != "" {
 		f, err := h.fsys.Open(pipe)
 		if err != nil {
@@ -519,20 +516,9 @@ func (h *thumbnailHandler) ffmpegFrame(ctx context.Context, input, pipe, at stri
 				slog.Error("failed to close video after thumbnailing", "path", pipe, "error", err)
 			}
 		}()
-		// -nostdin only stops ffmpeg reading commands from stdin; "-i
-		// pipe:0" still reads the file from it.
-		cmd.Stdin = f
+		stdin = f
 	}
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg: %w: %s", err, strings.TrimSpace(stderr.String()))
-	}
-	if stdout.Len() == 0 {
-		return nil, errThumbnailUnsupported
-	}
-	return png.Decode(&stdout)
+	return h.t.ffmpeg.Frame(ctx, input, stdin, at)
 }
 
 // renderThumbnail scales src (whose EXIF orientation is orientation) to

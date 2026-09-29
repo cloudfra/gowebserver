@@ -130,7 +130,7 @@ func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpeg string) (http.Hand
 		}
 	})
 	if ffmpeg == "" {
-		th.ffmpeg = "" // don't pick up an ffmpeg on the test machine's PATH
+		th.ffmpeg = nil // don't pick up an embedded ffmpeg or one on PATH
 	}
 	return th.handler(base, fsys), &baseCalls
 }

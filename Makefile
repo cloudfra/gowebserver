@@ -24,6 +24,7 @@ PLAN9_PLATFORMS =
 NETBSD_PLATFORMS = netbsd/amd64 netbsd/arm64 netbsd/arm/v5 netbsd/arm/v6 netbsd/arm/v7 # netbsd/386 
 
 include Makefile_build.mk
+include Makefile_ffmpeg.mk
 
 run: clean assets lint
 	$(GO) run cmd/gowebserver/gowebserver.go -http.port 8181 -path=. -verbose -debug -enhancedindex=true

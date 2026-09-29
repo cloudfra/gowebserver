@@ -58,7 +58,15 @@ Request an image or video with `width` and/or `height` query parameters to get a
 | `background` | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for png and gif, black for jpeg. |
 | `quality` | JPEG quality, 1 to 100 (default 82). |
 
-Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are a frame about a second in, made with [ffmpeg](https://ffmpeg.org) when it's on `PATH` or set with `-thumbnails.ffmpeg`; without it, video thumbnail requests return 415. Thumbnails are kept in memory for the life of the server. Turn the feature off with `-thumbnails.enabled=false`.
+Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are a frame about a second in, made with [ffmpeg](https://ffmpeg.org): the binary set with `-thumbnails.ffmpeg`, else one embedded in the server, else `ffmpeg` on `PATH`. Without any of them, video thumbnail requests return 415. Thumbnails are kept in memory for the life of the server. Turn the feature off with `-thumbnails.enabled=false`.
+
+### Embedding ffmpeg
+
+Build with `make FFMPEG=1 all` (or a single target such as `make FFMPEG=1 build/bin/linux/amd64/gowebserver`) to embed a static ffmpeg for linux/amd64, linux/arm64, linux/386, windows/amd64 and windows/arm64. The Makefile downloads each build (see `Makefile_ffmpeg.mk` for sources), stores it xz-compressed in `pkg/ffmpeg/bin/` (not checked in), and builds with `-tags ffmpeg`; binaries grow by about 21 MB. Other platforms build as usual and use `PATH`. The embedded ffmpeg is extracted to the user's cache directory the first time a video thumbnail is made, and reused after that.
+
+The embedded builds are full-featured GPL builds of ffmpeg, so binaries that embed them are subject to ffmpeg's [GPL license](https://ffmpeg.org/legal.html). Plain `go build` and `make all` don't embed anything.
+
+The `pkg/ffmpeg` package that runs it can be used on its own: `ffmpeg.Find` picks the binary, and `Run`, `Frame` and `Version` invoke it.
 
 ## Downloads
 
