@@ -2927,6 +2927,35 @@
       display: block;
     }
 
+     
+    .ss-strip button {
+      transform-origin: 50% 100%;
+    }
+
+    .ss-strip.docking button {
+      transition: opacity 0.2s, transform 0.09s linear, box-shadow 0.2s;
+    }
+
+     
+    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .ss.is-fs.strip-on .ss-bottom {
+      opacity: 1;
+      transform: none;
+    }
+
+    .ss.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
+    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
+      pointer-events: none;
+    }
+
+    .ss.strip-on {
+      cursor: auto;
+    }
+
     .ss.chrome-off .ss-top,
     .ss.chrome-off .ss-nav,
     .ss.chrome-off .ss-bottom {
@@ -4258,6 +4287,8 @@
           var on = isFullscreen();
           btnFull.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
           btnFull.classList.toggle('is-full', on);
+          dlg.classList.toggle('is-fs', on);
+          if (!on) hideStrip();
         }
         doc.addEventListener('fullscreenchange', syncFullscreenButton);
         doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
@@ -4427,12 +4458,86 @@
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
           }
+          
+          if (dockX !== null) dock();
         }
 
         strip.addEventListener('click', function (e) {
           var b = e.target.closest('button');
           if (b) go(b._k, 420);
         });
+
+        
+        
+        
+        
+        var STRIP_ZONE = 120, stripTimer = 0;
+        function revealStrip(hideAfter) {
+          dlg.classList.add('strip-on');
+          clearTimeout(stripTimer);
+          stripTimer = hideAfter ? setTimeout(hideStrip, hideAfter) : 0;
+        }
+        function hideStrip() {
+          clearTimeout(stripTimer);
+          stripTimer = 0;
+          dlg.classList.remove('strip-on');
+        }
+        function stripZone(e) {
+          if (!isFullscreen() || strip.hidden) return;
+          var near = e.clientY > frame.getBoundingClientRect().bottom - STRIP_ZONE;
+          if (e.pointerType !== 'mouse') {
+            if (near) revealStrip(3000);
+          } else if (near) {
+            revealStrip(0);
+          } else if (dlg.classList.contains('strip-on') && !stripTimer) {
+            stripTimer = setTimeout(hideStrip, 400);
+          }
+        }
+        dlg.addEventListener('pointermove', stripZone);
+        dlg.addEventListener('pointerdown', stripZone);
+
+        
+        
+        
+        
+        
+        
+        var DOCK_MAX = 1.9, DOCK_REACH = 130, dockX = null;
+        var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        function dock() {
+          var buttons = strip.children;
+          var scales = [], extra = 0;
+          for (var i = 0; i < buttons.length; i++) {
+            var b = buttons[i];
+            var d = Math.abs(dockX - (b.offsetLeft + b.offsetWidth / 2));
+            var s = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
+            scales.push(s);
+            extra += b.offsetWidth * (s - 1);
+          }
+          
+          
+          var before = 0;
+          for (var j = 0; j < buttons.length; j++) {
+            var grow = buttons[j].offsetWidth * (scales[j] - 1);
+            var shift = before + grow / 2 - extra / 2;
+            before += grow;
+            var lift = buttons[j].hasAttribute('aria-current') ? ' translateY(-4px)' : '';
+            buttons[j].style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + scales[j].toFixed(3) + ')';
+          }
+        }
+        function undock() {
+          dockX = null;
+          strip.classList.remove('docking');
+          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; });
+        }
+        strip.addEventListener('pointermove', function (e) {
+          if (e.pointerType !== 'mouse' || reduceMotion.matches) return;
+          
+          dockX = e.clientX - strip.offsetParent.getBoundingClientRect().left;
+          strip.classList.add('docking');
+          dock();
+        });
+        strip.addEventListener('pointerleave', undock);
 
         function durationFor(v) {
           return Math.round(420 - Math.min(Math.abs(v || 0), 2) * 110);
@@ -4779,6 +4884,8 @@
           dx = 0;
           zoom = { z: 1, x: 0, y: 0 };
           ambient.reset();
+          undock();
+          hideStrip();
           strip.innerHTML = '';
           dlg.querySelector('.ss-bg').style.opacity = '';
           root.classList.add('ss-lock');
