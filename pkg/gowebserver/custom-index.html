@@ -395,6 +395,11 @@
       line-height: 1.08;
       letter-spacing: -0.022em;
       overflow-wrap: anywhere;
+      /* Blends into the toolbar's title as it scrolls away; see
+       * --title-p in the header script. */
+      transform-origin: left center;
+      opacity: calc(1 - var(--title-p, 0));
+      transform: translateY(calc(var(--title-p, 0) * 10px)) scale(calc(1 - var(--title-p, 0) * 0.35));
     }
 
     .summary {
@@ -416,15 +421,21 @@
       gap: 12px;
       padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
       background: transparent;
-      border-bottom: 1px solid transparent;
-      transition: background-color 0.3s, border-color 0.3s;
     }
 
-    .toolbar.stuck {
+    /* The toolbar's glass fades in with --title-p as the page title
+     * scrolls away. */
+    .toolbar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
       background: var(--glass);
-      border-bottom-color: var(--line);
+      border-bottom: 1px solid var(--line);
       -webkit-backdrop-filter: blur(22px) saturate(1.8);
       backdrop-filter: blur(22px) saturate(1.8);
+      opacity: var(--title-p, 0);
+      pointer-events: none;
     }
 
     .tb-title {
@@ -438,15 +449,9 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.25s, transform 0.35s var(--ease);
+      opacity: var(--title-p, 0);
+      transform: translateY(calc((1 - var(--title-p, 0)) * 8px));
       pointer-events: none;
-    }
-
-    .toolbar.stuck .tb-title {
-      opacity: 1;
-      transform: none;
     }
 
     .search {
@@ -869,8 +874,8 @@
 
     /* Folder: the front opens, a couple of papers peek out, and it closes
      * again. The papers are clipped at the front's top edge so they never
-     * show through it, and filled so the back's outline doesn't show
-     * through them. */
+     * show through it, and filled with a tint of the folder's color so the
+     * back's outline doesn't show through them. */
     .p-folder-front {
       transform-origin: 12px 20px;
       animation: var(--hov) ic-folder-front 1.8s var(--ease);
@@ -878,7 +883,7 @@
 
     .p-folder-paper1,
     .p-folder-paper2 {
-      fill: var(--raised);
+      fill: color-mix(in srgb, var(--c) 30%, var(--bg));
       transform: translateY(5px);
       animation: var(--hov) ic-folder-paper 1.8s var(--ease);
     }
@@ -1059,40 +1064,48 @@
       }
     }
 
-    /* Spreadsheet: a cell cursor hops between cells. */
-    .p-spreadsheet-cell {
+    /* Spreadsheet: the cells are selected one by one, like dragging a
+     * selection across the grid, then the selection clears. */
+    :is(.p-spreadsheet-c1, .p-spreadsheet-c2, .p-spreadsheet-c3, .p-spreadsheet-c4) {
       opacity: 0;
-      animation: var(--hov) ic-cell 1.6s var(--ease) infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: var(--hov) ic-cell 1.8s var(--ease-out) infinite;
+    }
+
+    .p-spreadsheet-c2 {
+      animation-delay: 0.15s;
+    }
+
+    .p-spreadsheet-c3 {
+      animation-delay: 0.3s;
+    }
+
+    .p-spreadsheet-c4 {
+      animation-delay: 0.45s;
     }
 
     @keyframes ic-cell {
       0% {
         opacity: 0;
-        transform: scale(0.4);
-        transform-origin: 10.1px 15.1px;
+        transform: scale(0.3);
       }
 
-      10%,
-      30% {
-        opacity: 0.85;
+      15% {
+        opacity: 0.5;
+        transform: scale(1.15);
+      }
+
+      25%,
+      65% {
+        opacity: 0.5;
         transform: none;
       }
 
-      40%,
-      60% {
-        opacity: 0.85;
-        transform: translateX(4px);
-      }
-
-      70%,
-      90% {
-        opacity: 0.85;
-        transform: translate(4px, -3.4px) scaleY(0.55);
-      }
-
+      80%,
       100% {
         opacity: 0;
-        transform: translate(4px, -3.4px) scaleY(0.55);
+        transform: none;
       }
     }
 
@@ -1329,17 +1342,13 @@
       }
     }
 
-    /* Disc: spins up with a wobble, like it's being read. */
+    /* Disc: spins steadily, like it's being read. */
     .p-disc-disc {
       transform-origin: 12px 12px;
-      animation: var(--hov) ic-spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      animation: var(--hov) ic-spin 0.9s linear infinite;
     }
 
     @keyframes ic-spin {
-      50% {
-        transform: rotate(180deg) scale(0.92);
-      }
-
       to {
         transform: rotate(360deg);
       }
@@ -2363,7 +2372,8 @@
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 13px;
       background: rgba(20, 21, 26, 0.42);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      --btn-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      box-shadow: var(--btn-inset);
       -webkit-backdrop-filter: blur(14px) saturate(1.4);
       backdrop-filter: blur(14px) saturate(1.4);
       color: #fff;
@@ -2610,18 +2620,27 @@
       animation: ss-cave-r 1.2s var(--ease);
     }
 
+    /* The arrow is clipped at the bottom of the caved-in ground and at
+     * the icon's top edge, so it sinks into the hole, fading as it goes,
+     * and drops back in from the top. */
     @keyframes ss-drop {
       15% {
         transform: translateY(-2px);
       }
 
+      36% {
+        opacity: 1;
+      }
+
       48% {
         transform: translateY(17px);
+        opacity: 0;
         animation-timing-function: step-end;
       }
 
       52% {
         transform: translateY(-15px);
+        opacity: 1;
         animation-timing-function: cubic-bezier(0.3, 1.4, 0.6, 1);
       }
 
@@ -2725,25 +2744,34 @@
     }
 
     /* ===== Button hover =====
-     * Buttons lift and do a quick squash-and-stretch when the pointer
-     * arrives. It animates the scale and translate properties, so it
-     * combines with the transform buttons already use when pressed. */
+     * When the pointer arrives, an accent ring ripples out from the button
+     * and its icon does a quick squash-and-stretch. The button's own box
+     * never moves or scales: if it did, its hover area would slip out from
+     * under a pointer resting near its edge, ending the hover and making
+     * the button flicker. The ring is a box-shadow, which doesn't affect
+     * hit testing, and the squash animates the icon's scale property, so
+     * it combines with any transform animation the icon already has. */
     @media (hover: hover) {
 
       .icon-btn:hover,
       .pill:hover,
       .ss-btn:hover {
-        animation: btn-boing 0.55s var(--ease-out) forwards;
+        animation: btn-ring 0.6s var(--ease-out);
       }
 
-      /* Close squeezes shut along with its X. */
-      #ss-close:hover {
+      .icon-btn:hover > svg,
+      .ss-btn:hover > svg {
+        animation: btn-squash 0.55s var(--ease-out);
+      }
+
+      /* Close: the X squeezes shut along with its strokes. */
+      #ss-close:hover > svg {
         animation: btn-shut 1.6s var(--ease-out) infinite;
       }
 
-      /* Theme: the icon spins over. */
-      #theme:hover svg {
-        animation: ic-theme 0.8s var(--ease-out);
+      /* Theme: the icon squashes and spins over. */
+      #theme:hover > svg {
+        animation: btn-squash 0.55s var(--ease-out), ic-theme 0.8s var(--ease-out);
       }
 
       /* Slideshow pill: the play triangle hops forward. */
@@ -2779,28 +2807,28 @@
       animation: ic-look 0.8s var(--ease-out);
     }
 
-    @keyframes btn-boing {
-      0% {
-        scale: 1;
-        translate: 0;
-      }
-
-      30% {
-        scale: 1.08 0.92;
-      }
-
-      55% {
-        scale: 0.97 1.04;
-        translate: 0 -2px;
-      }
-
-      75% {
-        scale: 1.02 0.99;
+    /* The ring keeps any inset highlight the button has (--btn-inset). */
+    @keyframes btn-ring {
+      from {
+        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
       }
 
       to {
-        scale: 1;
-        translate: 0 -1px;
+        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+      }
+    }
+
+    @keyframes btn-squash {
+      30% {
+        scale: 1.16 0.86;
+      }
+
+      55% {
+        scale: 0.92 1.1;
+      }
+
+      75% {
+        scale: 1.04 0.97;
       }
     }
 
@@ -3068,7 +3096,10 @@
       <symbol id="icon-spreadsheet" viewBox="0 0 24 24" overflow="visible">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
         <polyline points="14 2 14 8 20 8" />
-        <rect class="p-spreadsheet-cell" x="8.6" y="13.6" width="3" height="3" rx="0.6" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c1" x="8.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c2" x="12.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c3" x="8.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c4" x="12.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
         <line x1="8" y1="13" x2="16" y2="13" />
         <line x1="8" y1="17" x2="16" y2="17" />
         <line x1="12" y1="11" x2="12" y2="19" />
@@ -3120,7 +3151,7 @@
       </symbol>
       <!-- Download (default/fallback) -->
       <symbol id="icon-download" viewBox="0 0 24 24" overflow="visible">
-        <defs><clipPath id="icon-download-clip"><rect x="0" y="-24" width="24" height="44.2" /></clipPath></defs>
+        <defs><clipPath id="icon-download-clip"><rect x="0" y="0" width="24" height="25.2" /></clipPath></defs>
         <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
           <g clip-path="url(#icon-download-clip)">
             <path class="p-download-arrow" d="M12 3v13M7 11l5 5 5-5" />
@@ -3404,7 +3435,7 @@
         <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
         <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
         <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
-        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="-24" width="24" height="43" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
+        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
         <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
       </div>
       <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
@@ -3505,25 +3536,78 @@
         var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
         var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
         var crumbs = $('crumbs');
-        var html = '<a href="/">' +
-          '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-          '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
-        var href = '/';
-        parts.slice(0, -1).forEach(function (p) {
-          href += p + '/';
-          html += svgUse('ui-chevron', 'sep') + '<a href="' + escapeHTML(href) + '">' + escapeHTML(label(p)) + '</a>';
+        // Parent folders shown after home, by screen width: 4 on wide
+        // screens, 3 on medium, 2 on phones. Deeper ones collapse into an
+        // ellipsis that links to the nearest hidden folder and shows the
+        // full path on hover.
+        var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
+        function renderCrumbs() {
+          var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
+          var ancestors = [], href = '/';
+          parts.slice(0, -1).forEach(function (p) {
+            href += p + '/';
+            ancestors.push({ href: href, name: label(p) });
+          });
+          var html = '<a href="/">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
+            '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
+          var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
+          if (hidden.length) {
+            var path = hidden.map(function (a) { return a.name; }).join(' / ');
+            html += svgUse('ui-chevron', 'sep') + '<a class="more" href="' + escapeHTML(hidden[hidden.length - 1].href) +
+              '" title="' + escapeHTML(path) + '" aria-label="' + escapeHTML('Up to ' + hidden[hidden.length - 1].name) + '">\u2026</a>';
+          }
+          ancestors.slice(hidden.length).forEach(function (a) {
+            html += svgUse('ui-chevron', 'sep') + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
+          });
+          crumbs.innerHTML = html;
+        }
+        renderCrumbs();
+        [wide, medium].forEach(function (mq) {
+          if (mq.addEventListener) mq.addEventListener('change', renderCrumbs);
         });
-        crumbs.innerHTML = html;
 
         var name = parts.length ? label(parts[parts.length - 1]) : (location.host || '/');
         $('title').textContent = name;
         $('tb-title').textContent = name;
         doc.title = name;
 
-        var toolbar = $('toolbar');
-        new IntersectionObserver(function (entries) {
-          toolbar.classList.toggle('stuck', !entries[0].isIntersecting);
-        }, { threshold: 0 }).observe($('hero'));
+        // The page title blends into the toolbar's title as it scrolls away.
+        // --title-p runs from 0, when the title reaches the top of the
+        // window, to 1, when the toolbar sticks. The title fades and
+        // shrinks while the toolbar's title and glass fade in. It's set on
+        // the header and toolbar only, so scrolling doesn't restyle the
+        // whole page. Positions come from layout offsets, which the title's
+        // own transform doesn't change.
+        var hero = $('hero'), title = $('title'), toolbar = $('toolbar');
+        var start = 0, end = 1, lastP = -1, queued = false;
+        function docTop(el) {
+          var y = 0;
+          for (; el; el = el.offsetParent) y += el.offsetTop;
+          return y;
+        }
+        function measure() {
+          start = docTop(title) - 8;
+          end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
+          blend();
+        }
+        function blend() {
+          queued = false;
+          var p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
+          p = Math.round(p * 100) / 100;
+          if (p === lastP) return;
+          lastP = p;
+          hero.style.setProperty('--title-p', p);
+          toolbar.style.setProperty('--title-p', p);
+        }
+        addEventListener('scroll', function () {
+          if (!queued) { queued = true; requestAnimationFrame(blend); }
+        }, { passive: true });
+        addEventListener('resize', measure, { passive: true });
+        // Web fonts and the summary line can change the header's height
+        // after load.
+        if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
+        measure();
       })();
 
       function escapeHTML(s) {

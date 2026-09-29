@@ -194,6 +194,11 @@
       line-height: 1.1;
       letter-spacing: -0.02em;
       overflow-wrap: anywhere;
+      /* Blends into the toolbar's title as it scrolls away; see
+       * --title-p in the header script. */
+      transform-origin: left center;
+      opacity: calc(1 - var(--title-p, 0));
+      transform: translateY(calc(var(--title-p, 0) * 10px)) scale(calc(1 - var(--title-p, 0) * 0.35));
     }
 
     .meta {
@@ -225,15 +230,21 @@
       align-items: center;
       gap: 8px;
       padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
-      border-bottom: 1px solid transparent;
-      transition: background-color 0.3s, border-color 0.3s;
     }
 
-    .toolbar.stuck {
+    /* The toolbar's glass fades in with --title-p as the page title
+     * scrolls away. */
+    .toolbar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
       background: var(--glass);
-      border-bottom-color: var(--line);
+      border-bottom: 1px solid var(--line);
       -webkit-backdrop-filter: blur(22px) saturate(1.8);
       backdrop-filter: blur(22px) saturate(1.8);
+      opacity: var(--title-p, 0);
+      pointer-events: none;
     }
 
     .back {
@@ -275,15 +286,9 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.25s, transform 0.35s var(--ease);
+      opacity: var(--title-p, 0);
+      transform: translateY(calc((1 - var(--title-p, 0)) * 8px));
       pointer-events: none;
-    }
-
-    .toolbar.stuck .tb-title {
-      opacity: 1;
-      transform: none;
     }
 
     .spacer {
@@ -491,8 +496,10 @@
     }
 
     /* ===== Button hover =====
-     * Same as the file browser: buttons lift with a quick squash-and-
-     * stretch, and each icon does its own small animation. */
+     * Same as the file browser: an accent ring ripples out and the icon
+     * squashes, while the button's own box stays put so its hover area
+     * never slips out from under the pointer. Each icon also does its own
+     * small animation. */
     svg * {
       transform-box: view-box;
     }
@@ -502,7 +509,11 @@
       .icon-btn:hover,
       .back:hover,
       .select:hover select {
-        animation: btn-boing 0.55s var(--ease-out) forwards;
+        animation: btn-ring 0.6s var(--ease-out);
+      }
+
+      .icon-btn:hover > svg {
+        animation: btn-squash 0.55s var(--ease-out);
       }
 
       .crumbs a:first-child:hover svg {
@@ -552,31 +563,30 @@
     }
 
     #theme:is(:hover, :focus-visible) svg {
-      animation: ic-theme 0.8s var(--ease-out);
+      animation: btn-squash 0.55s var(--ease-out), ic-theme 0.8s var(--ease-out);
     }
 
-    @keyframes btn-boing {
-      0% {
-        scale: 1;
-        translate: 0;
-      }
-
-      30% {
-        scale: 1.08 0.92;
-      }
-
-      55% {
-        scale: 0.97 1.04;
-        translate: 0 -2px;
-      }
-
-      75% {
-        scale: 1.02 0.99;
+    @keyframes btn-ring {
+      from {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
       }
 
       to {
-        scale: 1;
-        translate: 0 -1px;
+        box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+      }
+    }
+
+    @keyframes btn-squash {
+      30% {
+        scale: 1.16 0.86;
+      }
+
+      55% {
+        scale: 0.92 1.1;
+      }
+
+      75% {
+        scale: 1.04 0.97;
       }
     }
 
@@ -650,18 +660,26 @@
     }
 
     /* Download: the arrow dives into the ground, which caves in. */
+    /* Clipped at the bottom of the caved-in ground and at the icon's top
+     * edge, so the arrow sinks into the hole and drops back in from above. */
     @keyframes ic-drop {
       15% {
         transform: translateY(-2px);
       }
 
+      36% {
+        opacity: 1;
+      }
+
       48% {
         transform: translateY(17px);
+        opacity: 0;
         animation-timing-function: step-end;
       }
 
       52% {
         transform: translateY(-15px);
+        opacity: 1;
         animation-timing-function: cubic-bezier(0.3, 1.4, 0.6, 1);
       }
 
@@ -778,7 +796,7 @@
       <svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg>
     </a>
     <a class="icon-btn" href="{{.RawURL}}" download aria-label="Download" title="Download">
-      <svg viewBox="0 0 24 24"><defs><clipPath id="dl-clip"><rect x="0" y="-24" width="24" height="43" /></clipPath></defs><g clip-path="url(#dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg>
+      <svg viewBox="0 0 24 24"><defs><clipPath id="dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg>
     </a>
     <button class="icon-btn" id="theme" type="button" aria-label="Theme: automatic">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 010 16z" fill="currentColor" /></svg>
@@ -821,20 +839,66 @@
         var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
         var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
         var sep = '<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
-        var html = '<a href="/">' +
-          '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-          '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
-        var href = '/';
-        parts.slice(0, -1).forEach(function (p) {
-          href += p + '/';
-          html += sep + '<a href="' + escapeHTML(href) + '">' + escapeHTML(label(p)) + '</a>';
+        // Folders shown after home, by screen width: 4 on wide screens, 3
+        // on medium, 2 on phones. Deeper ones collapse into an ellipsis
+        // that links to the nearest hidden folder and shows the full path
+        // on hover. Same as the file browser.
+        var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
+        function renderCrumbs() {
+          var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
+          var ancestors = [], href = '/';
+          parts.slice(0, -1).forEach(function (p) {
+            href += p + '/';
+            ancestors.push({ href: href, name: label(p) });
+          });
+          var html = '<a href="/">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
+            '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
+          var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
+          if (hidden.length) {
+            var path = hidden.map(function (a) { return a.name; }).join(' / ');
+            html += sep + '<a class="more" href="' + escapeHTML(hidden[hidden.length - 1].href) +
+              '" title="' + escapeHTML(path) + '" aria-label="' + escapeHTML('Up to ' + hidden[hidden.length - 1].name) + '">\u2026</a>';
+          }
+          ancestors.slice(hidden.length).forEach(function (a) {
+            html += sep + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
+          });
+          $('crumbs').innerHTML = html;
+        }
+        renderCrumbs();
+        [wide, medium].forEach(function (mq) {
+          if (mq.addEventListener) mq.addEventListener('change', renderCrumbs);
         });
-        $('crumbs').innerHTML = html;
 
-        var toolbar = $('toolbar');
-        new IntersectionObserver(function (entries) {
-          toolbar.classList.toggle('stuck', !entries[0].isIntersecting);
-        }, { threshold: 0 }).observe($('hero'));
+        // The page title blends into the toolbar's title as it scrolls
+        // away; see the file browser for how --title-p is measured.
+        var hero = $('hero'), title = hero.querySelector('.title'), toolbar = $('toolbar');
+        var start = 0, end = 1, lastP = -1, queued = false;
+        function docTop(el) {
+          var y = 0;
+          for (; el; el = el.offsetParent) y += el.offsetTop;
+          return y;
+        }
+        function measure() {
+          start = docTop(title) - 8;
+          end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
+          blend();
+        }
+        function blend() {
+          queued = false;
+          var p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
+          p = Math.round(p * 100) / 100;
+          if (p === lastP) return;
+          lastP = p;
+          hero.style.setProperty('--title-p', p);
+          toolbar.style.setProperty('--title-p', p);
+        }
+        addEventListener('scroll', function () {
+          if (!queued) { queued = true; requestAnimationFrame(blend); }
+        }, { passive: true });
+        addEventListener('resize', measure, { passive: true });
+        if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
+        measure();
       })();
 
       // Theme: automatic, light, dark. Shared with the file browser.
