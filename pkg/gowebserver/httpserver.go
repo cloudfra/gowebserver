@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
+	"github.com/cloudfra/gowebserver/pkg/update"
 	"github.com/cloudfra/ufs"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -56,6 +57,8 @@ type webServerImpl struct {
 	thumbnails          Thumbnails
 	monitoringCtx       *monitoringContext
 	ffmpeg              *ffmpeg.FFmpeg // nil when ffmpeg is unavailable
+	update              Update
+	debugEndpoint       string
 
 	httpListenPort  int
 	httpsListenPort int
@@ -142,6 +145,12 @@ func (ws *webServerImpl) Serve(wait func()) error {
 			return nil
 		})
 	}
+
+	cleanup, err := ws.serveUpdates(serverMux)
+	if err != nil {
+		return err
+	}
+	allCleanups = append(allCleanups, cleanup)
 
 	// One thumbnailer (and store) is shared by every served filesystem.
 	thumbs, err := newThumbnailer(ws.thumbnails, ws.ffmpeg, ws.monitoringCtx.getTraceProvider())
@@ -310,6 +319,10 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath = dir
 	}
 
+	if t := conf.Update.Track; t != "" && !update.ValidTrack(t) {
+		return nil, fmt.Errorf("update.track %q: use %q, %q, or leave it empty to turn automatic updates off", t, update.TrackStable, update.TrackUnstable)
+	}
+
 	monitoringCtx, err := setupMonitoring(conf.Monitoring)
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
@@ -330,6 +343,8 @@ func New(conf *Config) (WebServer, error) {
 		uploadHTTPPath:      conf.Upload.Endpoint,
 		verbose:             conf.Verbose,
 		ffmpeg:              newFFmpeg(conf.FFmpeg),
+		update:              conf.Update,
+		debugEndpoint:       conf.Monitoring.DebugEndpoint,
 	}
 
 	return ws, nil

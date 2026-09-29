@@ -153,6 +153,16 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: make build/packages/release.tar.gz
 
+      - name: Upload Release Binaries
+        # For publish-track, which publishes them to a release track.
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-binaries
+          path: build/release/
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Create Release
         # https://github.com/softprops/action-gh-release
         uses: softprops/action-gh-release@v3
@@ -207,6 +217,68 @@ jobs:
         run: |
           make DOCKER_PUSH=--push REGISTRY=docker.io/cloudfra images
           make DOCKER_PUSH=--push REGISTRY=ghcr.io/cloudfra images
+
+  publish-track:
+    name: "Publish Release Track"
+    # Automatic updates (pkg/update) read tracks.json from the "unstable"
+    # release. A push to main makes its build the unstable track, replacing
+    # that release's binaries; a release tag makes its build the stable
+    # track, whose binaries are the tag's own release.
+    if: ${{ github.event_name == 'push' }}
+    needs: build-linux
+    runs-on: ["self-hosted", "linux", "large"]
+    permissions:
+      contents: write
+    # tracks.json is read, changed and uploaded again, so a main push and a
+    # tag push must not interleave; each waits for the other.
+    concurrency:
+      group: publish-track
+      cancel-in-progress: false
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # git describe needs the tags and history.
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Download Release Binaries
+        uses: actions/download-artifact@v7
+        with:
+          name: release-binaries
+          path: build/release
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="$(git describe --tags)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            track=stable
+            base_url="$REPO_URL/releases/download/$GITHUB_REF_NAME/"
+          else
+            track=unstable
+            base_url="$REPO_URL/releases/download/unstable/"
+          fi
+          if ! gh release view unstable >/dev/null 2>&1; then
+            gh release create unstable --prerelease --latest=false --target "$GITHUB_SHA" --title "Unstable" \
+              --notes "The latest build of main, replaced on every merge. tracks.json lists the current stable and unstable builds for automatic updates."
+          fi
+          # Missing on the very first run; the tool then starts a new one.
+          gh release download unstable --pattern tracks.json --dir . --clobber || true
+          go run ./internal/tools/tracks -manifest tracks.json -track "$track" \
+            -version "$version" -commit "$GITHUB_SHA" -base-url "$base_url" -dir build/release
+          if [[ "$track" == unstable ]]; then
+            git tag -f unstable "$GITHUB_SHA"
+            git push -f origin refs/tags/unstable
+            gh release upload unstable build/release/gowebserver-* --clobber
+          fi
+          # Last, so it never points at binaries that aren't there yet.
+          gh release upload unstable tracks.json --clobber
 
   build-windows:
     name: "Build Windows"

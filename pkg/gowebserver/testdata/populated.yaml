@@ -34,3 +34,6 @@ ffmpeg:
 thumbnails:
   enabled: false
   cachePath: /var/cache/gowebserver/thumbnails.db
+update:
+  track: unstable
+  manifestUrl: https://example.com/tracks.json

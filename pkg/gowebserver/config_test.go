@@ -89,6 +89,10 @@ func TestPopulatedConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
+		Update: Update{
+			Track:       "unstable",
+			ManifestURL: "https://example.com/tracks.json",
+		},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -218,6 +222,10 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		},
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
+		},
+		Update: Update{
+			Track:       "unstable",
+			ManifestURL: "https://example.com/tracks.json",
 		},
 	}
 
