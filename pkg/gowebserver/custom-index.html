@@ -395,6 +395,11 @@
       line-height: 1.08;
       letter-spacing: -0.022em;
       overflow-wrap: anywhere;
+      /* Blends into the toolbar's title as it scrolls away; see
+       * --title-p in the header script. */
+      transform-origin: left center;
+      opacity: calc(1 - var(--title-p, 0));
+      transform: translateY(calc(var(--title-p, 0) * 10px)) scale(calc(1 - var(--title-p, 0) * 0.35));
     }
 
     .summary {
@@ -416,15 +421,21 @@
       gap: 12px;
       padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
       background: transparent;
-      border-bottom: 1px solid transparent;
-      transition: background-color 0.3s, border-color 0.3s;
     }
 
-    .toolbar.stuck {
+    /* The toolbar's glass fades in with --title-p as the page title
+     * scrolls away. */
+    .toolbar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
       background: var(--glass);
-      border-bottom-color: var(--line);
+      border-bottom: 1px solid var(--line);
       -webkit-backdrop-filter: blur(22px) saturate(1.8);
       backdrop-filter: blur(22px) saturate(1.8);
+      opacity: var(--title-p, 0);
+      pointer-events: none;
     }
 
     .tb-title {
@@ -438,15 +449,9 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.25s, transform 0.35s var(--ease);
+      opacity: var(--title-p, 0);
+      transform: translateY(calc((1 - var(--title-p, 0)) * 8px));
       pointer-events: none;
-    }
-
-    .toolbar.stuck .tb-title {
-      opacity: 1;
-      transform: none;
     }
 
     .search {
@@ -696,13 +701,14 @@
     }
 
     .chip svg {
+      --stroke: 1.6;
       width: 20px;
       height: 20px;
       /* Hover animations move parts past the 24x24 icon box. */
       overflow: visible;
       fill: none;
       stroke: currentColor;
-      stroke-width: 1.6;
+      stroke-width: var(--stroke);
       stroke-linecap: round;
       stroke-linejoin: round;
     }
@@ -820,6 +826,14 @@
     .icon-package { --c: var(--icon-package); }
     .icon-unknown { --c: var(--icon-text); }
 
+    /* Icons whose shapes aren't 20 units at their widest, or aren't
+     * centered, are wrapped in a .ic-fit group that scales and centers them
+     * so every icon reads the same size. The stroke is divided by the same
+     * factor (--k) so line weight matches. */
+    .ic-fit {
+      stroke-width: calc(var(--stroke) / var(--k));
+    }
+
     /* The terminal cursor sits on the chip so it can blink; its offsets
      * place it after the prompt glyph of the centered 20px icon. */
     .icon-terminal::after {
@@ -858,33 +872,70 @@
       transform-box: view-box;
     }
 
-    /* Folder: squashes like it's being opened and a page pops out. */
-    .p-folder {
-      transform-origin: 12px 19px;
-      animation: var(--hov) ic-squash 0.7s var(--ease-out);
+    /* Folder: the front opens, a couple of papers peek out, and it closes
+     * again. The papers are clipped at the front's top edge so they never
+     * show through it, and filled with a tint of the folder's color so the
+     * back's outline doesn't show through them. */
+    .p-folder-front {
+      transform-origin: 12px 20px;
+      animation: var(--hov) ic-folder-front 1.8s var(--ease);
     }
 
-    .p-paper {
-      transform: translateY(10px);
-      transform-origin: 15.5px 12px;
-      animation: var(--hov) ic-paper 0.9s var(--ease-out) forwards;
+    .p-folder-paper1,
+    .p-folder-paper2 {
+      fill: color-mix(in srgb, var(--c) 30%, var(--bg));
+      transform: translateY(5px);
+      animation: var(--hov) ic-folder-paper 1.8s var(--ease);
     }
 
-    @keyframes ic-paper {
-      45% {
-        transform: translateY(-1.5px) rotate(0);
+    .p-folder-paper1 {
+      transform-origin: 10px 13px;
+      --tilt: -7deg;
+    }
+
+    .p-folder-paper2 {
+      transform-origin: 14px 13px;
+      --tilt: 6deg;
+      animation-delay: 0.1s;
+    }
+
+    @keyframes ic-folder-front {
+      18%,
+      68% {
+        transform: scaleY(0.8) skewX(-12deg);
       }
 
-      65% {
-        transform: translateY(0) rotate(-8deg);
-      }
-
-      85% {
-        transform: translateY(0) rotate(5deg);
+      86% {
+        transform: scaleY(1.04);
       }
 
       to {
-        transform: translateY(0) rotate(0);
+        transform: none;
+      }
+    }
+
+    @keyframes ic-folder-paper {
+
+      0%,
+      15% {
+        transform: translateY(5px);
+      }
+
+      40% {
+        transform: translateY(-4px) rotate(var(--tilt));
+      }
+
+      52% {
+        transform: translateY(-2.5px) rotate(calc(var(--tilt) * -0.4));
+      }
+
+      62% {
+        transform: translateY(-3px) rotate(0);
+      }
+
+      82%,
+      100% {
+        transform: translateY(5px);
       }
     }
 
@@ -1013,40 +1064,48 @@
       }
     }
 
-    /* Spreadsheet: a cell cursor hops between cells. */
-    .p-spreadsheet-cell {
+    /* Spreadsheet: the cells are selected one by one, like dragging a
+     * selection across the grid, then the selection clears. */
+    :is(.p-spreadsheet-c1, .p-spreadsheet-c2, .p-spreadsheet-c3, .p-spreadsheet-c4) {
       opacity: 0;
-      animation: var(--hov) ic-cell 1.6s var(--ease) infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: var(--hov) ic-cell 1.8s var(--ease-out) infinite;
+    }
+
+    .p-spreadsheet-c2 {
+      animation-delay: 0.15s;
+    }
+
+    .p-spreadsheet-c3 {
+      animation-delay: 0.3s;
+    }
+
+    .p-spreadsheet-c4 {
+      animation-delay: 0.45s;
     }
 
     @keyframes ic-cell {
       0% {
         opacity: 0;
-        transform: scale(0.4);
-        transform-origin: 10.1px 15.1px;
+        transform: scale(0.3);
       }
 
-      10%,
-      30% {
-        opacity: 0.85;
+      15% {
+        opacity: 0.5;
+        transform: scale(1.15);
+      }
+
+      25%,
+      65% {
+        opacity: 0.5;
         transform: none;
       }
 
-      40%,
-      60% {
-        opacity: 0.85;
-        transform: translateX(4px);
-      }
-
-      70%,
-      90% {
-        opacity: 0.85;
-        transform: translate(4px, -3.4px) scaleY(0.55);
-      }
-
+      80%,
       100% {
         opacity: 0;
-        transform: translate(4px, -3.4px) scaleY(0.55);
+        transform: none;
       }
     }
 
@@ -1143,42 +1202,14 @@
       }
     }
 
-    /* Audio: the notes bounce to the beat. */
-    :is(.p-audio-n1, .p-audio-n2, .p-audio-beam) {
-      animation: var(--hov) ic-beat 0.9s var(--ease) infinite;
+    /* Audio: the whole note sways and bounces to the beat, stems and beam
+     * moving together. */
+    .p-audio-note {
+      transform-origin: 13.5px 21px;
+      animation: var(--hov) ic-sway 1.2s var(--ease) infinite;
     }
 
-    .p-audio-n1 {
-      transform-origin: 6px 21px;
-    }
-
-    .p-audio-n2 {
-      transform-origin: 18px 19px;
-      animation-delay: -0.45s;
-    }
-
-    .p-audio-beam {
-      transform-origin: 15px 4px;
-      animation-name: ic-beam;
-    }
-
-    @keyframes ic-beat {
-
-      0%,
-      100% {
-        transform: none;
-      }
-
-      25% {
-        transform: translateY(-3px) scale(0.95, 1.05);
-      }
-
-      50% {
-        transform: scale(1.08, 0.92);
-      }
-    }
-
-    @keyframes ic-beam {
+    @keyframes ic-sway {
 
       0%,
       50%,
@@ -1187,11 +1218,19 @@
       }
 
       25% {
-        transform: translateY(-3px) rotate(4deg);
+        transform: translateY(-2px) rotate(-7deg);
+      }
+
+      37% {
+        transform: scale(1.06, 0.94);
       }
 
       75% {
-        transform: translateY(-3px) rotate(-4deg);
+        transform: translateY(-2px) rotate(7deg);
+      }
+
+      87% {
+        transform: scale(1.06, 0.94);
       }
     }
 
@@ -1290,21 +1329,7 @@
       }
     }
 
-    /* Terminal: the prompt nudges forward and the cursor blinks. */
-    .p-terminal-prompt {
-      animation: var(--hov) ic-nudge 0.9s var(--ease) infinite;
-    }
-
-    @keyframes ic-nudge {
-      30% {
-        transform: translateX(2px);
-      }
-
-      55% {
-        transform: translateX(-0.5px);
-      }
-    }
-
+    /* Terminal: the cursor blinks after the prompt. */
     @keyframes cursor-blink {
 
       0%,
@@ -1317,17 +1342,13 @@
       }
     }
 
-    /* Disc: spins up with a wobble, like it's being read. */
+    /* Disc: spins steadily, like it's being read. */
     .p-disc-disc {
       transform-origin: 12px 12px;
-      animation: var(--hov) ic-spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      animation: var(--hov) ic-spin 0.9s linear infinite;
     }
 
     @keyframes ic-spin {
-      50% {
-        transform: rotate(180deg) scale(0.92);
-      }
-
       to {
         transform: rotate(360deg);
       }
@@ -1405,49 +1426,23 @@
       }
     }
 
-    /* Database: the disks pop up like a stack of plates settling. */
-    .p-database-top {
-      animation: var(--hov) ic-plate 0.8s var(--ease-out);
+    /* Database: the whole cylinder jumps and lands with a squash. */
+    .p-database-db {
+      transform-origin: 12px 22px;
+      animation: var(--hov) ic-jump 0.8s var(--ease-out);
     }
 
-    .p-database-mid {
-      animation: var(--hov) ic-plate-mid 0.8s var(--ease-out);
-    }
-
-    @keyframes ic-plate {
-      30% {
-        transform: translateY(-4px);
-      }
-
-      55% {
-        transform: translateY(0.8px);
-      }
-
-      75% {
-        transform: translateY(-0.6px);
-      }
-    }
-
-    @keyframes ic-plate-mid {
-      40% {
-        transform: translateY(-2px);
-      }
-
-      65% {
-        transform: translateY(0.5px);
-      }
-    }
-
-    /* Ebook: the book tips back and a bookmark ribbon drops in. */
+    /* Ebook: the book tips back and a bookmark ribbon slides down out of
+     * its top edge (clipped there, so it appears to come from inside). The
+     * ribbon is part of the book, so it tips with it. */
     .p-ebook-book {
       transform-origin: 4px 22px;
-      animation: var(--hov) ic-tip 0.8s var(--ease-out);
+      animation: var(--hov) ic-tip 0.9s var(--ease-out);
     }
 
     .p-ebook-ribbon {
-      transform-origin: 13.5px 2px;
-      transform: scaleY(0);
-      animation: var(--hov) ic-ribbon 0.8s 0.1s var(--ease-out) forwards;
+      transform: translateY(-8px);
+      animation: var(--hov) ic-ribbon 0.9s 0.1s var(--ease-out) forwards;
     }
 
     @keyframes ic-tip {
@@ -1462,39 +1457,36 @@
 
     @keyframes ic-ribbon {
       0% {
-        transform: scaleY(0);
+        transform: translateY(-8px);
       }
 
-      50% {
-        transform: scaleY(1.3);
+      55% {
+        transform: translateY(1.2px);
       }
 
       75% {
-        transform: scaleY(0.9);
+        transform: translateY(-0.6px);
       }
 
       to {
-        transform: scaleY(1);
+        transform: none;
       }
     }
 
-    /* CAD: the cube's lid lifts and spins a quarter turn. */
-    .p-cad-top {
-      transform-origin: 12px 7px;
-      animation: var(--hov) ic-cube-lid 0.9s var(--ease-out);
+    /* CAD: the cube spins round once and hops. It's symmetric, so a
+     * horizontal flip reads as a half turn. */
+    .p-cad-cube {
+      transform-origin: 12px 12px;
+      animation: var(--hov) ic-cube-spin 0.9s var(--ease);
     }
 
-    @keyframes ic-cube-lid {
-      35% {
-        transform: translateY(-4px) scale(0.85);
+    @keyframes ic-cube-spin {
+      50% {
+        transform: translateY(-1.5px) scaleX(0.05);
       }
 
-      60% {
-        transform: translateY(-2px) scale(0.9, 1.1);
-      }
-
-      80% {
-        transform: translateY(0.5px);
+      to {
+        transform: scaleX(-1);
       }
     }
 
@@ -1730,31 +1722,75 @@
       }
     }
 
-    /* Key: turns in the lock and clicks. */
+    /* Key: the key slides into the padlock (it's clipped at the lock's
+     * edge, so it goes in rather than across), turns, which shows as its
+     * head squashing edge-on and the keyhole rotating a quarter turn,
+     * and the shackle springs open. It stays unlocked while hovered. */
     .p-key-key {
-      transform-origin: 7.5px 15.5px;
-      animation: var(--hov) ic-unlock 0.9s var(--ease-out);
+      transform-origin: 0 15.5px;
+      animation: var(--hov) ic-key-turn 1.6s var(--ease) forwards;
     }
 
-    @keyframes ic-unlock {
-      25% {
-        transform: rotate(-20deg);
+    .p-key-hole {
+      transform-origin: 17px 15.5px;
+      animation: var(--hov) ic-key-hole 1.6s var(--ease) forwards;
+    }
+
+    .p-key-shackle {
+      transform-origin: 20px 10.5px;
+      animation: var(--hov) ic-key-shackle 1.6s var(--ease-out) forwards;
+    }
+
+    @keyframes ic-key-turn {
+      0% {
+        transform: none;
       }
 
-      55% {
-        transform: rotate(32deg);
+      25%,
+      30% {
+        transform: translateX(5px);
       }
 
-      62% {
-        transform: rotate(26deg) translateX(0.6px);
+      40% {
+        transform: translateX(5px) scaleY(0.15);
+      }
+
+      50%,
+      100% {
+        transform: translateX(5px) scaleY(-1);
+      }
+    }
+
+    @keyframes ic-key-hole {
+
+      0%,
+      30% {
+        transform: none;
+      }
+
+      50%,
+      100% {
+        transform: rotate(90deg);
+      }
+    }
+
+    @keyframes ic-key-shackle {
+
+      0%,
+      52% {
+        transform: none;
       }
 
       68% {
-        transform: rotate(30deg) translateX(-0.6px);
+        transform: translateY(-3px) rotate(-22deg);
+      }
+
+      80% {
+        transform: translateY(-2px) rotate(-14deg);
       }
 
       to {
-        transform: rotate(0);
+        transform: translateY(-2.5px) rotate(-18deg);
       }
     }
 
@@ -1834,25 +1870,10 @@
       }
     }
 
-    /* Package: the box hops and its top flaps open. */
+    /* Package: the box hops and lands with a squash. */
     .p-package-pkg {
       transform-origin: 12px 22px;
       animation: var(--hov) ic-jump 0.8s var(--ease-out);
-    }
-
-    .p-package-flap {
-      transform-origin: 12px 12px;
-      animation: var(--hov) ic-flaps 0.8s var(--ease-out);
-    }
-
-    @keyframes ic-flaps {
-      40% {
-        transform: translateY(-2.5px) scaleY(-0.4);
-      }
-
-      70% {
-        transform: translateY(-0.5px) scaleY(1.2);
-      }
     }
 
     /* Unknown: the question mark wobbles, puzzled. */
@@ -2351,7 +2372,8 @@
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 13px;
       background: rgba(20, 21, 26, 0.42);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      --btn-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      box-shadow: var(--btn-inset);
       -webkit-backdrop-filter: blur(14px) saturate(1.4);
       backdrop-filter: blur(14px) saturate(1.4);
       color: #fff;
@@ -2598,18 +2620,27 @@
       animation: ss-cave-r 1.2s var(--ease);
     }
 
+    /* The arrow is clipped at the bottom of the caved-in ground and at
+     * the icon's top edge, so it sinks into the hole, fading as it goes,
+     * and drops back in from the top. */
     @keyframes ss-drop {
       15% {
         transform: translateY(-2px);
       }
 
+      36% {
+        opacity: 1;
+      }
+
       48% {
         transform: translateY(17px);
+        opacity: 0;
         animation-timing-function: step-end;
       }
 
       52% {
         transform: translateY(-15px);
+        opacity: 1;
         animation-timing-function: cubic-bezier(0.3, 1.4, 0.6, 1);
       }
 
@@ -2618,25 +2649,27 @@
       }
     }
 
+    /* Each ground half tilts about its outer end and stretches by
+     * 1/cos(angle), so the inner ends stay joined at the middle. */
     @keyframes ss-cave {
       20% {
         transform: rotate(0);
       }
 
       40% {
-        transform: rotate(24deg);
+        transform: rotate(24deg) scaleX(1.0946);
       }
 
       55% {
-        transform: rotate(28deg);
+        transform: rotate(28deg) scaleX(1.1326);
       }
 
       75% {
-        transform: rotate(-6deg);
+        transform: rotate(-6deg) scaleX(1.0055);
       }
 
       88% {
-        transform: rotate(2deg);
+        transform: rotate(2deg) scaleX(1.0006);
       }
     }
 
@@ -2646,19 +2679,19 @@
       }
 
       40% {
-        transform: rotate(-24deg);
+        transform: rotate(-24deg) scaleX(1.0946);
       }
 
       55% {
-        transform: rotate(-28deg);
+        transform: rotate(-28deg) scaleX(1.1326);
       }
 
       75% {
-        transform: rotate(6deg);
+        transform: rotate(6deg) scaleX(1.0055);
       }
 
       88% {
-        transform: rotate(-2deg);
+        transform: rotate(-2deg) scaleX(1.0006);
       }
     }
 
@@ -2711,25 +2744,34 @@
     }
 
     /* ===== Button hover =====
-     * Buttons lift and do a quick squash-and-stretch when the pointer
-     * arrives. It animates the scale and translate properties, so it
-     * combines with the transform buttons already use when pressed. */
+     * When the pointer arrives, an accent ring ripples out from the button
+     * and its icon does a quick squash-and-stretch. The button's own box
+     * never moves or scales: if it did, its hover area would slip out from
+     * under a pointer resting near its edge, ending the hover and making
+     * the button flicker. The ring is a box-shadow, which doesn't affect
+     * hit testing, and the squash animates the icon's scale property, so
+     * it combines with any transform animation the icon already has. */
     @media (hover: hover) {
 
       .icon-btn:hover,
       .pill:hover,
       .ss-btn:hover {
-        animation: btn-boing 0.55s var(--ease-out) forwards;
+        animation: btn-ring 0.6s var(--ease-out);
       }
 
-      /* Close squeezes shut along with its X. */
-      #ss-close:hover {
+      .icon-btn:hover > svg,
+      .ss-btn:hover > svg {
+        animation: btn-squash 0.55s var(--ease-out);
+      }
+
+      /* Close: the X squeezes shut along with its strokes. */
+      #ss-close:hover > svg {
         animation: btn-shut 1.6s var(--ease-out) infinite;
       }
 
-      /* Theme: the icon spins over. */
-      #theme:hover svg {
-        animation: ic-theme 0.8s var(--ease-out);
+      /* Theme: the icon squashes and spins over. */
+      #theme:hover > svg {
+        animation: btn-squash 0.55s var(--ease-out), ic-theme 0.8s var(--ease-out);
       }
 
       /* Slideshow pill: the play triangle hops forward. */
@@ -2765,28 +2807,28 @@
       animation: ic-look 0.8s var(--ease-out);
     }
 
-    @keyframes btn-boing {
-      0% {
-        scale: 1;
-        translate: 0;
-      }
-
-      30% {
-        scale: 1.08 0.92;
-      }
-
-      55% {
-        scale: 0.97 1.04;
-        translate: 0 -2px;
-      }
-
-      75% {
-        scale: 1.02 0.99;
+    /* The ring keeps any inset highlight the button has (--btn-inset). */
+    @keyframes btn-ring {
+      from {
+        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
       }
 
       to {
-        scale: 1;
-        translate: 0 -1px;
+        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+      }
+    }
+
+    @keyframes btn-squash {
+      30% {
+        scale: 1.16 0.86;
+      }
+
+      55% {
+        scale: 0.92 1.1;
+      }
+
+      75% {
+        scale: 1.04 0.97;
       }
     }
 
@@ -3013,9 +3055,15 @@
         rest and only appear mid-animation.
       -->
       <symbol id="icon-folder" viewBox="0 0 24 24" overflow="visible">
-        <defs><clipPath id="icon-folder-clip"><rect x="0" y="-20" width="24" height="26.2" /></clipPath></defs>
-        <g clip-path="url(#icon-folder-clip)"><path class="p-paper" d="M12.5 12V2.5h6V12M14.5 5h2" /></g>
-        <path class="p-folder" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+        <defs><clipPath id="icon-folder-clip"><rect x="0" y="-20" width="24" height="28.2" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <path d="M3 18V6a2 2 0 012-2h4.5l2 2H19a2 2 0 012 2v10" />
+          <g clip-path="url(#icon-folder-clip)">
+            <path class="p-folder-paper1" d="M6.5 13V5.5h7V13" />
+            <path class="p-folder-paper2" d="M10.5 13V6.5h7V13" />
+          </g>
+          <path class="p-folder-front" d="M3 18v-7a2 2 0 012-2h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </g>
       </symbol>
       <!-- Text / Plain documents -->
       <symbol id="icon-text" viewBox="0 0 24 24" overflow="visible">
@@ -3031,8 +3079,8 @@
         <g class="p-pdf-squash">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
           <polyline points="14 2 14 8 20 8" />
+          <path class="p-pdf-stamp" d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
         </g>
-        <path class="p-pdf-stamp" d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
       </symbol>
       <!-- Word / Office docs -->
       <symbol id="icon-doc" viewBox="0 0 24 24" overflow="visible">
@@ -3048,7 +3096,10 @@
       <symbol id="icon-spreadsheet" viewBox="0 0 24 24" overflow="visible">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
         <polyline points="14 2 14 8 20 8" />
-        <rect class="p-spreadsheet-cell" x="8.6" y="13.6" width="3" height="3" rx="0.6" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c1" x="8.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c2" x="12.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c3" x="8.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c4" x="12.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
         <line x1="8" y1="13" x2="16" y2="13" />
         <line x1="8" y1="17" x2="16" y2="17" />
         <line x1="12" y1="11" x2="12" y2="19" />
@@ -3064,44 +3115,50 @@
       </symbol>
       <!-- Images -->
       <symbol id="icon-image" viewBox="0 0 24 24" overflow="visible">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <circle class="p-image-sun" cx="8.5" cy="8.5" r="1.5" />
-        <path class="p-image-land" d="M21 15l-5-5L5 21" />
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle class="p-image-sun" cx="8.5" cy="8.5" r="1.5" />
+          <path class="p-image-land" d="M21 15l-5-5L5 21" />
+        </g>
       </symbol>
       <!-- Video -->
       <symbol id="icon-video" viewBox="0 0 24 24" overflow="visible">
-        <polygon class="p-video-lens" points="23 7 16 12 23 17 23 7" />
-        <rect x="1" y="5" width="15" height="14" rx="2" />
-        <circle class="p-video-rec" cx="4.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <polygon class="p-video-lens" points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" />
+          <circle class="p-video-rec" cx="4.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+        </g>
       </symbol>
       <!-- Audio -->
       <symbol id="icon-audio" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-audio-n1">
-          <path d="M9 18V5" />
-          <circle cx="6" cy="18" r="3" />
-        </g>
-        <path class="p-audio-beam" d="M9 5l12-2" />
-        <g class="p-audio-n2">
-          <path d="M21 3v13" />
-          <circle cx="18" cy="16" r="3" />
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <g class="p-audio-note">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </g>
         </g>
       </symbol>
       <!-- Archive (zip, tar, etc.) -->
       <symbol id="icon-archive" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-archive-box">
-          <path d="M21 8v13H3V8" />
-          <path d="M10 12h4" />
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <g class="p-archive-box">
+            <path d="M21 8v13H3V8" />
+            <path d="M10 12h4" />
+          </g>
+          <path class="p-archive-lid" d="M1 3h22v5H1z" />
         </g>
-        <path class="p-archive-lid" d="M1 3h22v5H1z" />
       </symbol>
       <!-- Download (default/fallback) -->
       <symbol id="icon-download" viewBox="0 0 24 24" overflow="visible">
-        <defs><clipPath id="icon-download-clip"><rect x="0" y="-24" width="24" height="44.2" /></clipPath></defs>
-        <g clip-path="url(#icon-download-clip)">
-          <path class="p-download-arrow" d="M12 3v13M7 11l5 5 5-5" />
+        <defs><clipPath id="icon-download-clip"><rect x="0" y="0" width="24" height="25.2" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <g clip-path="url(#icon-download-clip)">
+            <path class="p-download-arrow" d="M12 3v13M7 11l5 5 5-5" />
+          </g>
+          <path class="p-download-gl" d="M4 21h8" />
+          <path class="p-download-gr" d="M12 21h8" />
         </g>
-        <path class="p-download-gl" d="M4 21h8" />
-        <path class="p-download-gr" d="M12 21h8" />
       </symbol>
       <!-- Source code -->
       <symbol id="icon-code" viewBox="0 0 24 24" overflow="visible">
@@ -3112,7 +3169,7 @@
       <!-- Terminal / Executables -->
       <symbol id="icon-terminal" viewBox="0 0 24 24" overflow="visible">
         <rect x="2" y="3" width="20" height="18" rx="2" />
-        <polyline class="p-terminal-prompt" points="7 9 10 12 7 15" />
+        <polyline points="7 9 10 12 7 15" />
       </symbol>
       <!-- Disc images -->
       <symbol id="icon-disc" viewBox="0 0 24 24" overflow="visible">
@@ -3124,39 +3181,50 @@
       </symbol>
       <!-- Config / Settings -->
       <symbol id="icon-config" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-config-gear">
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1.08H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1.08H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <g class="p-config-gear">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1.08H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1.08H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
+          </g>
         </g>
       </symbol>
       <!-- Fonts -->
       <symbol id="icon-font" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-font-letter">
-          <polyline points="4 7 4 4 20 4 20 7" />
-          <line x1="9" y1="20" x2="15" y2="20" />
-          <line x1="12" y1="4" x2="12" y2="20" />
+        <g class="ic-fit" transform="translate(-3 -3) scale(1.25)" style="--k: 1.25">
+          <g class="p-font-letter">
+            <polyline points="4 7 4 4 20 4 20 7" />
+            <line x1="9" y1="20" x2="15" y2="20" />
+            <line x1="12" y1="4" x2="12" y2="20" />
+          </g>
         </g>
       </symbol>
       <!-- Database -->
       <symbol id="icon-database" viewBox="0 0 24 24" overflow="visible">
-        <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
-        <path class="p-database-mid" d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" />
-        <ellipse class="p-database-top" cx="12" cy="5" rx="9" ry="3" />
+        <g class="p-database-db">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+        </g>
       </symbol>
       <!-- Ebook -->
       <symbol id="icon-ebook" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-ebook-clip"><rect x="0" y="2" width="24" height="22" /></clipPath></defs>
         <g class="p-ebook-book">
           <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
           <path d="M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5z" />
+          <g clip-path="url(#icon-ebook-clip)">
+            <path class="p-ebook-ribbon" d="M13 2v7.5l1.75-1.5 1.75 1.5V2" />
+          </g>
         </g>
-        <path class="p-ebook-ribbon" d="M15 2v7l-1.5-1.2L12 9V2" />
       </symbol>
       <!-- CAD / 3D -->
       <symbol id="icon-cad" viewBox="0 0 24 24" overflow="visible">
-        <path class="p-cad-top" d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 7v10l10 5V12" />
-        <path d="M22 7v10l-10 5V12" />
+        <g class="p-cad-cube">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 7v10l10 5V12" />
+          <path d="M22 7v10l-10 5V12" />
+        </g>
       </symbol>
       <!-- Vector graphics (AI, EPS) -->
       <symbol id="icon-vector" viewBox="0 0 24 24" overflow="visible">
@@ -3169,30 +3237,38 @@
       </symbol>
       <!-- Photoshop / Layers -->
       <symbol id="icon-photoshop" viewBox="0 0 24 24" overflow="visible">
-        <rect class="p-photoshop-back" x="2" y="7" width="16" height="12" rx="1" />
-        <rect class="p-photoshop-front" x="6" y="3" width="16" height="12" rx="1" />
+        <g class="ic-fit" transform="translate(0 1) scale(1)" style="--k: 1">
+          <rect class="p-photoshop-back" x="2" y="7" width="16" height="12" rx="1" />
+          <rect class="p-photoshop-front" x="6" y="3" width="16" height="12" rx="1" />
+        </g>
       </symbol>
       <!-- HTML / Markup -->
       <symbol id="icon-markup" viewBox="0 0 24 24" overflow="visible">
-        <polyline class="p-markup-lt" points="4 7 1 12 4 17" />
-        <polyline class="p-markup-gt" points="20 7 23 12 20 17" />
-        <line class="p-markup-slash" x1="15" y1="4" x2="9" y2="20" />
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <polyline class="p-markup-lt" points="4 7 1 12 4 17" />
+          <polyline class="p-markup-gt" points="20 7 23 12 20 17" />
+          <line class="p-markup-slash" x1="15" y1="4" x2="9" y2="20" />
+        </g>
       </symbol>
       <!-- CSS / Stylesheets -->
       <symbol id="icon-stylesheet" viewBox="0 0 24 24" overflow="visible">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path class="p-stylesheet-s1" d="M7 8h4" />
-        <path class="p-stylesheet-s2" d="M7 12h10" />
-        <path class="p-stylesheet-s3" d="M7 16h7" />
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path class="p-stylesheet-s1" d="M7 8h4" />
+          <path class="p-stylesheet-s2" d="M7 12h10" />
+          <path class="p-stylesheet-s3" d="M7 16h7" />
+        </g>
       </symbol>
       <!-- JavaScript / TypeScript -->
       <symbol id="icon-script" viewBox="0 0 24 24" overflow="visible">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path class="p-script-lb" d="M8 7c-2 0-2 2-2 3s0 2-1.5 2c1.5 0 1.5 1 1.5 2s0 3 2 3" />
-        <path class="p-script-rb" d="M16 7c2 0 2 2 2 3s0 2 1.5 2c-1.5 0-1.5 1-1.5 2s0 3-2 3" />
-        <circle class="p-script-d1" cx="9.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
-        <circle class="p-script-d2" cx="12" cy="12" r="0.6" fill="currentColor" stroke="none" />
-        <circle class="p-script-d3" cx="14.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path class="p-script-lb" d="M8 7c-2 0-2 2-2 3s0 2-1.5 2c1.5 0 1.5 1 1.5 2s0 3 2 3" />
+          <path class="p-script-rb" d="M16 7c2 0 2 2 2 3s0 2 1.5 2c-1.5 0-1.5 1-1.5 2s0 3-2 3" />
+          <circle class="p-script-d1" cx="9.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
+          <circle class="p-script-d2" cx="12" cy="12" r="0.6" fill="currentColor" stroke="none" />
+          <circle class="p-script-d3" cx="14.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
+        </g>
       </symbol>
       <!-- Structured data (JSON, XML, YAML) -->
       <symbol id="icon-data" viewBox="0 0 24 24" overflow="visible">
@@ -3205,13 +3281,27 @@
       </symbol>
       <!-- Certificates / Security -->
       <symbol id="icon-certificate" viewBox="0 0 24 24" overflow="visible">
-        <path class="p-certificate-shield" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <path class="p-certificate-check" d="M9 12l2 2 4-4" />
+        <g class="p-certificate-shield">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path class="p-certificate-check" d="M9 12l2 2 4-4" />
+        </g>
       </symbol>
       <!-- Keys / Crypto -->
       <symbol id="icon-key" viewBox="0 0 24 24" overflow="visible">
-        <path class="p-key-key"
-          d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+        <defs><clipPath id="icon-key-clip"><rect x="-4" y="0" width="15.2" height="24" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(0 -0.5) scale(1)" style="--k: 1">
+          <g class="p-key-shackle">
+            <path d="M14 10.5V8a3 3 0 016 0v2.5" />
+          </g>
+          <rect x="12" y="10.5" width="10" height="9.5" rx="2" />
+          <path class="p-key-hole" d="M17 14.25v2.5" />
+          <g clip-path="url(#icon-key-clip)">
+            <g class="p-key-key">
+              <circle cx="4.5" cy="15.5" r="2.5" />
+              <path d="M7 15.5h4M9.5 15.5v1.8" />
+            </g>
+          </g>
+        </g>
       </symbol>
       <!-- Log files -->
       <symbol id="icon-log" viewBox="0 0 24 24" overflow="visible">
@@ -3228,22 +3318,24 @@
       </symbol>
       <!-- Binary / Raw data -->
       <symbol id="icon-binary" viewBox="0 0 24 24" overflow="visible">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <text class="p-binary-b1" x="6" y="11" font-size="6" font-family="monospace" fill="currentColor"
-          stroke="none">01</text>
-        <text class="p-binary-b2" x="14" y="11" font-size="6" font-family="monospace" fill="currentColor"
-          stroke="none">10</text>
-        <text class="p-binary-b3" x="6" y="18" font-size="6" font-family="monospace" fill="currentColor"
-          stroke="none">11</text>
-        <text class="p-binary-b4" x="14" y="18" font-size="6" font-family="monospace" fill="currentColor"
-          stroke="none">00</text>
+        <g class="ic-fit" transform="translate(-1.291 -1.165) scale(1.097)" style="--k: 1.097">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <text class="p-binary-b1" x="6" y="11" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">01</text>
+          <text class="p-binary-b2" x="14" y="11" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">10</text>
+          <text class="p-binary-b3" x="6" y="18" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">11</text>
+          <text class="p-binary-b4" x="14" y="18" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">00</text>
+        </g>
       </symbol>
       <!-- Package / Installer -->
       <symbol id="icon-package" viewBox="0 0 24 24" overflow="visible">
         <g class="p-package-pkg">
           <path
             d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-          <polyline class="p-package-flap" points="3.27 6.96 12 12.01 20.73 6.96" />
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
           <line x1="12" y1="22.08" x2="12" y2="12" />
         </g>
       </symbol>
@@ -3343,7 +3435,7 @@
         <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
         <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
         <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
-        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="-24" width="24" height="43" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
+        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
         <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
       </div>
       <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
@@ -3444,25 +3536,78 @@
         var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
         var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
         var crumbs = $('crumbs');
-        var html = '<a href="/">' +
-          '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-          '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
-        var href = '/';
-        parts.slice(0, -1).forEach(function (p) {
-          href += p + '/';
-          html += svgUse('ui-chevron', 'sep') + '<a href="' + escapeHTML(href) + '">' + escapeHTML(label(p)) + '</a>';
+        // Parent folders shown after home, by screen width: 4 on wide
+        // screens, 3 on medium, 2 on phones. Deeper ones collapse into an
+        // ellipsis that links to the nearest hidden folder and shows the
+        // full path on hover.
+        var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
+        function renderCrumbs() {
+          var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
+          var ancestors = [], href = '/';
+          parts.slice(0, -1).forEach(function (p) {
+            href += p + '/';
+            ancestors.push({ href: href, name: label(p) });
+          });
+          var html = '<a href="/">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
+            '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
+          var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
+          if (hidden.length) {
+            var path = hidden.map(function (a) { return a.name; }).join(' / ');
+            html += svgUse('ui-chevron', 'sep') + '<a class="more" href="' + escapeHTML(hidden[hidden.length - 1].href) +
+              '" title="' + escapeHTML(path) + '" aria-label="' + escapeHTML('Up to ' + hidden[hidden.length - 1].name) + '">\u2026</a>';
+          }
+          ancestors.slice(hidden.length).forEach(function (a) {
+            html += svgUse('ui-chevron', 'sep') + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
+          });
+          crumbs.innerHTML = html;
+        }
+        renderCrumbs();
+        [wide, medium].forEach(function (mq) {
+          if (mq.addEventListener) mq.addEventListener('change', renderCrumbs);
         });
-        crumbs.innerHTML = html;
 
         var name = parts.length ? label(parts[parts.length - 1]) : (location.host || '/');
         $('title').textContent = name;
         $('tb-title').textContent = name;
         doc.title = name;
 
-        var toolbar = $('toolbar');
-        new IntersectionObserver(function (entries) {
-          toolbar.classList.toggle('stuck', !entries[0].isIntersecting);
-        }, { threshold: 0 }).observe($('hero'));
+        // The page title blends into the toolbar's title as it scrolls away.
+        // --title-p runs from 0, when the title reaches the top of the
+        // window, to 1, when the toolbar sticks. The title fades and
+        // shrinks while the toolbar's title and glass fade in. It's set on
+        // the header and toolbar only, so scrolling doesn't restyle the
+        // whole page. Positions come from layout offsets, which the title's
+        // own transform doesn't change.
+        var hero = $('hero'), title = $('title'), toolbar = $('toolbar');
+        var start = 0, end = 1, lastP = -1, queued = false;
+        function docTop(el) {
+          var y = 0;
+          for (; el; el = el.offsetParent) y += el.offsetTop;
+          return y;
+        }
+        function measure() {
+          start = docTop(title) - 8;
+          end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
+          blend();
+        }
+        function blend() {
+          queued = false;
+          var p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
+          p = Math.round(p * 100) / 100;
+          if (p === lastP) return;
+          lastP = p;
+          hero.style.setProperty('--title-p', p);
+          toolbar.style.setProperty('--title-p', p);
+        }
+        addEventListener('scroll', function () {
+          if (!queued) { queued = true; requestAnimationFrame(blend); }
+        }, { passive: true });
+        addEventListener('resize', measure, { passive: true });
+        // Web fonts and the summary line can change the header's height
+        // after load.
+        if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
+        measure();
       })();
 
       function escapeHTML(s) {
