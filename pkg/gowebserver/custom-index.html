@@ -2082,8 +2082,8 @@
      * so an oversized photo never reaches its neighbors mid-swipe. The
      * controls float over it, darkened behind by this shade while they
      * show. The full-screen button picks how the media fills the screen
-     * (fitMode): inner fits it inside, outer covers the screen and crops,
-     * side covers it and pans slowly across what's cropped. */
+     * (fitMode): inner fits it inside, outer fills the screen and crops
+     * the longer side. */
     .ss-shade {
       position: absolute;
       inset: 0;
@@ -2107,27 +2107,6 @@
     .ss.is-fs .slide :is(img, video) {
       border-radius: 0;
       box-shadow: none;
-    }
-
-    /* Side to side: the covering photo drifts from one edge of its crop to
-     * the other and back. Its own translate property, so zoom's transform
-     * still applies on top. */
-    .slide .panning {
-      animation: ss-pan var(--pan-dur, 12s) ease-in-out infinite alternate;
-    }
-
-    .slide.zoomed .panning {
-      animation-play-state: paused;
-    }
-
-    @keyframes ss-pan {
-      from {
-        translate: var(--pan-x, 0px) var(--pan-y, 0px);
-      }
-
-      to {
-        translate: calc(-1 * var(--pan-x, 0px)) calc(-1 * var(--pan-y, 0px));
-      }
     }
 
     .ss-stage,
@@ -2462,16 +2441,40 @@
       }
     }
 
-    /* Full screen, side to side: two frames slide along by one, the first
-     * sliding out and a third in; the frames are one step apart, so it
-     * ends looking exactly as it started. */
-    .ss-btn:is(:hover, :focus-visible) .i-row {
-      animation: ss-row 1s cubic-bezier(0.45, 0, 0.25, 1);
+    /* Full screen, outer (fill): a square's sides break out, left and
+     * right pushing apart and the top and bottom stretching with them,
+     * into the wide rectangle the icon rests as. */
+    .ss-btn .i-fill :is(.i-t, .i-b) {
+      transform-origin: 12px 12px;
     }
 
-    @keyframes ss-row {
-      to {
-        transform: translateX(-10px);
+    .ss-btn:is(:hover, :focus-visible) .i-fill .i-l {
+      animation: ss-fill-l 0.8s var(--ease-out);
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-fill .i-r {
+      animation: ss-fill-r 0.8s var(--ease-out);
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-fill :is(.i-t, .i-b) {
+      animation: ss-fill-w 0.8s var(--ease-out);
+    }
+
+    @keyframes ss-fill-l {
+      from {
+        transform: translateX(3px);
+      }
+    }
+
+    @keyframes ss-fill-r {
+      from {
+        transform: translateX(-3px);
+      }
+    }
+
+    @keyframes ss-fill-w {
+      from {
+        transform: scaleX(0.67);
       }
     }
 
@@ -4160,22 +4163,19 @@
         }
 
         // The button enters full screen fitted (inner), then each press
-        // moves on: outer, side to side, and out of full screen. Its icon
-        // shows the mode, and its label what the next press does.
-        var FIT_MODES = ['inner', 'outer', 'side'], fitMode = 'inner';
+        // moves on: outer (fill the screen), and out of full screen. Its
+        // icon shows the mode, and its label what the next press does.
+        var FIT_MODES = ['inner', 'outer'], fitMode = 'inner';
         var FULL_ICONS = {
           window: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
           inner: '<svg viewBox="0 0 24 24"><g class="i-in"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></g></svg>',
-          outer: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
-          side: '<svg viewBox="0 0 24 24"><defs><clipPath id="ss-row-clip"><rect x="2" y="0" width="20" height="24"/></clipPath></defs>' +
-            '<g clip-path="url(#ss-row-clip)"><g class="i-row"><rect x="3" y="6" width="8" height="12" rx="1.5"/>' +
-            '<rect x="13" y="6" width="8" height="12" rx="1.5"/><rect x="23" y="6" width="8" height="12" rx="1.5"/></g></g></svg>'
+          outer: '<svg viewBox="0 0 24 24"><g class="i-fill"><path class="i-l" d="M3 9v6"/><path class="i-r" d="M21 9v6"/>' +
+            '<path class="i-t" d="M6 6h12"/><path class="i-b" d="M6 18h12"/></g></svg>'
         };
         var FULL_LABELS = {
           window: 'Full screen',
           inner: 'Fill the screen',
-          outer: 'Scroll side to side',
-          side: 'Exit full screen'
+          outer: 'Exit full screen'
         };
 
         function toggleFullscreen() {
@@ -4230,7 +4230,7 @@
         function fitRect(nw, nh, maxUp) {
           var p = insets();
           var bw = W - p.l - p.r, bh = H - p.t - p.b;
-          // Outer and side to side cover the screen, whatever the size.
+          // Outer covers the screen, whatever the size.
           var f = isFullscreen() && fitMode !== 'inner' ?
             Math.max(bw / nw, bh / nh) : Math.min(bw / nw, bh / nh, maxUp);
           var w = nw * f, h = nh * f;
@@ -4246,19 +4246,6 @@
           var r = fitRect(nw, nh, el._thumb ? Infinity : 2);
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
-          setPan(el, r);
-        }
-
-        // Side to side pans a covering photo across what the screen crops,
-        // at about 40px a second, never faster than one way in 6s.
-        function setPan(el, r) {
-          var ox = Math.max(0, r.w - W), oy = Math.max(0, r.h - H);
-          var on = isFullscreen() && fitMode === 'side' && (ox > 1 || oy > 1);
-          el.classList.toggle('panning', on);
-          if (!on) return;
-          el.style.setProperty('--pan-x', (ox / 2).toFixed(1) + 'px');
-          el.style.setProperty('--pan-y', (oy / 2).toFixed(1) + 'px');
-          el.style.setProperty('--pan-dur', Math.max(6, Math.max(ox, oy) / 40).toFixed(1) + 's');
         }
 
         function makeSlide(k) {
