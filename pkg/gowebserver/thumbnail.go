@@ -98,6 +98,10 @@ const (
 	fitContain thumbnailFit = "contain"
 	fitFill    thumbnailFit = "fill"
 	fitInside  thumbnailFit = "inside"
+	// fitOutside covers the box without cropping: the file's ratio, just
+	// big enough that both sides reach the box, never enlarged. A grid
+	// tile crops it with CSS and still knows the file's shape.
+	fitOutside thumbnailFit = "outside"
 )
 
 // thumbnailSpec is a parsed thumbnail request.
@@ -138,10 +142,10 @@ func parseThumbnailSpec(q url.Values) (spec *thumbnailSpec, ok bool, err error) 
 	}
 	if v := q.Get("fit"); v != "" {
 		switch f := thumbnailFit(strings.ToLower(v)); f {
-		case fitCover, fitContain, fitFill, fitInside:
+		case fitCover, fitContain, fitFill, fitInside, fitOutside:
 			spec.fit = f
 		default:
-			return nil, true, fmt.Errorf("fit must be one of cover, contain, fill, inside")
+			return nil, true, fmt.Errorf("fit must be one of cover, contain, fill, inside, outside")
 		}
 	}
 	switch v := strings.ToLower(q.Get("format")); v {
@@ -654,6 +658,9 @@ func renderThumbnail(src image.Image, orientation int, spec *thumbnailSpec) *ima
 	case spec.fit == fitContain:
 		sx = math.Min(bw/lw, bh/lh)
 		sy = sx
+	case spec.fit == fitOutside: // never larger than the file
+		sx = math.Min(1, math.Max(bw/lw, bh/lh))
+		sy = sx
 	default: // fitInside: never larger than the file.
 		sx = math.Min(1, math.Min(bw/lw, bh/lh))
 		sy = sx
@@ -670,8 +677,8 @@ func renderThumbnail(src image.Image, orientation int, spec *thumbnailSpec) *ima
 	oriented := orient(scaled, orientation)
 
 	// Crop (cover) or pad (contain) to the requested box. Single-dimension,
-	// fill and inside results are already the right size.
-	if spec.width == 0 || spec.height == 0 || spec.fit == fitFill || spec.fit == fitInside {
+	// fill, inside and outside results are already the right size.
+	if spec.width == 0 || spec.height == 0 || spec.fit == fitFill || spec.fit == fitInside || spec.fit == fitOutside {
 		return oriented
 	}
 	out := image.NewNRGBA(image.Rect(0, 0, spec.width, spec.height))

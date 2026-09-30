@@ -395,11 +395,16 @@
       line-height: 1.08;
       letter-spacing: -0.022em;
       overflow-wrap: anywhere;
-      /* Blends into the toolbar's title as it scrolls away; see
-       * --title-p in the header script. */
-      transform-origin: left center;
-      opacity: calc(1 - var(--title-p, 0));
-      transform: translateY(calc(var(--title-p, 0) * 10px)) scale(calc(1 - var(--title-p, 0) * 0.35));
+      /* Travels into the toolbar's title as it scrolls away: the header
+       * script moves and scales it onto the toolbar's title, drawn above
+       * the toolbar on the way, and swaps to that title once it's there. */
+      position: relative;
+      z-index: 21;
+      transform-origin: left top;
+    }
+
+    .hero.title-docked .title {
+      visibility: hidden;
     }
 
     .summary {
@@ -449,9 +454,13 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: var(--title-p, 0);
-      transform: translateY(calc((1 - var(--title-p, 0)) * 8px));
+      /* Shown once the page title has arrived on top of it. */
+      opacity: 0;
       pointer-events: none;
+    }
+
+    .toolbar.title-docked .tb-title {
+      opacity: 1;
     }
 
     .search {
@@ -3046,15 +3055,14 @@
     }
 
     /* Dock-style magnification under the mouse: the script sets each
-       button's transform from the pointer's distance, growing upward.
-       Tracking the pointer needs a quick transition; letting go eases
-       back with the usual one. */
+       button's transform from the pointer's distance, growing upward, and
+       eases it itself, so there's no transform transition meanwhile. */
     .ss-strip button {
       transform-origin: 50% 100%;
     }
 
     .ss-strip.docking button {
-      transition: opacity 0.2s, transform 0.09s linear, box-shadow 0.2s;
+      transition: opacity 0.2s, box-shadow 0.2s;
     }
 
     /* In full screen the strip stays out of the way, even while the other
@@ -3603,8 +3611,11 @@
 
       // Thumbnails come in a few sizes, each double the last, so each file
       // is rendered in as few sizes as possible and the browser never
-      // scales one by more than about 2x. They're the tiles' shape (square
-      // for photos, 16:9 for videos), so that scaling never distorts them.
+      // scales one by more than about 2x. They cover the tile's box (square
+      // for photos, 16:9 for videos) at the file's own shape (fit=outside),
+      // and the tile crops them (object-fit: cover), so scaling never
+      // distorts them and the image still has the file's proportions: the
+      // zoom into the slideshow flies it to the photo's real shape.
       // The size for each kind of tile is picked for this screen's pixel
       // density and only ever grows, so resizing the window doesn't fetch
       // a new set.
@@ -3629,7 +3640,7 @@
         }
         s = tileThumb[kind] = Math.max(tileThumb[kind], s);
         var h = item.video ? Math.round(s * 9 / 16) : s;
-        return item.url + '?width=' + s + '&height=' + h + '&fit=cover';
+        return item.url + '?width=' + s + '&height=' + h + '&fit=outside';
       }
       // URL of the slideshow's preview of item, shown until a sharper
       // version loads: one size for every screen, at the file's own ratio.
@@ -3706,33 +3717,70 @@
         $('tb-title').textContent = name;
         doc.title = name;
 
-        // The page title blends into the toolbar's title as it scrolls away.
-        // --title-p runs from 0, when the title reaches the top of the
-        // window, to 1, when the toolbar sticks. The title fades and
-        // shrinks while the toolbar's title and glass fade in. It's set on
-        // the header and toolbar only, so scrolling doesn't restyle the
-        // whole page. Positions come from layout offsets, which the title's
+        // The page title travels into the toolbar's title as it scrolls
+        // away, so there's only ever one title on screen. Progress p runs
+        // from 0, when the title reaches the top of the window, to 1, when
+        // the toolbar sticks. Along the way the title is moved and scaled
+        // (against the scroll) from its own place onto the toolbar title's,
+        // drawn above the toolbar, while the toolbar's glass fades in with
+        // --title-p. At 1 it sits exactly on the toolbar's title, and the
+        // two swap. Positions come from layout offsets, which the title's
         // own transform doesn't change.
-        var hero = $('hero'), title = $('title'), toolbar = $('toolbar');
-        var start = 0, end = 1, lastP = -1, queued = false;
-        function docTop(el) {
-          var y = 0;
-          for (; el; el = el.offsetParent) y += el.offsetTop;
-          return y;
+        var hero = $('hero'), title = $('title'), toolbar = $('toolbar'), tbTitle = $('tb-title');
+        var start = 0, end = 1, lastP = -1, lastS = -1, queued = false;
+        var geo = null;
+        function docOffset(el) {
+          var x = 0, y = 0;
+          for (; el; el = el.offsetParent) { x += el.offsetLeft; y += el.offsetTop; }
+          return { x: x, y: y };
         }
         function measure() {
-          start = docTop(title) - 8;
+          var t = docOffset(title), tb = docOffset(tbTitle), bar = docOffset(toolbar);
+          var cs = getComputedStyle(title), tcs = getComputedStyle(tbTitle);
+          var fs = parseFloat(cs.fontSize), line = parseFloat(cs.lineHeight) || fs * 1.08;
+          geo = {
+            top: t.y,
+            dx: tb.x - t.x,
+            scale: parseFloat(tcs.fontSize) / fs,
+            // First line centers are matched: the toolbar's title center
+            // within the stuck toolbar, and the page title's first line.
+            tbCenter: (tb.y - bar.y) + tbTitle.offsetHeight / 2,
+            lineCenter: line / 2
+          };
+          start = t.y - 8;
           end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
+          lastP = lastS = -1;
           blend();
+        }
+        function docTop(el) {
+          return docOffset(el).y;
         }
         function blend() {
           queued = false;
-          var p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
-          p = Math.round(p * 100) / 100;
-          if (p === lastP) return;
+          var s = scrollY;
+          var p = Math.min(1, Math.max(0, (s - start) / (end - start)));
+          if (p === lastP && (p === 0 || p === 1)) return;
+          if (p === lastP && s === lastS) return;
           lastP = p;
+          lastS = s;
           hero.style.setProperty('--title-p', p);
           toolbar.style.setProperty('--title-p', p);
+          var docked = p >= 1;
+          hero.classList.toggle('title-docked', docked);
+          toolbar.classList.toggle('title-docked', docked);
+          if (p <= 0 || docked) {
+            title.style.transform = '';
+            return;
+          }
+          // Where the title is drawn this frame, in the window: its own
+          // place (which scrolls) blended toward the toolbar title's.
+          var k = 1 + (geo.scale - 1) * p;
+          var ownTop = geo.top - s;
+          // The toolbar follows the header until it sticks at the top.
+          var barTop = Math.max(0, end - s);
+          var targetTop = barTop + geo.tbCenter - geo.lineCenter * geo.scale;
+          var top = ownTop + (targetTop - ownTop) * p;
+          title.style.transform = 'translate(' + (geo.dx * p).toFixed(2) + 'px,' + (top - ownTop).toFixed(2) + 'px) scale(' + k.toFixed(4) + ')';
         }
         addEventListener('scroll', function () {
           if (!queued) { queued = true; requestAnimationFrame(blend); }
@@ -4679,7 +4727,7 @@
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
           }
           // Clicking a thumbnail re-centers the row under a still pointer.
-          if (dockX !== null) dock();
+          if (dockGeo) { dockMeasure(); dock(); }
         }
 
         strip.addEventListener('click', function (e) {
@@ -4722,42 +4770,78 @@
         // row spreads so they don't overlap, like the macOS dock. Scale is
         // worked out from the unmagnified layout (transforms don't move it)
         // so the row doesn't shift under the pointer and jitter.
-        var DOCK_MAX = 1.9, DOCK_REACH = 130, dockX = null;
+        //
+        // It runs at most once per frame, however fast pointer events come
+        // (an iPad with a mouse sends up to 120 a second), from layout
+        // measured once when the pointer arrives or the strip changes, so
+        // a frame only writes transforms. Each frame eases the scales toward
+        // their targets in script instead of restarting CSS transitions,
+        // which is smooth at any event rate.
+        var DOCK_MAX = 1.9, DOCK_REACH = 130, DOCK_EASE = 0.35;
+        var dockX = null, dockGeo = null, dockLeft = 0, dockFrame = 0;
         var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        function dock() {
-          var buttons = strip.children;
-          var scales = [], extra = 0;
-          for (var i = 0; i < buttons.length; i++) {
-            var b = buttons[i];
-            var d = Math.abs(dockX - (b.offsetLeft + b.offsetWidth / 2));
-            var s = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
-            scales.push(s);
-            extra += b.offsetWidth * (s - 1);
+        function dockMeasure() {
+          dockGeo = Array.prototype.map.call(strip.children, function (b) {
+            return { el: b, c: b.offsetLeft + b.offsetWidth / 2, w: b.offsetWidth };
+          });
+          // offsetLeft is relative to the strip's offset parent.
+          dockLeft = strip.offsetParent ? strip.offsetParent.getBoundingClientRect().left : 0;
+        }
+        function dockTick() {
+          dockFrame = 0;
+          if (!dockGeo) return;
+          var moving = false, extra = 0;
+          for (var i = 0; i < dockGeo.length; i++) {
+            var d = dockX === null ? Infinity : Math.abs(dockX - dockGeo[i].c);
+            var target = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
+            // Scales live on the buttons, which survive the strip
+            // re-rendering around a newly current photo.
+            var el = dockGeo[i].el, cur = el._dockS || 1;
+            var s = cur + (target - cur) * DOCK_EASE;
+            if (Math.abs(target - s) < 0.002) s = target; else moving = true;
+            el._dockS = s;
+            extra += dockGeo[i].w * (s - 1);
+          }
+          if (!moving && dockX === null) {
+            undock();
+            return;
           }
           // Each button moves right by the growth of those before it, the
           // whole row staying centered.
           var before = 0;
-          for (var j = 0; j < buttons.length; j++) {
-            var grow = buttons[j].offsetWidth * (scales[j] - 1);
+          for (var j = 0; j < dockGeo.length; j++) {
+            var grow = dockGeo[j].w * (dockGeo[j].el._dockS - 1);
             var shift = before + grow / 2 - extra / 2;
             before += grow;
-            var lift = buttons[j].hasAttribute('aria-current') ? ' translateY(-4px)' : '';
-            buttons[j].style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + scales[j].toFixed(3) + ')';
+            var lift = dockGeo[j].el.hasAttribute('aria-current') ? ' translateY(-4px)' : '';
+            dockGeo[j].el.style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + dockGeo[j].el._dockS.toFixed(3) + ')';
           }
+          if (moving) dockFrame = requestAnimationFrame(dockTick);
+        }
+        function dock() {
+          if (!dockFrame) dockFrame = requestAnimationFrame(dockTick);
         }
         function undock() {
+          cancelAnimationFrame(dockFrame);
+          dockFrame = 0;
           dockX = null;
+          dockGeo = null;
           strip.classList.remove('docking');
-          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; });
+          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; b._dockS = 1; });
         }
         strip.addEventListener('pointermove', function (e) {
           if (e.pointerType !== 'mouse' || reduceMotion.matches) return;
-          // offsetLeft is relative to the strip's offset parent.
-          dockX = e.clientX - strip.offsetParent.getBoundingClientRect().left;
+          if (!dockGeo) dockMeasure();
+          dockX = e.clientX - dockLeft;
           strip.classList.add('docking');
           dock();
         });
-        strip.addEventListener('pointerleave', undock);
+        // Leaving eases the row back to rest the same way.
+        strip.addEventListener('pointerleave', function () {
+          if (!dockGeo) return;
+          dockX = null;
+          dock();
+        });
 
         function durationFor(v) {
           return Math.round(420 - Math.min(Math.abs(v || 0), 2) * 110);
@@ -5078,6 +5162,11 @@
             if (m && m.tagName === 'IMG' && !m.classList.contains('ready')) {
               m.style.visibility = '';
               m.addEventListener('load', function () { setTimeout(finish, 60); }, { once: true });
+              setTimeout(finish, 4000);
+            } else if (m && m.tagName === 'VIDEO' && m.readyState < 1) {
+              // A video has a placeholder size until its metadata says
+              // how big it is; stay on the thumbnail until then.
+              m.addEventListener('loadedmetadata', function () { setTimeout(finish, 60); }, { once: true });
               setTimeout(finish, 4000);
             } else finish();
           };
