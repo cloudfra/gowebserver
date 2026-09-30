@@ -32,3 +32,6 @@ ffmpeg:
 thumbnails:
   enabled: false
   cachePath: ""
+update:
+  track: ""
+  manifestUrl: ""

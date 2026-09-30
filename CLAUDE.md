@@ -37,6 +37,7 @@ cmd/                      # CLI entry points
 
 pkg/                      # Public libraries
 ├── ffmpeg/               # Runs ffmpeg; finds or downloads (on demand, after license acceptance) the binary
+├── update/               # Automatic updates from the stable or unstable release track (tracks.json)
 └── gowebserver/          # Core server implementation
 
 internal/gowebserver/testing/  # Test utilities and embedded test archives

@@ -70,7 +70,11 @@ var (
 	// Thumbnail Flags
 	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
 	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
-	debugFlag               = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+
+	// Update Flags
+	updateTrackFlag       = flag.String("update.track", "", "Release track to update automatically from: \"stable\" (tagged releases, checked daily) or \"unstable\" (every change to main, checked hourly). Empty turns automatic updates off.")
+	updateManifestURLFlag = flag.String("update.manifesturl", "", "Tracks file listing each track's build. Empty uses the official one published by gowebserver's CI.")
+	debugFlag             = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -128,6 +132,18 @@ type Config struct {
 	Upload     Serve      `yaml:"upload"`
 	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
 	Thumbnails Thumbnails `yaml:"thumbnails"`
+	Update     Update     `yaml:"update"`
+}
+
+// Update configures automatic updates.
+type Update struct {
+	// Track is the release track to follow: "stable" updates to each
+	// tagged release (checked daily), "unstable" to every change merged to
+	// main (checked hourly). Empty turns automatic updates off.
+	Track string `yaml:"track"`
+	// ManifestURL is the tracks file listing each track's build, for a
+	// fork or mirror. Empty uses the official one published by CI.
+	ManifestURL string `yaml:"manifestUrl"`
 }
 
 // FFmpeg configures the ffmpeg binary used for video features.
@@ -284,6 +300,10 @@ func loadFromFlags() (*Config, error) {
 		Thumbnails: Thumbnails{
 			Enabled:   *thumbnailsEnabledFlag,
 			CachePath: *thumbnailsCachePathFlag,
+		},
+		Update: Update{
+			Track:       *updateTrackFlag,
+			ManifestURL: *updateManifestURLFlag,
 		},
 	}, nil
 }

@@ -44,6 +44,7 @@ sc.exe start gowebserver
   * Git repository (HTTPS, SSH)
 * Thumbnails: add `width` and/or `height` to an image or video URL to get a resized copy (see [Thumbnails](#thumbnails)).
 * Metrics export to Prometheus.
+* Automatic updates from the stable or unstable release track (see [Automatic updates](#automatic-updates)).
 * Prebuild binaries for all major OSes.
 
 ## ffmpeg
@@ -81,6 +82,32 @@ Request an image or video with `width` and/or `height` query parameters to get a
 Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are the frame 10% of the way through the video, made with [ffmpeg](#ffmpeg); without it, video thumbnail requests return 415. Thumbnails are cached in a BoltDB file, so they survive restarts; a thumbnail is replaced when its file changes. Set the file with `thumbnails.cachePath` (`-thumbnails.cachepath`). By default it's in the user cache directory (`~/.cache/gowebserver/thumbnails.db` on Linux), and `memory:` keeps thumbnails in memory only. If the file can't be opened, for example because another gowebserver is using it, thumbnails are kept in memory instead, after waiting up to a minute for the lock. Turn the feature off with `-thumbnails.enabled=false`.
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, square for photo tiles and 16:9 for video tiles, chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
+
+## Automatic updates
+
+gowebserver can keep itself up to date. Pick a release track with `update.track` (`-update.track`):
+
+| Track | Follows | Checked |
+| --- | --- | --- |
+| `stable` | tagged releases | daily |
+| `unstable` | every change merged to `main` | hourly |
+
+Empty, the default, turns automatic updates off.
+
+```yaml
+update:
+  track: stable
+  manifestUrl: ""   # empty: the official tracks file
+```
+
+* **The tracks file:** CI publishes `tracks.json` in the [`unstable` release](https://github.com/cloudfra/gowebserver/releases/tag/unstable), next to the latest unstable binaries. It lists each track's version and each platform's download with its SHA-256. `update.manifestUrl` points at another one, for a fork or mirror.
+* **Updating:** the first check runs a minute after starting. When the track has a newer build, the server downloads it and refuses it unless the SHA-256 matches. It then replaces its executable, keeping the previous one as `<executable>.old`, and restarts into it.
+  * **Linux and macOS:** it re-executes in place, with the same process ID, arguments and ports.
+  * **Windows:** it exits with status 75 for the service manager to start it again (see [Windows Service](#windows-service)).
+  * **Never downgrades:** it only moves forward. A stable-track server running a newer unstable build waits for the next release.
+  * **Local builds:** these (version `UNKNOWN`, or `-dirty`) are never replaced.
+* **Permissions:** the server needs write access to its executable's folder.
+* **Checking by hand:** with `monitoring.debugEndpoint` set (e.g. `/debug`), `GET /debug/upgrade` shows the track, current and latest versions, and the last check. `POST /debug/upgrade` checks now, and installs and restarts if there's a newer build.
 
 ## Downloads
 
