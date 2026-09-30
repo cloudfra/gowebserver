@@ -201,6 +201,9 @@ func TestThumbnailSizes(t *testing.T) {
 		// inside: the whole image at its own ratio.
 		{query: "width=100&height=100&fit=inside", wantW: 100, wantH: 50, left: thumbGreen},
 		{query: "width=1000&height=1000&fit=inside", wantW: 400, wantH: 200, left: thumbGreen},
+		// outside: the whole image at its own ratio, covering the box.
+		{query: "width=100&height=100&fit=outside", wantW: 200, wantH: 100, left: thumbGreen},
+		{query: "width=1000&height=1000&fit=outside", wantW: 400, wantH: 200, left: thumbGreen},
 		// contain: padded top and bottom to the box.
 		{query: "width=100&height=100&fit=contain", wantW: 100, wantH: 100, left: thumbGreen},
 		// cover and contain fill an exact box, even if larger than the file.
