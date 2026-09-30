@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -220,7 +221,8 @@ func TestCheckInstalls(t *testing.T) {
 	if got := readFile(t, exe+".old"); got != "old binary" {
 		t.Errorf(".old holds %q, want the previous binary", got)
 	}
-	if info, err := os.Stat(exe); err != nil || info.Mode().Perm()&0o100 == 0 {
+	// Windows has no execute bit; there the .exe name makes it runnable.
+	if info, err := os.Stat(exe); err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("update isn't executable: %v, %v", info.Mode(), err)
 	}
 	if left, err := filepath.Glob(exe + ".new-*"); err != nil || len(left) != 0 {
