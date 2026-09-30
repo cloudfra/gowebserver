@@ -2505,25 +2505,6 @@
       box-shadow: none;
     }
 
-     
-    .slide .panning {
-      animation: ss-pan var(--pan-dur, 12s) ease-in-out infinite alternate;
-    }
-
-    .slide.zoomed .panning {
-      animation-play-state: paused;
-    }
-
-    @keyframes ss-pan {
-      from {
-        translate: var(--pan-x, 0px) var(--pan-y, 0px);
-      }
-
-      to {
-        translate: calc(-1 * var(--pan-x, 0px)) calc(-1 * var(--pan-y, 0px));
-      }
-    }
-
     .ss-stage,
     .ss:not(.open) .ss-top,
     .ss:not(.open) .ss-bottom,
@@ -2849,13 +2830,37 @@
     }
 
      
-    .ss-btn:is(:hover, :focus-visible) .i-row {
-      animation: ss-row 1s cubic-bezier(0.45, 0, 0.25, 1);
+    .ss-btn .i-fill :is(.i-t, .i-b) {
+      transform-origin: 12px 12px;
     }
 
-    @keyframes ss-row {
-      to {
-        transform: translateX(-10px);
+    .ss-btn:is(:hover, :focus-visible) .i-fill .i-l {
+      animation: ss-fill-l 0.8s var(--ease-out);
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-fill .i-r {
+      animation: ss-fill-r 0.8s var(--ease-out);
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-fill :is(.i-t, .i-b) {
+      animation: ss-fill-w 0.8s var(--ease-out);
+    }
+
+    @keyframes ss-fill-l {
+      from {
+        transform: translateX(3px);
+      }
+    }
+
+    @keyframes ss-fill-r {
+      from {
+        transform: translateX(-3px);
+      }
+    }
+
+    @keyframes ss-fill-w {
+      from {
+        transform: scaleX(0.67);
       }
     }
 
@@ -4686,20 +4691,17 @@
         
         
         
-        var FIT_MODES = ['inner', 'outer', 'side'], fitMode = 'inner';
+        var FIT_MODES = ['inner', 'outer'], fitMode = 'inner';
         var FULL_ICONS = {
           window: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
           inner: '<svg viewBox="0 0 24 24"><g class="i-in"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></g></svg>',
-          outer: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
-          side: '<svg viewBox="0 0 24 24"><defs><clipPath id="ss-row-clip"><rect x="2" y="0" width="20" height="24"/></clipPath></defs>' +
-            '<g clip-path="url(#ss-row-clip)"><g class="i-row"><rect x="3" y="6" width="8" height="12" rx="1.5"/>' +
-            '<rect x="13" y="6" width="8" height="12" rx="1.5"/><rect x="23" y="6" width="8" height="12" rx="1.5"/></g></g></svg>'
+          outer: '<svg viewBox="0 0 24 24"><g class="i-fill"><path class="i-l" d="M3 9v6"/><path class="i-r" d="M21 9v6"/>' +
+            '<path class="i-t" d="M6 6h12"/><path class="i-b" d="M6 18h12"/></g></svg>'
         };
         var FULL_LABELS = {
           window: 'Full screen',
           inner: 'Fill the screen',
-          outer: 'Scroll side to side',
-          side: 'Exit full screen'
+          outer: 'Exit full screen'
         };
 
         function toggleFullscreen() {
@@ -4770,19 +4772,6 @@
           var r = fitRect(nw, nh, el._thumb ? Infinity : 2);
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
-          setPan(el, r);
-        }
-
-        
-        
-        function setPan(el, r) {
-          var ox = Math.max(0, r.w - W), oy = Math.max(0, r.h - H);
-          var on = isFullscreen() && fitMode === 'side' && (ox > 1 || oy > 1);
-          el.classList.toggle('panning', on);
-          if (!on) return;
-          el.style.setProperty('--pan-x', (ox / 2).toFixed(1) + 'px');
-          el.style.setProperty('--pan-y', (oy / 2).toFixed(1) + 'px');
-          el.style.setProperty('--pan-dur', Math.max(6, Math.max(ox, oy) / 40).toFixed(1) + 's');
         }
 
         function makeSlide(k) {
