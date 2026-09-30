@@ -2709,51 +2709,98 @@
       }
     }
 
-    /* Close: the X's strokes fold flat into one line, like an eyelid
-     * shutting, while the button squeezes; then it opens again. */
+    /* Close: an old TV switching off. The X's strokes fold flat into one
+     * line while the button squeezes, the line carries straight on into a
+     * dot, the dot fades to nothing, then the X comes back and settles.
+     * Once per hover, so it ends at rest. The strokes don't scale with
+     * their transform, so the shrunk line stays a round dot, not a
+     * squashed sliver. */
     .ss-btn :is(.i-x1, .i-x2) {
       transform-origin: 12px 12px;
+      vector-effect: non-scaling-stroke;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-x1 {
-      animation: ss-shut-1 1.6s var(--ease-out) infinite;
+      animation: ss-tv-off-1 1.5s linear;
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-x2 {
-      animation: ss-shut-2 1.6s var(--ease-out) infinite;
+      animation: ss-tv-off-2 1.5s linear;
     }
 
-    @keyframes ss-shut-1 {
+    /* The strokes are diagonals: -45deg and 45deg lay them flat. Transforms
+       apply right to left, so each is rotated flat first and then scaled
+       along its length; the other way round squashes it sideways. Each
+       segment sets its own easing, and nothing overshoots or holds still. */
+    @keyframes ss-tv-off-1 {
+      0% {
+        transform: none;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
+      }
 
-      0%,
+      /* Flat, and still moving: the shrink carries straight on. */
+      16% {
+        transform: scaleX(0.9) rotate(-45deg);
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
+      }
+
+      /* The dot keeps its size and fades out. */
+      36% {
+        transform: scaleX(0.02) rotate(-45deg);
+        opacity: 1;
+        animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
+      }
+
+      58% {
+        transform: scaleX(0.02) rotate(-45deg);
+        opacity: 0;
+      }
+
+      66% {
+        transform: scale(0.7);
+        opacity: 0;
+        animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+      }
+
       100% {
         transform: none;
-      }
-
-      22%,
-      55% {
-        transform: rotate(-45deg) scaleX(0.9);
-      }
-
-      70% {
-        transform: rotate(5deg);
+        opacity: 1;
       }
     }
 
-    @keyframes ss-shut-2 {
+    @keyframes ss-tv-off-2 {
+      0% {
+        transform: none;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
+      }
 
-      0%,
+      /* Flat, and still moving: the shrink carries straight on. */
+      16% {
+        transform: scaleX(0.9) rotate(45deg);
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
+      }
+
+      /* The dot keeps its size and fades out. */
+      36% {
+        transform: scaleX(0.02) rotate(45deg);
+        opacity: 1;
+        animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
+      }
+
+      58% {
+        transform: scaleX(0.02) rotate(45deg);
+        opacity: 0;
+      }
+
+      66% {
+        transform: scale(0.7);
+        opacity: 0;
+        animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+      }
+
       100% {
         transform: none;
-      }
-
-      22%,
-      55% {
-        transform: rotate(45deg) scaleX(0.9);
-      }
-
-      70% {
-        transform: rotate(-5deg);
+        opacity: 1;
       }
     }
 
@@ -2778,9 +2825,9 @@
         animation: btn-squash 0.55s var(--ease-out);
       }
 
-      /* Close: the X squeezes shut along with its strokes. */
+      /* Close: the icon squeezes as its strokes fold into a line. */
       #ss-close:hover > svg {
-        animation: btn-shut 1.6s var(--ease-out) infinite;
+        animation: btn-shut 1.5s linear;
       }
 
       /* Theme: the icon squashes and spins over. */
@@ -2847,19 +2894,19 @@
     }
 
     @keyframes btn-shut {
+      0% {
+        scale: 1;
+        animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.6);
+      }
 
-      0%,
+      16% {
+        scale: 1.04 0.86;
+        animation-timing-function: cubic-bezier(0.3, 0.45, 0.55, 1);
+      }
+
+      36%,
       100% {
         scale: 1;
-      }
-
-      22%,
-      55% {
-        scale: 1.04 0.86;
-      }
-
-      70% {
-        scale: 0.98 1.03;
       }
     }
 
