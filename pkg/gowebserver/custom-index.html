@@ -13,235 +13,7 @@
     } catch (e) { }
   </script>
   <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    /*
-     * Tokens. Light mode is a cool light table, dark mode a darkroom; see
-     * "Accent" below for the accent color. Dark tokens are declared twice: once for
-     * the OS preference (unless the viewer forced light) and once for a
-     * forced dark theme.
-     */
-    :root {
-      color-scheme: light;
-      --bg: #eceef2;
-      --surface: rgba(255, 255, 255, 0.82);
-      --raised: #ffffff;
-      --ink: #15171c;
-      --ink-2: #585f6b;
-      --ink-3: #8b919c;
-      --line: rgba(21, 23, 28, 0.08);
-      --line-strong: rgba(21, 23, 28, 0.15);
-      --hover: rgba(21, 23, 28, 0.045);
-      --tile: #dcdfe5;
-      --accent-l: 0.53;
-      --glass: rgba(236, 238, 242, 0.72);
-      --ambient-opacity: 0.4;
-      --shadow-pop: 0 18px 48px -16px rgba(16, 19, 26, 0.35), 0 2px 6px rgba(16, 19, 26, 0.08);
-
-      --font-display: "Avenir Next", Avenir, "Segoe UI Variable Display", "Segoe UI", "Helvetica Neue", Helvetica, system-ui, sans-serif;
-      --font-ui: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      --gutter: clamp(16px, 3.6vw, 40px);
-      --toolbar-h: 60px;
-      --ease: cubic-bezier(0.32, 0.72, 0, 1);
-      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-
-      --icon-folder: #2f6fe4;
-      --icon-text: #6b7280;
-      --icon-pdf: #dc3b3b;
-      --icon-doc: #2563eb;
-      --icon-spreadsheet: #16a34a;
-      --icon-presentation: #ea6a10;
-      --icon-image: #7c4dea;
-      --icon-video: #db2f86;
-      --icon-audio: #d98a06;
-      --icon-archive: #a16207;
-      --icon-code: #0891b2;
-      --icon-terminal: #64748b;
-      --icon-disc: #5b5ee6;
-      --icon-config: #78716c;
-      --icon-font: #0d9488;
-      --icon-download: #059669;
-      --icon-database: #7c3aed;
-      --icon-ebook: #b45309;
-      --icon-cad: #0891b2;
-      --icon-vector: #c026d3;
-      --icon-photoshop: #2563eb;
-      --icon-markup: #e11d48;
-      --icon-stylesheet: #7c3aed;
-      --icon-script: #ca8a04;
-      --icon-data: #0d9488;
-      --icon-certificate: #16a34a;
-      --icon-key: #d97706;
-      --icon-log: #64748b;
-      --icon-backup: #9333ea;
-      --icon-binary: #475569;
-      --icon-package: #059669;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        color-scheme: dark;
-        --bg: #0e0f12;
-        --surface: rgba(24, 25, 30, 0.8);
-        --raised: #1d1f25;
-        --ink: #eceef3;
-        --ink-2: #a0a6b2;
-        --ink-3: #6c727d;
-        --line: rgba(255, 255, 255, 0.07);
-        --line-strong: rgba(255, 255, 255, 0.13);
-        --hover: rgba(255, 255, 255, 0.05);
-        --tile: #1b1d22;
-        --accent-l: 0.8;
-        --glass: rgba(14, 15, 18, 0.66);
-        --ambient-opacity: 0.5;
-        --shadow-pop: 0 18px 48px -12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4);
-
-        --icon-folder: #6ea2ff;
-        --icon-text: #9ca3af;
-        --icon-pdf: #f87171;
-        --icon-doc: #60a5fa;
-        --icon-spreadsheet: #4ade80;
-        --icon-presentation: #fb923c;
-        --icon-image: #a78bfa;
-        --icon-video: #f472b6;
-        --icon-audio: #fbbf24;
-        --icon-archive: #e0a33a;
-        --icon-code: #22d3ee;
-        --icon-terminal: #94a3b8;
-        --icon-disc: #818cf8;
-        --icon-config: #a8a29e;
-        --icon-font: #2dd4bf;
-        --icon-download: #34d399;
-        --icon-database: #a78bfa;
-        --icon-ebook: #fbbf24;
-        --icon-cad: #22d3ee;
-        --icon-vector: #e879f9;
-        --icon-photoshop: #60a5fa;
-        --icon-markup: #fb7185;
-        --icon-stylesheet: #a78bfa;
-        --icon-script: #facc15;
-        --icon-data: #2dd4bf;
-        --icon-certificate: #4ade80;
-        --icon-key: #fbbf24;
-        --icon-log: #94a3b8;
-        --icon-backup: #c084fc;
-        --icon-binary: #94a3b8;
-        --icon-package: #34d399;
-      }
-    }
-
-    :root[data-theme="dark"] {
-      color-scheme: dark;
-      --bg: #0e0f12;
-      --surface: rgba(24, 25, 30, 0.8);
-      --raised: #1d1f25;
-      --ink: #eceef3;
-      --ink-2: #a0a6b2;
-      --ink-3: #6c727d;
-      --line: rgba(255, 255, 255, 0.07);
-      --line-strong: rgba(255, 255, 255, 0.13);
-      --hover: rgba(255, 255, 255, 0.05);
-      --tile: #1b1d22;
-      --accent-l: 0.8;
-      --glass: rgba(14, 15, 18, 0.66);
-      --ambient-opacity: 0.5;
-      --shadow-pop: 0 18px 48px -12px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4);
-
-      --icon-folder: #6ea2ff;
-      --icon-text: #9ca3af;
-      --icon-pdf: #f87171;
-      --icon-doc: #60a5fa;
-      --icon-spreadsheet: #4ade80;
-      --icon-presentation: #fb923c;
-      --icon-image: #a78bfa;
-      --icon-video: #f472b6;
-      --icon-audio: #fbbf24;
-      --icon-archive: #e0a33a;
-      --icon-code: #22d3ee;
-      --icon-terminal: #94a3b8;
-      --icon-disc: #818cf8;
-      --icon-config: #a8a29e;
-      --icon-font: #2dd4bf;
-      --icon-download: #34d399;
-      --icon-database: #a78bfa;
-      --icon-ebook: #fbbf24;
-      --icon-cad: #22d3ee;
-      --icon-vector: #e879f9;
-      --icon-photoshop: #60a5fa;
-      --icon-markup: #fb7185;
-      --icon-stylesheet: #a78bfa;
-      --icon-script: #facc15;
-      --icon-data: #2dd4bf;
-      --icon-certificate: #4ade80;
-      --icon-key: #fbbf24;
-      --icon-log: #94a3b8;
-      --icon-backup: #c084fc;
-      --icon-binary: #94a3b8;
-      --icon-package: #34d399;
-    }
-
-    /*
-     * Accent. Blue by default, or the OS accent color (Windows accent, macOS
-     * highlight, GTK theme) where the browser exposes it as AccentColor.
-     * While a photo backdrop is showing, the most vivid color in it takes
-     * over: the script sets --amb-h and --amb-c and adds .amb-accent. The
-     * lightness is fixed per theme (--accent-l) so any hue stays readable.
-     * The slideshow is always dark, so it sets its own --accent-l and
-     * declares again the colors that depend on it.
-     */
-    @property --amb-h {
-      syntax: "<number>";
-      inherits: true;
-      initial-value: 259;
-    }
-
-    @property --amb-c {
-      syntax: "<number>";
-      inherits: true;
-      initial-value: 0.19;
-    }
-
-    .ss {
-      --accent-l: 0.8;
-    }
-
-    :root,
-    .ss {
-      --accent: #2563eb;
-      --accent: oklch(var(--accent-l) 0.19 259);
-      --accent-soft: oklch(var(--accent-l) 0.19 259 / 0.16);
-    }
-
-    @supports (color: oklch(from AccentColor l c h)) {
-
-      :root,
-      .ss {
-        --accent: oklch(from AccentColor var(--accent-l) c h);
-        --accent-soft: oklch(from AccentColor var(--accent-l) c h / 0.16);
-      }
-    }
-
-    :root.amb-accent,
-    :root.amb-accent .ss {
-      --accent: oklch(var(--accent-l) var(--amb-c) var(--amb-h));
-      --accent-soft: oklch(var(--accent-l) var(--amb-c) var(--amb-h) / 0.16);
-    }
-
-    :root {
-      transition: --amb-h 1.2s var(--ease-out), --amb-c 1.2s var(--ease-out);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      :root {
-        transition: none;
-      }
-    }
+    {{template "page-style"}}
 
     html {
       font-family: var(--font-ui);
@@ -337,130 +109,12 @@
       z-index: 1;
     }
 
-    /* ===== Header ===== */
-    .hero {
-      padding: calc(28px + env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 18px max(var(--gutter), env(safe-area-inset-left));
-    }
-
-    .crumbs {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 2px;
-      font-size: 0.8125rem;
-      color: var(--ink-2);
-      min-height: 24px;
-    }
-
-    .crumbs a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 6px;
-      margin: 0 -2px;
-      border-radius: 6px;
-      text-decoration: none;
-      max-width: 28ch;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      transition: background-color 0.15s, color 0.15s;
-    }
-
-    .crumbs a:hover {
-      background: var(--hover);
-      color: var(--ink);
-    }
-
-    .crumbs svg {
-      width: 14px;
-      height: 14px;
-      flex: none;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .crumbs .sep {
-      color: var(--ink-3);
-    }
-
-    .title {
-      margin-top: 10px;
-      font-family: var(--font-display);
-      font-size: clamp(1.75rem, 1.15rem + 2.6vw, 2.875rem);
-      font-weight: 600;
-      line-height: 1.08;
-      letter-spacing: -0.022em;
-      overflow-wrap: anywhere;
-      /* Travels into the toolbar's title as it scrolls away: the header
-       * script moves and scales it onto the toolbar's title, drawn above
-       * the toolbar on the way, and swaps to that title once it's there. */
-      position: relative;
-      z-index: 21;
-      transform-origin: left top;
-    }
-
-    .hero.title-docked .title {
-      visibility: hidden;
-    }
-
     .summary {
       margin-top: 8px;
       font-size: 0.9375rem;
       color: var(--ink-2);
       font-variant-numeric: tabular-nums;
       min-height: 1.5em;
-    }
-
-    /* ===== Toolbar ===== */
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      height: var(--toolbar-h);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
-      background: transparent;
-    }
-
-    /* The toolbar's glass fades in with --title-p as the page title
-     * scrolls away. */
-    .toolbar::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background: var(--glass);
-      border-bottom: 1px solid var(--line);
-      -webkit-backdrop-filter: blur(22px) saturate(1.8);
-      backdrop-filter: blur(22px) saturate(1.8);
-      opacity: var(--title-p, 0);
-      pointer-events: none;
-    }
-
-    .tb-title {
-      flex: 0 1 auto;
-      min-width: 0;
-      max-width: 32ch;
-      font-family: var(--font-display);
-      font-weight: 600;
-      font-size: 1.0625rem;
-      letter-spacing: -0.01em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      /* Shown once the page title has arrived on top of it. */
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .toolbar.title-docked .tb-title {
-      opacity: 1;
     }
 
     .search {
@@ -569,34 +223,6 @@
       fill: none;
       stroke: var(--accent);
       stroke-width: 2.4;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .icon-btn {
-      flex: none;
-      width: 38px;
-      height: 38px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 11px;
-      background: var(--hover);
-      color: var(--ink-2);
-      cursor: pointer;
-      transition: color 0.15s, background-color 0.15s;
-    }
-
-    .icon-btn:hover {
-      color: var(--ink);
-    }
-
-    .icon-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
@@ -979,19 +605,6 @@
       animation-delay: 0.4s;
     }
 
-    @keyframes ic-hop {
-      30% {
-        transform: translateY(-3px) scale(0.96, 1.05);
-      }
-
-      60% {
-        transform: translateY(0) scale(1.08, 0.92);
-      }
-
-      80% {
-        transform: scale(0.98, 1.02);
-      }
-    }
 
     @keyframes ic-type {
       from {
@@ -3077,35 +2690,15 @@
       }
     }
 
-    /* ===== Button hover =====
-     * When the pointer arrives, an accent ring ripples out from the button
-     * and its icon does a quick squash-and-stretch. The button's own box
-     * never moves or scales: if it did, its hover area would slip out from
-     * under a pointer resting near its edge, ending the hover and making
-     * the button flicker. The ring is a box-shadow, which doesn't affect
-     * hit testing, and the squash animates the icon's scale property, so
-     * it combines with any transform animation the icon already has. */
+    /* ===== Button hover (this page's own) =====
+     * The ring and squash every button gets are in the shared page
+     * template (page-theme.html); these are the icons with their own
+     * move. */
     @media (hover: hover) {
-
-      .icon-btn:hover,
-      .pill:hover,
-      .ss-btn:hover {
-        animation: btn-ring 0.6s var(--ease-out);
-      }
-
-      .icon-btn:hover > svg,
-      .ss-btn:hover > svg {
-        animation: btn-squash 0.55s var(--ease-out);
-      }
 
       /* Close: the icon squeezes as its strokes fold into a line. */
       #ss-close:hover > svg {
         animation: btn-shut 1.5s linear;
-      }
-
-      /* Theme: the icon squashes and spins over. */
-      #theme:hover > svg {
-        animation: btn-squash 0.55s var(--ease-out), ic-theme 0.8s var(--ease-out);
       }
 
       /* Slideshow pill: the play triangle hops forward. */
@@ -3114,19 +2707,13 @@
         animation: ss-hop 0.7s var(--ease-out);
       }
 
-      /* Sort: the direction arrow bobs the way it points. */
+      /* Sort: the direction arrow bobs the way it points, once. */
       .seg a:hover use[href="#ui-up"] {
-        animation: ic-bob-up 0.8s var(--ease) infinite;
+        animation: ic-bob-up 0.8s var(--ease);
       }
 
       .seg a:hover use[href="#ui-down"] {
-        animation: ic-bob-down 0.8s var(--ease) infinite;
-      }
-
-      /* Breadcrumb home: the house hops. */
-      .crumbs a:first-child:hover svg {
-        transform-origin: 50% 100%;
-        animation: ic-hop 0.7s var(--ease-out);
+        animation: ic-bob-down 0.8s var(--ease);
       }
 
       /* Search: the glass swings like it's looking around. */
@@ -3141,29 +2728,13 @@
       animation: ic-look 0.8s var(--ease-out);
     }
 
-    /* The ring keeps any inset highlight the button has (--btn-inset). */
-    @keyframes btn-ring {
-      from {
-        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
-      }
-
-      to {
-        box-shadow: var(--btn-inset, 0 0 transparent), 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
-      }
+    /* Shadows the shared hover ring keeps while it ripples. */
+    .seg a[aria-current] {
+      --btn-inset: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
 
-    @keyframes btn-squash {
-      30% {
-        scale: 1.16 0.86;
-      }
-
-      55% {
-        scale: 0.92 1.1;
-      }
-
-      75% {
-        scale: 1.04 0.97;
-      }
+    .search input:focus {
+      --btn-inset: 0 0 0 3px var(--accent-soft);
     }
 
     @keyframes btn-shut {
@@ -3183,15 +2754,6 @@
       }
     }
 
-    @keyframes ic-theme {
-      60% {
-        transform: rotate(380deg);
-      }
-
-      to {
-        transform: rotate(360deg);
-      }
-    }
 
     @keyframes ic-bob-up {
       50% {
@@ -3744,7 +3306,7 @@
   <div class="page">
     <header class="hero" id="hero">
       <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
-      <h1 class="title" id="title">{{.RootName}}</h1>
+      <h1 class="title" id="title" data-from-path>{{.RootName}}</h1>
       <p class="summary" id="summary"></p>
     </header>
 
@@ -3825,6 +3387,7 @@
     </div>
   </dialog>
 
+  {{template "page-script"}}
   <script>
     window.GOWS = {
       sort: {{.SortBy}},
@@ -3918,148 +3481,6 @@
         if (!hasThumb(item)) return item.url;
         return item.url + '?width=' + PREVIEW_PX + '&height=' + PREVIEW_PX + '&fit=inside';
       }
-
-      // ===== Theme =====
-      (function () {
-        var btn = $('theme');
-        var modes = ['auto', 'light', 'dark'];
-        var labels = { auto: 'Theme: automatic', light: 'Theme: light', dark: 'Theme: dark' };
-        var icons = {
-          auto: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 010 16z" fill="currentColor"/></svg>',
-          light: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-          dark: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg>'
-        };
-        function apply(mode) {
-          if (mode === 'auto') delete root.dataset.theme; else root.dataset.theme = mode;
-          btn.innerHTML = icons[mode];
-          btn.setAttribute('aria-label', labels[mode]);
-          btn.title = labels[mode];
-        }
-        var mode = root.dataset.theme || 'auto';
-        apply(mode);
-        btn.addEventListener('click', function () {
-          mode = modes[(modes.indexOf(mode) + 1) % modes.length];
-          store('gows-theme', mode === 'auto' ? null : mode);
-          apply(mode);
-        });
-      })();
-
-      // ===== Header: breadcrumbs, title, sticky toolbar =====
-      (function () {
-        var parts = location.pathname.split('/').filter(Boolean);
-        var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
-        var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
-        var crumbs = $('crumbs');
-        // Parent folders shown after home, by screen width: 4 on wide
-        // screens, 3 on medium, 2 on phones. Deeper ones collapse into an
-        // ellipsis that links to the nearest hidden folder and shows the
-        // full path on hover.
-        var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
-        function renderCrumbs() {
-          var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
-          var ancestors = [], href = '/';
-          parts.slice(0, -1).forEach(function (p) {
-            href += p + '/';
-            ancestors.push({ href: href, name: label(p) });
-          });
-          var html = '<a href="/">' +
-            '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-            '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
-          var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
-          if (hidden.length) {
-            var path = hidden.map(function (a) { return a.name; }).join(' / ');
-            html += svgUse('ui-chevron', 'sep') + '<a class="more" href="' + escapeHTML(hidden[hidden.length - 1].href) +
-              '" title="' + escapeHTML(path) + '" aria-label="' + escapeHTML('Up to ' + hidden[hidden.length - 1].name) + '">\u2026</a>';
-          }
-          ancestors.slice(hidden.length).forEach(function (a) {
-            html += svgUse('ui-chevron', 'sep') + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
-          });
-          crumbs.innerHTML = html;
-        }
-        renderCrumbs();
-        [wide, medium].forEach(function (mq) {
-          if (mq.addEventListener) mq.addEventListener('change', renderCrumbs);
-        });
-
-        var name = parts.length ? label(parts[parts.length - 1]) : (location.host || '/');
-        $('title').textContent = name;
-        $('tb-title').textContent = name;
-        doc.title = name;
-
-        // The page title travels into the toolbar's title as it scrolls
-        // away, so there's only ever one title on screen. Progress p runs
-        // from 0, when the title reaches the top of the window, to 1, when
-        // the toolbar sticks. Along the way the title is moved and scaled
-        // (against the scroll) from its own place onto the toolbar title's,
-        // drawn above the toolbar, while the toolbar's glass fades in with
-        // --title-p. At 1 it sits exactly on the toolbar's title, and the
-        // two swap. Positions come from layout offsets, which the title's
-        // own transform doesn't change.
-        var hero = $('hero'), title = $('title'), toolbar = $('toolbar'), tbTitle = $('tb-title');
-        var start = 0, end = 1, lastP = -1, lastS = -1, queued = false;
-        var geo = null;
-        function docOffset(el) {
-          var x = 0, y = 0;
-          for (; el; el = el.offsetParent) { x += el.offsetLeft; y += el.offsetTop; }
-          return { x: x, y: y };
-        }
-        function measure() {
-          var t = docOffset(title), tb = docOffset(tbTitle), bar = docOffset(toolbar);
-          var cs = getComputedStyle(title), tcs = getComputedStyle(tbTitle);
-          var fs = parseFloat(cs.fontSize), line = parseFloat(cs.lineHeight) || fs * 1.08;
-          geo = {
-            top: t.y,
-            dx: tb.x - t.x,
-            scale: parseFloat(tcs.fontSize) / fs,
-            // First line centers are matched: the toolbar's title center
-            // within the stuck toolbar, and the page title's first line.
-            tbCenter: (tb.y - bar.y) + tbTitle.offsetHeight / 2,
-            lineCenter: line / 2
-          };
-          start = t.y - 8;
-          end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
-          lastP = lastS = -1;
-          blend();
-        }
-        function docTop(el) {
-          return docOffset(el).y;
-        }
-        function blend() {
-          queued = false;
-          var s = scrollY;
-          var p = Math.min(1, Math.max(0, (s - start) / (end - start)));
-          if (p === lastP && (p === 0 || p === 1)) return;
-          if (p === lastP && s === lastS) return;
-          lastP = p;
-          lastS = s;
-          hero.style.setProperty('--title-p', p);
-          toolbar.style.setProperty('--title-p', p);
-          var docked = p >= 1;
-          hero.classList.toggle('title-docked', docked);
-          toolbar.classList.toggle('title-docked', docked);
-          if (p <= 0 || docked) {
-            title.style.transform = '';
-            return;
-          }
-          // Where the title is drawn this frame, in the window: its own
-          // place (which scrolls) blended toward the toolbar title's.
-          var k = 1 + (geo.scale - 1) * p;
-          var ownTop = geo.top - s;
-          // The toolbar follows the header until it sticks at the top.
-          var barTop = Math.max(0, end - s);
-          var targetTop = barTop + geo.tbCenter - geo.lineCenter * geo.scale;
-          var top = ownTop + (targetTop - ownTop) * p;
-          title.style.transform = 'translate(' + (geo.dx * p).toFixed(2) + 'px,' + (top - ownTop).toFixed(2) + 'px) scale(' + k.toFixed(4) + ')';
-        }
-        addEventListener('scroll', function () {
-          if (!queued) { queued = true; requestAnimationFrame(blend); }
-        }, { passive: true });
-        addEventListener('resize', measure, { passive: true });
-        // Web fonts and the summary line can change the header's height
-        // after load.
-        if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
-        measure();
-      })();
 
       function escapeHTML(s) {
         return String(s).replace(/[&<>"']/g, function (c) {

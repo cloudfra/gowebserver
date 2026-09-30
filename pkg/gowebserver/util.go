@@ -15,6 +15,7 @@
 package gowebserver
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"html/template"
@@ -101,6 +102,12 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 	return os.Chtimes(filePath, createdTime, modifiedTime)
 }
 
+// pageThemeHTML holds the templates the file browser and the file viewer
+// share (page-style, page-script); see its header.
+//
+//go:embed page-theme.html
+var pageThemeHTML []byte
+
 var validChars = map[rune]interface{}{
 	'.':  nil,
 	'-':  nil,
@@ -169,7 +176,12 @@ func createTemplate(tmplText []byte) (*template.Template, error) {
 		"stepEnd":           stepEnd,
 		"urlEncode":         urlEncode,
 	})
-	return tmpl.Parse(string(tmplText))
+	if _, err := tmpl.Parse(string(tmplText)); err != nil {
+		return nil, err
+	}
+	// The pieces the pages share; a file of only definitions leaves the
+	// page itself as the template's body.
+	return tmpl.Parse(string(pageThemeHTML))
 }
 
 // Deprecated: Use createTemplate() instead.
