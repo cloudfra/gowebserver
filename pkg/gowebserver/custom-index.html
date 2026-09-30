@@ -1003,30 +1003,60 @@
       }
     }
 
-    /* PDF: the page is pressed flat and the P lands like a rubber stamp. */
-    .p-pdf-squash {
-      transform-origin: 12px 22px;
-      animation: var(--hov) ic-squash 0.6s 0.15s var(--ease-out);
+    /* PDF: the page prints: it rises out of a printer's slot top edge
+     * first, a line at a time, the P already on it, and the slot goes once
+     * the page is out. The page is clipped at the slot, so it's hidden
+     * until it emerges. */
+    .p-pdf-slot {
+      opacity: 0;
+      animation: var(--hov) ic-pdf-slot 1.2s linear;
     }
 
-    .p-pdf-stamp {
-      transform-origin: 10.5px 13px;
-      animation: var(--hov) ic-stamp 0.7s var(--ease-out);
+    .p-pdf-page {
+      animation: var(--hov) ic-pdf-print 1.2s linear;
     }
 
-    @keyframes ic-stamp {
+    @keyframes ic-pdf-slot {
       0% {
-        transform: translate(3px, -5px) scale(1.8) rotate(-18deg);
         opacity: 0;
       }
 
-      30% {
-        transform: scale(0.85) rotate(4deg);
+      8%,
+      78% {
         opacity: 1;
       }
 
-      55% {
-        transform: scale(1.12) rotate(-2deg);
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Four feeds, each easing in and out like a printer's rollers. */
+    @keyframes ic-pdf-print {
+      0%,
+      8% {
+        transform: translateY(21px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      24% {
+        transform: translateY(15.75px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      40% {
+        transform: translateY(10.5px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      56% {
+        transform: translateY(5.25px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      72%,
+      100% {
+        transform: none;
       }
     }
 
@@ -1073,48 +1103,226 @@
       }
     }
 
-    /* Spreadsheet: the cells are selected one by one, like dragging a
-     * selection across the grid, then the selection clears. */
+    /* Spreadsheet: cells light up and go out in a busy, irregular
+     * pattern, like a computer working something out, then all go dark.
+     * Plays once. */
     :is(.p-spreadsheet-c1, .p-spreadsheet-c2, .p-spreadsheet-c3, .p-spreadsheet-c4) {
       opacity: 0;
-      transform-box: fill-box;
-      transform-origin: center;
-      animation: var(--hov) ic-cell 1.8s var(--ease-out) infinite;
+    }
+
+    .p-spreadsheet-c1 {
+      animation: var(--hov) ic-calc-1 1.2s linear;
     }
 
     .p-spreadsheet-c2 {
-      animation-delay: 0.15s;
+      animation: var(--hov) ic-calc-2 1.2s linear;
     }
 
     .p-spreadsheet-c3 {
-      animation-delay: 0.3s;
+      animation: var(--hov) ic-calc-3 1.2s linear;
     }
 
     .p-spreadsheet-c4 {
-      animation-delay: 0.45s;
+      animation: var(--hov) ic-calc-4 1.2s linear;
     }
 
-    @keyframes ic-cell {
-      0% {
-        opacity: 0;
-        transform: scale(0.3);
-      }
-
-      15% {
-        opacity: 0.5;
-        transform: scale(1.15);
-      }
-
-      25%,
-      65% {
-        opacity: 0.5;
-        transform: none;
-      }
-
-      80%,
+    @keyframes ic-calc-1 {
+      0%,
       100% {
         opacity: 0;
-        transform: none;
+      }
+
+      2% {
+        opacity: 0.6;
+      }
+
+      9% {
+        opacity: 0.6;
+      }
+
+      11% {
+        opacity: 0;
+      }
+
+      34% {
+        opacity: 0;
+      }
+
+      36% {
+        opacity: 0.6;
+      }
+
+      44% {
+        opacity: 0.6;
+      }
+
+      46% {
+        opacity: 0;
+      }
+
+      72% {
+        opacity: 0;
+      }
+
+      74% {
+        opacity: 0.6;
+      }
+
+      80% {
+        opacity: 0.6;
+      }
+
+      82% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-2 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      12% {
+        opacity: 0;
+      }
+
+      14% {
+        opacity: 0.6;
+      }
+
+      20% {
+        opacity: 0.6;
+      }
+
+      22% {
+        opacity: 0;
+      }
+
+      46% {
+        opacity: 0;
+      }
+
+      48% {
+        opacity: 0.6;
+      }
+
+      58% {
+        opacity: 0.6;
+      }
+
+      60% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-3 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      6% {
+        opacity: 0;
+      }
+
+      8% {
+        opacity: 0.6;
+      }
+
+      14% {
+        opacity: 0.6;
+      }
+
+      16% {
+        opacity: 0;
+      }
+
+      24% {
+        opacity: 0;
+      }
+
+      26% {
+        opacity: 0.6;
+      }
+
+      32% {
+        opacity: 0.6;
+      }
+
+      34% {
+        opacity: 0;
+      }
+
+      60% {
+        opacity: 0;
+      }
+
+      62% {
+        opacity: 0.6;
+      }
+
+      70% {
+        opacity: 0.6;
+      }
+
+      72% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-4 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      18% {
+        opacity: 0;
+      }
+
+      20% {
+        opacity: 0.6;
+      }
+
+      28% {
+        opacity: 0.6;
+      }
+
+      30% {
+        opacity: 0;
+      }
+
+      50% {
+        opacity: 0;
+      }
+
+      52% {
+        opacity: 0.6;
+      }
+
+      56% {
+        opacity: 0.6;
+      }
+
+      58% {
+        opacity: 0;
+      }
+
+      82% {
+        opacity: 0;
+      }
+
+      84% {
+        opacity: 0.6;
+      }
+
+      90% {
+        opacity: 0.6;
+      }
+
+      92% {
+        opacity: 0;
       }
     }
 
@@ -1351,63 +1559,28 @@
       }
     }
 
-    /* Disc: spins steadily, like it's being read. */
+    /* Disc: spins up and slows to a stop after one turn, like it's being
+     * read. Gear: two turns the same way. Both play once and end on a
+     * whole turn, which looks just like the start, so nothing snaps back. */
     .p-disc-disc {
       transform-origin: 12px 12px;
-      animation: var(--hov) ic-spin 0.9s linear infinite;
+      animation: var(--hov) ic-spin-1 1.2s cubic-bezier(0.45, 0, 0.25, 1);
     }
 
-    @keyframes ic-spin {
+    .p-config-gear {
+      transform-origin: 12px 12px;
+      animation: var(--hov) ic-spin-2 1.8s cubic-bezier(0.45, 0, 0.25, 1);
+    }
+
+    @keyframes ic-spin-1 {
       to {
         transform: rotate(360deg);
       }
     }
 
-    /* Config: the gear ratchets round a tooth at a time. */
-    .p-config-gear {
-      transform-origin: 12px 12px;
-      animation: var(--hov) ic-ratchet 1.6s var(--ease-out) infinite;
-    }
-
-    @keyframes ic-ratchet {
-      0% {
-        transform: rotate(0);
-      }
-
-      12% {
-        transform: rotate(52deg);
-      }
-
-      20%,
-      25% {
-        transform: rotate(45deg);
-      }
-
-      37% {
-        transform: rotate(97deg);
-      }
-
-      45%,
-      50% {
-        transform: rotate(90deg);
-      }
-
-      62% {
-        transform: rotate(142deg);
-      }
-
-      70%,
-      75% {
-        transform: rotate(135deg);
-      }
-
-      87% {
-        transform: rotate(187deg);
-      }
-
-      95%,
-      100% {
-        transform: rotate(180deg);
+    @keyframes ic-spin-2 {
+      to {
+        transform: rotate(720deg);
       }
     }
 
@@ -2115,7 +2288,10 @@
     }
 
     @media (hover: hover) and (pointer: fine) {
-      .tile:hover img {
+      /* The video too, so a video tile's thumbnail fades into the
+         playing video in place. */
+      .tile:hover img,
+      .tile:hover video {
         transform: scale(1.035);
       }
 
@@ -2285,6 +2461,60 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+    }
+
+    /* ===== Full screen =====
+     * The media takes the whole screen, edge to edge: slides lose their
+     * padding (see insets()), corners and shadow, and each clips its media
+     * so an oversized photo never reaches its neighbors mid-swipe. The
+     * controls float over it, darkened behind by this shade while they
+     * show. The full-screen button picks how the media fills the screen
+     * (fitMode): inner fits it inside, outer covers the screen and crops,
+     * side covers it and pans slowly across what's cropped. */
+    .ss-shade {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 24%),
+        linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent 28%);
+      transition: opacity 0.3s var(--ease-out);
+    }
+
+    .ss.is-fs:not(.chrome-off) .ss-shade {
+      opacity: 1;
+    }
+
+    .ss.is-fs .slide {
+      overflow: hidden;
+    }
+
+    .ss.is-fs .slide :is(img, video) {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    /* Side to side: the covering photo drifts from one edge of its crop to
+     * the other and back. Its own translate property, so zoom's transform
+     * still applies on top. */
+    .slide .panning {
+      animation: ss-pan var(--pan-dur, 12s) ease-in-out infinite alternate;
+    }
+
+    .slide.zoomed .panning {
+      animation-play-state: paused;
+    }
+
+    @keyframes ss-pan {
+      from {
+        translate: var(--pan-x, 0px) var(--pan-y, 0px);
+      }
+
+      to {
+        translate: calc(-1 * var(--pan-x, 0px)) calc(-1 * var(--pan-y, 0px));
+      }
     }
 
     .ss-stage,
@@ -2555,7 +2785,8 @@
       }
     }
 
-    /* Full screen corners burst outward (inward when exiting). */
+    /* Full screen (entering it, and outer mode): the corners burst
+     * outward and settle. */
     .ss-btn .i-tl {
       --dx: -2.5px;
       --dy: -2.5px;
@@ -2576,25 +2807,58 @@
       --dy: 2.5px;
     }
 
-    .ss-btn.is-full :is(.i-tl, .i-tr, .i-bl, .i-br) {
-      --dx-s: -1;
-    }
-
     .ss-btn:is(:hover, :focus-visible) :is(.i-tl, .i-tr, .i-bl, .i-br) {
       animation: ss-burst 0.9s var(--ease-out);
     }
 
     @keyframes ss-burst {
       35% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1)), calc(var(--dy) * var(--dx-s, 1)));
+        transform: translate(var(--dx), var(--dy));
       }
 
       60% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1) * -0.3), calc(var(--dy) * var(--dx-s, 1) * -0.3));
+        transform: translate(calc(var(--dx) * -0.3), calc(var(--dy) * -0.3));
       }
 
       80% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1) * 0.4), calc(var(--dy) * var(--dx-s, 1) * 0.4));
+        transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * 0.4));
+      }
+    }
+
+    /* Full screen, inner (fitted): the four inward corners come in, then
+     * pop out into a wide rectangle and settle back. */
+    .ss-btn .i-in {
+      transform-origin: 12px 12px;
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-in {
+      animation: ss-inner 0.9s var(--ease-out);
+    }
+
+    @keyframes ss-inner {
+      30% {
+        transform: scale(0.72);
+      }
+
+      62% {
+        transform: scale(1.3, 1.08);
+      }
+
+      82% {
+        transform: scale(0.96, 1);
+      }
+    }
+
+    /* Full screen, side to side: two frames slide along by one, the first
+     * sliding out and a third in; the frames are one step apart, so it
+     * ends looking exactly as it started. */
+    .ss-btn:is(:hover, :focus-visible) .i-row {
+      animation: ss-row 1s cubic-bezier(0.45, 0, 0.25, 1);
+    }
+
+    @keyframes ss-row {
+      to {
+        transform: translateX(-10px);
       }
     }
 
@@ -3186,10 +3450,14 @@
       </symbol>
       <!-- PDF -->
       <symbol id="icon-pdf" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-pdf-squash">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <path class="p-pdf-stamp" d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
+        <defs><clipPath id="icon-pdf-clip"><rect x="-4" y="-4" width="32" height="27.2" /></clipPath></defs>
+        <line class="p-pdf-slot" x1="2.5" y1="23.2" x2="21.5" y2="23.2" />
+        <g clip-path="url(#icon-pdf-clip)">
+          <g class="p-pdf-page">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
+          </g>
         </g>
       </symbol>
       <!-- Word / Office docs -->
@@ -3537,6 +3805,7 @@
       <div class="ss-ambient" id="ss-ambient"><canvas width="24" height="16"></canvas><canvas width="24" height="16"></canvas></div>
       <div class="ss-vignette"></div>
       <div class="ss-stage" id="ss-stage"></div>
+      <div class="ss-shade"></div>
       <div class="ss-top">
         <div class="ss-info" aria-live="polite">
           <div class="ss-name" id="ss-name"></div>
@@ -4287,6 +4556,9 @@
           th.alt = '';
           th.decoding = 'async';
           th.draggable = false;
+          // The tile shows as soon as its thumbnail does, before the video
+          // has loaded enough to know its length.
+          th.onload = function () { a.classList.add('ready'); };
           th.src = tileThumbURL(it, parseFloat(a.style.width));
           a.insertBefore(th, a.firstChild);
           v.src = it.url;
@@ -4321,6 +4593,12 @@
         }
         // Back before the video paused: it's still playing, so show it now.
         if (!v.paused && v.readyState > 2) revealVideo(a);
+        // The first time, start where the thumbnail is from (the server
+        // takes the frame 10% in), so the fade shows the same picture.
+        if (!a._warm && !a._seeked && isFinite(v.duration) && v.duration > 0) {
+          a._seeked = true;
+          v.currentTime = v.duration * 0.1;
+        }
         v.play().catch(function () { });
       }
 
@@ -4332,7 +4610,7 @@
 
       function unloadVideo(a) {
         clearTimeout(a._pauseTimer);
-        a._hovering = a._warm = false;
+        a._hovering = a._warm = a._seeked = false;
         a.classList.remove('vplay', 'vwarm');
         var th = a.querySelector('.vthumb');
         if (th) th.remove();
@@ -4460,19 +4738,59 @@
           return store(FULLSCREEN_KEY) !== 'off';
         }
 
+        // The button enters full screen fitted (inner), then each press
+        // moves on: outer, side to side, and out of full screen. Its icon
+        // shows the mode, and its label what the next press does.
+        var FIT_MODES = ['inner', 'outer', 'side'], fitMode = 'inner';
+        var FULL_ICONS = {
+          window: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
+          inner: '<svg viewBox="0 0 24 24"><g class="i-in"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></g></svg>',
+          outer: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
+          side: '<svg viewBox="0 0 24 24"><defs><clipPath id="ss-row-clip"><rect x="2" y="0" width="20" height="24"/></clipPath></defs>' +
+            '<g clip-path="url(#ss-row-clip)"><g class="i-row"><rect x="3" y="6" width="8" height="12" rx="1.5"/>' +
+            '<rect x="13" y="6" width="8" height="12" rx="1.5"/><rect x="23" y="6" width="8" height="12" rx="1.5"/></g></g></svg>'
+        };
+        var FULL_LABELS = {
+          window: 'Full screen',
+          inner: 'Fill the screen',
+          outer: 'Scroll side to side',
+          side: 'Exit full screen'
+        };
+
         function toggleFullscreen() {
-          var on = !isFullscreen();
-          if (on) enterFullscreen(); else exitFullscreen();
-          if (auto) store(FULLSCREEN_KEY, on ? null : 'off');
+          if (!isFullscreen()) {
+            fitMode = FIT_MODES[0];
+            enterFullscreen();
+            if (auto) store(FULLSCREEN_KEY, null);
+            return;
+          }
+          var next = FIT_MODES.indexOf(fitMode) + 1;
+          if (next < FIT_MODES.length) {
+            fitMode = FIT_MODES[next];
+            syncFullscreenButton();
+            relayoutSlides();
+            return;
+          }
+          exitFullscreen();
+          if (auto) store(FULLSCREEN_KEY, 'off');
         }
 
+        var shownFull = null;
         function syncFullscreenButton() {
           var on = isFullscreen();
-          btnFull.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
-          btnFull.classList.toggle('is-full', on);
+          if (!on) fitMode = FIT_MODES[0];
+          var state = on ? fitMode : 'window';
+          btnFull.setAttribute('aria-label', FULL_LABELS[state]);
+          if (shownFull !== state) {
+            btnFull.innerHTML = FULL_ICONS[state];
+            shownFull = state;
+          }
           dlg.classList.toggle('is-fs', on);
           if (!on) hideStrip();
         }
+        // Entering or leaving full screen changes the room the media has.
+        doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
+        doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
         doc.addEventListener('fullscreenchange', syncFullscreenButton);
         doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
 
@@ -4483,14 +4801,17 @@
 
         // Space reserved around a slide for the controls; phones go edge to edge.
         function insets() {
-          if (W < 700) return { t: 0, r: 0, b: 0, l: 0 };
+          // In full screen the controls float over the media instead.
+          if (W < 700 || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
           return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
         }
 
         function fitRect(nw, nh, maxUp) {
           var p = insets();
           var bw = W - p.l - p.r, bh = H - p.t - p.b;
-          var f = Math.min(bw / nw, bh / nh, maxUp);
+          // Outer and side to side cover the screen, whatever the size.
+          var f = isFullscreen() && fitMode !== 'inner' ?
+            Math.max(bw / nw, bh / nh) : Math.min(bw / nw, bh / nh, maxUp);
           var w = nw * f, h = nh * f;
           return { w: w, h: h, x: p.l + (bw - w) / 2, y: p.t + (bh - h) / 2 };
         }
@@ -4504,6 +4825,19 @@
           var r = fitRect(nw, nh, el._thumb ? Infinity : 2);
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
+          setPan(el, r);
+        }
+
+        // Side to side pans a covering photo across what the screen crops,
+        // at about 40px a second, never faster than one way in 6s.
+        function setPan(el, r) {
+          var ox = Math.max(0, r.w - W), oy = Math.max(0, r.h - H);
+          var on = isFullscreen() && fitMode === 'side' && (ox > 1 || oy > 1);
+          el.classList.toggle('panning', on);
+          if (!on) return;
+          el.style.setProperty('--pan-x', (ox / 2).toFixed(1) + 'px');
+          el.style.setProperty('--pan-y', (oy / 2).toFixed(1) + 'px');
+          el.style.setProperty('--pan-dur', Math.max(6, Math.max(ox, oy) / 40).toFixed(1) + 's');
         }
 
         function makeSlide(k) {
@@ -5277,8 +5611,7 @@
           e.preventDefault();
         });
 
-        addEventListener('resize', function () {
-          if (!isOpen) return;
+        function relayoutSlides() {
           measure();
           slides.forEach(function (div) {
             var p = insets();
@@ -5287,7 +5620,8 @@
           });
           resetZoom(false);
           position(0);
-        });
+        }
+        addEventListener('resize', function () { if (isOpen) relayoutSlides(); });
 
         return { open: open };
       })();

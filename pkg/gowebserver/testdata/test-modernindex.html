@@ -380,9 +380,13 @@
       letter-spacing: -0.022em;
       overflow-wrap: anywhere;
        
-      transform-origin: left center;
-      opacity: calc(1 - var(--title-p, 0));
-      transform: translateY(calc(var(--title-p, 0) * 10px)) scale(calc(1 - var(--title-p, 0) * 0.35));
+      position: relative;
+      z-index: 21;
+      transform-origin: left top;
+    }
+
+    .hero.title-docked .title {
+      visibility: hidden;
     }
 
     .summary {
@@ -431,9 +435,13 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: var(--title-p, 0);
-      transform: translateY(calc((1 - var(--title-p, 0)) * 8px));
+       
+      opacity: 0;
       pointer-events: none;
+    }
+
+    .toolbar.title-docked .tb-title {
+      opacity: 1;
     }
 
     .search {
@@ -958,29 +966,56 @@
     }
 
      
-    .p-pdf-squash {
-      transform-origin: 12px 22px;
-      animation: var(--hov) ic-squash 0.6s 0.15s var(--ease-out);
+    .p-pdf-slot {
+      opacity: 0;
+      animation: var(--hov) ic-pdf-slot 1.2s linear;
     }
 
-    .p-pdf-stamp {
-      transform-origin: 10.5px 13px;
-      animation: var(--hov) ic-stamp 0.7s var(--ease-out);
+    .p-pdf-page {
+      animation: var(--hov) ic-pdf-print 1.2s linear;
     }
 
-    @keyframes ic-stamp {
+    @keyframes ic-pdf-slot {
       0% {
-        transform: translate(3px, -5px) scale(1.8) rotate(-18deg);
         opacity: 0;
       }
 
-      30% {
-        transform: scale(0.85) rotate(4deg);
+      8%,
+      78% {
         opacity: 1;
       }
 
-      55% {
-        transform: scale(1.12) rotate(-2deg);
+      100% {
+        opacity: 0;
+      }
+    }
+
+     
+    @keyframes ic-pdf-print {
+      0%,
+      8% {
+        transform: translateY(21px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      24% {
+        transform: translateY(15.75px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      40% {
+        transform: translateY(10.5px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      56% {
+        transform: translateY(5.25px);
+        animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+      }
+
+      72%,
+      100% {
+        transform: none;
       }
     }
 
@@ -1030,44 +1065,221 @@
      
     :is(.p-spreadsheet-c1, .p-spreadsheet-c2, .p-spreadsheet-c3, .p-spreadsheet-c4) {
       opacity: 0;
-      transform-box: fill-box;
-      transform-origin: center;
-      animation: var(--hov) ic-cell 1.8s var(--ease-out) infinite;
+    }
+
+    .p-spreadsheet-c1 {
+      animation: var(--hov) ic-calc-1 1.2s linear;
     }
 
     .p-spreadsheet-c2 {
-      animation-delay: 0.15s;
+      animation: var(--hov) ic-calc-2 1.2s linear;
     }
 
     .p-spreadsheet-c3 {
-      animation-delay: 0.3s;
+      animation: var(--hov) ic-calc-3 1.2s linear;
     }
 
     .p-spreadsheet-c4 {
-      animation-delay: 0.45s;
+      animation: var(--hov) ic-calc-4 1.2s linear;
     }
 
-    @keyframes ic-cell {
-      0% {
-        opacity: 0;
-        transform: scale(0.3);
-      }
-
-      15% {
-        opacity: 0.5;
-        transform: scale(1.15);
-      }
-
-      25%,
-      65% {
-        opacity: 0.5;
-        transform: none;
-      }
-
-      80%,
+    @keyframes ic-calc-1 {
+      0%,
       100% {
         opacity: 0;
-        transform: none;
+      }
+
+      2% {
+        opacity: 0.6;
+      }
+
+      9% {
+        opacity: 0.6;
+      }
+
+      11% {
+        opacity: 0;
+      }
+
+      34% {
+        opacity: 0;
+      }
+
+      36% {
+        opacity: 0.6;
+      }
+
+      44% {
+        opacity: 0.6;
+      }
+
+      46% {
+        opacity: 0;
+      }
+
+      72% {
+        opacity: 0;
+      }
+
+      74% {
+        opacity: 0.6;
+      }
+
+      80% {
+        opacity: 0.6;
+      }
+
+      82% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-2 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      12% {
+        opacity: 0;
+      }
+
+      14% {
+        opacity: 0.6;
+      }
+
+      20% {
+        opacity: 0.6;
+      }
+
+      22% {
+        opacity: 0;
+      }
+
+      46% {
+        opacity: 0;
+      }
+
+      48% {
+        opacity: 0.6;
+      }
+
+      58% {
+        opacity: 0.6;
+      }
+
+      60% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-3 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      6% {
+        opacity: 0;
+      }
+
+      8% {
+        opacity: 0.6;
+      }
+
+      14% {
+        opacity: 0.6;
+      }
+
+      16% {
+        opacity: 0;
+      }
+
+      24% {
+        opacity: 0;
+      }
+
+      26% {
+        opacity: 0.6;
+      }
+
+      32% {
+        opacity: 0.6;
+      }
+
+      34% {
+        opacity: 0;
+      }
+
+      60% {
+        opacity: 0;
+      }
+
+      62% {
+        opacity: 0.6;
+      }
+
+      70% {
+        opacity: 0.6;
+      }
+
+      72% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes ic-calc-4 {
+      0%,
+      100% {
+        opacity: 0;
+      }
+
+      18% {
+        opacity: 0;
+      }
+
+      20% {
+        opacity: 0.6;
+      }
+
+      28% {
+        opacity: 0.6;
+      }
+
+      30% {
+        opacity: 0;
+      }
+
+      50% {
+        opacity: 0;
+      }
+
+      52% {
+        opacity: 0.6;
+      }
+
+      56% {
+        opacity: 0.6;
+      }
+
+      58% {
+        opacity: 0;
+      }
+
+      82% {
+        opacity: 0;
+      }
+
+      84% {
+        opacity: 0.6;
+      }
+
+      90% {
+        opacity: 0.6;
+      }
+
+      92% {
+        opacity: 0;
       }
     }
 
@@ -1304,60 +1516,23 @@
      
     .p-disc-disc {
       transform-origin: 12px 12px;
-      animation: var(--hov) ic-spin 0.9s linear infinite;
+      animation: var(--hov) ic-spin-1 1.2s cubic-bezier(0.45, 0, 0.25, 1);
     }
 
-    @keyframes ic-spin {
+    .p-config-gear {
+      transform-origin: 12px 12px;
+      animation: var(--hov) ic-spin-2 1.8s cubic-bezier(0.45, 0, 0.25, 1);
+    }
+
+    @keyframes ic-spin-1 {
       to {
         transform: rotate(360deg);
       }
     }
 
-     
-    .p-config-gear {
-      transform-origin: 12px 12px;
-      animation: var(--hov) ic-ratchet 1.6s var(--ease-out) infinite;
-    }
-
-    @keyframes ic-ratchet {
-      0% {
-        transform: rotate(0);
-      }
-
-      12% {
-        transform: rotate(52deg);
-      }
-
-      20%,
-      25% {
-        transform: rotate(45deg);
-      }
-
-      37% {
-        transform: rotate(97deg);
-      }
-
-      45%,
-      50% {
-        transform: rotate(90deg);
-      }
-
-      62% {
-        transform: rotate(142deg);
-      }
-
-      70%,
-      75% {
-        transform: rotate(135deg);
-      }
-
-      87% {
-        transform: rotate(187deg);
-      }
-
-      95%,
-      100% {
-        transform: rotate(180deg);
+    @keyframes ic-spin-2 {
+      to {
+        transform: rotate(720deg);
       }
     }
 
@@ -2055,7 +2230,9 @@
     }
 
     @media (hover: hover) and (pointer: fine) {
-      .tile:hover img {
+       
+      .tile:hover img,
+      .tile:hover video {
         transform: scale(1.035);
       }
 
@@ -2225,6 +2402,51 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+    }
+
+     
+    .ss-shade {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 24%),
+        linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent 28%);
+      transition: opacity 0.3s var(--ease-out);
+    }
+
+    .ss.is-fs:not(.chrome-off) .ss-shade {
+      opacity: 1;
+    }
+
+    .ss.is-fs .slide {
+      overflow: hidden;
+    }
+
+    .ss.is-fs .slide :is(img, video) {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+     
+    .slide .panning {
+      animation: ss-pan var(--pan-dur, 12s) ease-in-out infinite alternate;
+    }
+
+    .slide.zoomed .panning {
+      animation-play-state: paused;
+    }
+
+    @keyframes ss-pan {
+      from {
+        translate: var(--pan-x, 0px) var(--pan-y, 0px);
+      }
+
+      to {
+        translate: calc(-1 * var(--pan-x, 0px)) calc(-1 * var(--pan-y, 0px));
+      }
     }
 
     .ss-stage,
@@ -2510,25 +2732,55 @@
       --dy: 2.5px;
     }
 
-    .ss-btn.is-full :is(.i-tl, .i-tr, .i-bl, .i-br) {
-      --dx-s: -1;
-    }
-
     .ss-btn:is(:hover, :focus-visible) :is(.i-tl, .i-tr, .i-bl, .i-br) {
       animation: ss-burst 0.9s var(--ease-out);
     }
 
     @keyframes ss-burst {
       35% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1)), calc(var(--dy) * var(--dx-s, 1)));
+        transform: translate(var(--dx), var(--dy));
       }
 
       60% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1) * -0.3), calc(var(--dy) * var(--dx-s, 1) * -0.3));
+        transform: translate(calc(var(--dx) * -0.3), calc(var(--dy) * -0.3));
       }
 
       80% {
-        transform: translate(calc(var(--dx) * var(--dx-s, 1) * 0.4), calc(var(--dy) * var(--dx-s, 1) * 0.4));
+        transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * 0.4));
+      }
+    }
+
+     
+    .ss-btn .i-in {
+      transform-origin: 12px 12px;
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-in {
+      animation: ss-inner 0.9s var(--ease-out);
+    }
+
+    @keyframes ss-inner {
+      30% {
+        transform: scale(0.72);
+      }
+
+      62% {
+        transform: scale(1.3, 1.08);
+      }
+
+      82% {
+        transform: scale(0.96, 1);
+      }
+    }
+
+     
+    .ss-btn:is(:hover, :focus-visible) .i-row {
+      animation: ss-row 1s cubic-bezier(0.45, 0, 0.25, 1);
+    }
+
+    @keyframes ss-row {
+      to {
+        transform: translateX(-10px);
       }
     }
 
@@ -2974,7 +3226,7 @@
     }
 
     .ss-strip.docking button {
-      transition: opacity 0.2s, transform 0.09s linear, box-shadow 0.2s;
+      transition: opacity 0.2s, box-shadow 0.2s;
     }
 
      
@@ -3090,10 +3342,14 @@
       </symbol>
       
       <symbol id="icon-pdf" viewBox="0 0 24 24" overflow="visible">
-        <g class="p-pdf-squash">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <path class="p-pdf-stamp" d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
+        <defs><clipPath id="icon-pdf-clip"><rect x="-4" y="-4" width="32" height="27.2" /></clipPath></defs>
+        <line class="p-pdf-slot" x1="2.5" y1="23.2" x2="21.5" y2="23.2" />
+        <g clip-path="url(#icon-pdf-clip)">
+          <g class="p-pdf-page">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
+          </g>
         </g>
       </symbol>
       
@@ -3444,6 +3700,7 @@
       <div class="ss-ambient" id="ss-ambient"><canvas width="24" height="16"></canvas><canvas width="24" height="16"></canvas></div>
       <div class="ss-vignette"></div>
       <div class="ss-stage" id="ss-stage"></div>
+      <div class="ss-shade"></div>
       <div class="ss-top">
         <div class="ss-info" aria-live="polite">
           <div class="ss-name" id="ss-name"></div>
@@ -3521,6 +3778,9 @@
       
       
       
+      
+      
+      
       var THUMB_SIZES = [128, 256, 512, 1024];
       var THUMB_DPR = Math.min(window.devicePixelRatio || 1, 2);
       var tileThumb = { photo: 0, video: 0 };
@@ -3542,7 +3802,7 @@
         }
         s = tileThumb[kind] = Math.max(tileThumb[kind], s);
         var h = item.video ? Math.round(s * 9 / 16) : s;
-        return item.url + '?width=' + s + '&height=' + h + '&fit=cover';
+        return item.url + '?width=' + s + '&height=' + h + '&fit=outside';
       }
       
       
@@ -3626,26 +3886,63 @@
         
         
         
-        var hero = $('hero'), title = $('title'), toolbar = $('toolbar');
-        var start = 0, end = 1, lastP = -1, queued = false;
-        function docTop(el) {
-          var y = 0;
-          for (; el; el = el.offsetParent) y += el.offsetTop;
-          return y;
+        
+        
+        var hero = $('hero'), title = $('title'), toolbar = $('toolbar'), tbTitle = $('tb-title');
+        var start = 0, end = 1, lastP = -1, lastS = -1, queued = false;
+        var geo = null;
+        function docOffset(el) {
+          var x = 0, y = 0;
+          for (; el; el = el.offsetParent) { x += el.offsetLeft; y += el.offsetTop; }
+          return { x: x, y: y };
         }
         function measure() {
-          start = docTop(title) - 8;
+          var t = docOffset(title), tb = docOffset(tbTitle), bar = docOffset(toolbar);
+          var cs = getComputedStyle(title), tcs = getComputedStyle(tbTitle);
+          var fs = parseFloat(cs.fontSize), line = parseFloat(cs.lineHeight) || fs * 1.08;
+          geo = {
+            top: t.y,
+            dx: tb.x - t.x,
+            scale: parseFloat(tcs.fontSize) / fs,
+            
+            
+            tbCenter: (tb.y - bar.y) + tbTitle.offsetHeight / 2,
+            lineCenter: line / 2
+          };
+          start = t.y - 8;
           end = Math.max(start + 1, docTop(hero) + hero.offsetHeight);
+          lastP = lastS = -1;
           blend();
+        }
+        function docTop(el) {
+          return docOffset(el).y;
         }
         function blend() {
           queued = false;
-          var p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
-          p = Math.round(p * 100) / 100;
-          if (p === lastP) return;
+          var s = scrollY;
+          var p = Math.min(1, Math.max(0, (s - start) / (end - start)));
+          if (p === lastP && (p === 0 || p === 1)) return;
+          if (p === lastP && s === lastS) return;
           lastP = p;
+          lastS = s;
           hero.style.setProperty('--title-p', p);
           toolbar.style.setProperty('--title-p', p);
+          var docked = p >= 1;
+          hero.classList.toggle('title-docked', docked);
+          toolbar.classList.toggle('title-docked', docked);
+          if (p <= 0 || docked) {
+            title.style.transform = '';
+            return;
+          }
+          
+          
+          var k = 1 + (geo.scale - 1) * p;
+          var ownTop = geo.top - s;
+          
+          var barTop = Math.max(0, end - s);
+          var targetTop = barTop + geo.tbCenter - geo.lineCenter * geo.scale;
+          var top = ownTop + (targetTop - ownTop) * p;
+          title.style.transform = 'translate(' + (geo.dx * p).toFixed(2) + 'px,' + (top - ownTop).toFixed(2) + 'px) scale(' + k.toFixed(4) + ')';
         }
         addEventListener('scroll', function () {
           if (!queued) { queued = true; requestAnimationFrame(blend); }
@@ -4152,6 +4449,9 @@
           th.alt = '';
           th.decoding = 'async';
           th.draggable = false;
+          
+          
+          th.onload = function () { a.classList.add('ready'); };
           th.src = tileThumbURL(it, parseFloat(a.style.width));
           a.insertBefore(th, a.firstChild);
           v.src = it.url;
@@ -4186,6 +4486,12 @@
         }
         
         if (!v.paused && v.readyState > 2) revealVideo(a);
+        
+        
+        if (!a._warm && !a._seeked && isFinite(v.duration) && v.duration > 0) {
+          a._seeked = true;
+          v.currentTime = v.duration * 0.1;
+        }
         v.play().catch(function () { });
       }
 
@@ -4197,7 +4503,7 @@
 
       function unloadVideo(a) {
         clearTimeout(a._pauseTimer);
-        a._hovering = a._warm = false;
+        a._hovering = a._warm = a._seeked = false;
         a.classList.remove('vplay', 'vwarm');
         var th = a.querySelector('.vthumb');
         if (th) th.remove();
@@ -4325,19 +4631,59 @@
           return store(FULLSCREEN_KEY) !== 'off';
         }
 
+        
+        
+        
+        var FIT_MODES = ['inner', 'outer', 'side'], fitMode = 'inner';
+        var FULL_ICONS = {
+          window: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
+          inner: '<svg viewBox="0 0 24 24"><g class="i-in"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></g></svg>',
+          outer: '<svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5"/><path class="i-tr" d="M20 9V4h-5"/><path class="i-bl" d="M4 15v5h5"/><path class="i-br" d="M20 15v5h-5"/></svg>',
+          side: '<svg viewBox="0 0 24 24"><defs><clipPath id="ss-row-clip"><rect x="2" y="0" width="20" height="24"/></clipPath></defs>' +
+            '<g clip-path="url(#ss-row-clip)"><g class="i-row"><rect x="3" y="6" width="8" height="12" rx="1.5"/>' +
+            '<rect x="13" y="6" width="8" height="12" rx="1.5"/><rect x="23" y="6" width="8" height="12" rx="1.5"/></g></g></svg>'
+        };
+        var FULL_LABELS = {
+          window: 'Full screen',
+          inner: 'Fill the screen',
+          outer: 'Scroll side to side',
+          side: 'Exit full screen'
+        };
+
         function toggleFullscreen() {
-          var on = !isFullscreen();
-          if (on) enterFullscreen(); else exitFullscreen();
-          if (auto) store(FULLSCREEN_KEY, on ? null : 'off');
+          if (!isFullscreen()) {
+            fitMode = FIT_MODES[0];
+            enterFullscreen();
+            if (auto) store(FULLSCREEN_KEY, null);
+            return;
+          }
+          var next = FIT_MODES.indexOf(fitMode) + 1;
+          if (next < FIT_MODES.length) {
+            fitMode = FIT_MODES[next];
+            syncFullscreenButton();
+            relayoutSlides();
+            return;
+          }
+          exitFullscreen();
+          if (auto) store(FULLSCREEN_KEY, 'off');
         }
 
+        var shownFull = null;
         function syncFullscreenButton() {
           var on = isFullscreen();
-          btnFull.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
-          btnFull.classList.toggle('is-full', on);
+          if (!on) fitMode = FIT_MODES[0];
+          var state = on ? fitMode : 'window';
+          btnFull.setAttribute('aria-label', FULL_LABELS[state]);
+          if (shownFull !== state) {
+            btnFull.innerHTML = FULL_ICONS[state];
+            shownFull = state;
+          }
           dlg.classList.toggle('is-fs', on);
           if (!on) hideStrip();
         }
+        
+        doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
+        doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
         doc.addEventListener('fullscreenchange', syncFullscreenButton);
         doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
 
@@ -4348,14 +4694,17 @@
 
         
         function insets() {
-          if (W < 700) return { t: 0, r: 0, b: 0, l: 0 };
+          
+          if (W < 700 || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
           return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
         }
 
         function fitRect(nw, nh, maxUp) {
           var p = insets();
           var bw = W - p.l - p.r, bh = H - p.t - p.b;
-          var f = Math.min(bw / nw, bh / nh, maxUp);
+          
+          var f = isFullscreen() && fitMode !== 'inner' ?
+            Math.max(bw / nw, bh / nh) : Math.min(bw / nw, bh / nh, maxUp);
           var w = nw * f, h = nh * f;
           return { w: w, h: h, x: p.l + (bw - w) / 2, y: p.t + (bh - h) / 2 };
         }
@@ -4369,6 +4718,19 @@
           var r = fitRect(nw, nh, el._thumb ? Infinity : 2);
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
+          setPan(el, r);
+        }
+
+        
+        
+        function setPan(el, r) {
+          var ox = Math.max(0, r.w - W), oy = Math.max(0, r.h - H);
+          var on = isFullscreen() && fitMode === 'side' && (ox > 1 || oy > 1);
+          el.classList.toggle('panning', on);
+          if (!on) return;
+          el.style.setProperty('--pan-x', (ox / 2).toFixed(1) + 'px');
+          el.style.setProperty('--pan-y', (oy / 2).toFixed(1) + 'px');
+          el.style.setProperty('--pan-dur', Math.max(6, Math.max(ox, oy) / 40).toFixed(1) + 's');
         }
 
         function makeSlide(k) {
@@ -4592,7 +4954,7 @@
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
           }
           
-          if (dockX !== null) dock();
+          if (dockGeo) { dockMeasure(); dock(); }
         }
 
         strip.addEventListener('click', function (e) {
@@ -4635,42 +4997,78 @@
         
         
         
-        var DOCK_MAX = 1.9, DOCK_REACH = 130, dockX = null;
+        
+        
+        
+        
+        
+        
+        
+        var DOCK_MAX = 1.9, DOCK_REACH = 130, DOCK_EASE = 0.35;
+        var dockX = null, dockGeo = null, dockLeft = 0, dockFrame = 0;
         var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        function dock() {
-          var buttons = strip.children;
-          var scales = [], extra = 0;
-          for (var i = 0; i < buttons.length; i++) {
-            var b = buttons[i];
-            var d = Math.abs(dockX - (b.offsetLeft + b.offsetWidth / 2));
-            var s = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
-            scales.push(s);
-            extra += b.offsetWidth * (s - 1);
+        function dockMeasure() {
+          dockGeo = Array.prototype.map.call(strip.children, function (b) {
+            return { el: b, c: b.offsetLeft + b.offsetWidth / 2, w: b.offsetWidth };
+          });
+          
+          dockLeft = strip.offsetParent ? strip.offsetParent.getBoundingClientRect().left : 0;
+        }
+        function dockTick() {
+          dockFrame = 0;
+          if (!dockGeo) return;
+          var moving = false, extra = 0;
+          for (var i = 0; i < dockGeo.length; i++) {
+            var d = dockX === null ? Infinity : Math.abs(dockX - dockGeo[i].c);
+            var target = d < DOCK_REACH ? 1 + (DOCK_MAX - 1) * (1 + Math.cos(Math.PI * d / DOCK_REACH)) / 2 : 1;
+            
+            
+            var el = dockGeo[i].el, cur = el._dockS || 1;
+            var s = cur + (target - cur) * DOCK_EASE;
+            if (Math.abs(target - s) < 0.002) s = target; else moving = true;
+            el._dockS = s;
+            extra += dockGeo[i].w * (s - 1);
+          }
+          if (!moving && dockX === null) {
+            undock();
+            return;
           }
           
           
           var before = 0;
-          for (var j = 0; j < buttons.length; j++) {
-            var grow = buttons[j].offsetWidth * (scales[j] - 1);
+          for (var j = 0; j < dockGeo.length; j++) {
+            var grow = dockGeo[j].w * (dockGeo[j].el._dockS - 1);
             var shift = before + grow / 2 - extra / 2;
             before += grow;
-            var lift = buttons[j].hasAttribute('aria-current') ? ' translateY(-4px)' : '';
-            buttons[j].style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + scales[j].toFixed(3) + ')';
+            var lift = dockGeo[j].el.hasAttribute('aria-current') ? ' translateY(-4px)' : '';
+            dockGeo[j].el.style.transform = 'translateX(' + shift.toFixed(1) + 'px)' + lift + ' scale(' + dockGeo[j].el._dockS.toFixed(3) + ')';
           }
+          if (moving) dockFrame = requestAnimationFrame(dockTick);
+        }
+        function dock() {
+          if (!dockFrame) dockFrame = requestAnimationFrame(dockTick);
         }
         function undock() {
+          cancelAnimationFrame(dockFrame);
+          dockFrame = 0;
           dockX = null;
+          dockGeo = null;
           strip.classList.remove('docking');
-          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; });
+          Array.prototype.forEach.call(strip.children, function (b) { b.style.transform = ''; b._dockS = 1; });
         }
         strip.addEventListener('pointermove', function (e) {
           if (e.pointerType !== 'mouse' || reduceMotion.matches) return;
-          
-          dockX = e.clientX - strip.offsetParent.getBoundingClientRect().left;
+          if (!dockGeo) dockMeasure();
+          dockX = e.clientX - dockLeft;
           strip.classList.add('docking');
           dock();
         });
-        strip.addEventListener('pointerleave', undock);
+        
+        strip.addEventListener('pointerleave', function () {
+          if (!dockGeo) return;
+          dockX = null;
+          dock();
+        });
 
         function durationFor(v) {
           return Math.round(420 - Math.min(Math.abs(v || 0), 2) * 110);
@@ -4992,6 +5390,11 @@
               m.style.visibility = '';
               m.addEventListener('load', function () { setTimeout(finish, 60); }, { once: true });
               setTimeout(finish, 4000);
+            } else if (m && m.tagName === 'VIDEO' && m.readyState < 1) {
+              
+              
+              m.addEventListener('loadedmetadata', function () { setTimeout(finish, 60); }, { once: true });
+              setTimeout(finish, 4000);
             } else finish();
           };
         }
@@ -5101,8 +5504,7 @@
           e.preventDefault();
         });
 
-        addEventListener('resize', function () {
-          if (!isOpen) return;
+        function relayoutSlides() {
           measure();
           slides.forEach(function (div) {
             var p = insets();
@@ -5111,7 +5513,8 @@
           });
           resetZoom(false);
           position(0);
-        });
+        }
+        addEventListener('resize', function () { if (isOpen) relayoutSlides(); });
 
         return { open: open };
       })();
