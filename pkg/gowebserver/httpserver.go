@@ -28,7 +28,7 @@ import (
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	_ "github.com/cloudfra/ufs/drivers/all"
+	_ "github.com/cloudfra/ufs/drivers/all" // Import all supported ufs drivers for use in gowebserver.
 )
 
 // WebServer is a convenience wrapper for Go's HTTP/HTTPS Web serving API.
