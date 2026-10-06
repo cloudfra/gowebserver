@@ -44,6 +44,7 @@ import (
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
+
 	// Registers the bolt: filesystem that stores thumbnails.
 	_ "github.com/cloudfra/ufs/drivers/boltfs"
 	"go.opentelemetry.io/otel/attribute"
