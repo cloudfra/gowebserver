@@ -44,6 +44,7 @@ import (
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
+
 	// Registers the bolt: filesystem that stores thumbnails.
 	_ "github.com/cloudfra/ufs/drivers/boltfs"
 	"go.opentelemetry.io/otel/attribute"
@@ -1016,11 +1017,7 @@ func openThumbnailStore(uri string) (*thumbnailStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	wfs, ok := fsys.(ufs.WriteFS)
-	if !ok {
-		return nil, errors.Join(fmt.Errorf("%s is not writable", uri), fsys.Close())
-	}
-	return &thumbnailStore{fsys: wfs}, nil
+	return &thumbnailStore{fsys: fsys}, nil
 }
 
 // get returns the thumbnail stored at name.
