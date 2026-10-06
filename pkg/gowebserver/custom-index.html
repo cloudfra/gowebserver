@@ -1093,17 +1093,17 @@
      * then drops back in from above. Same motion as the slideshow's
      * download button. */
     .p-download-arrow {
-      animation: var(--hov) ss-drop 1.4s var(--ease) infinite;
+      animation: var(--hov) ic-drop 1.4s var(--ease) infinite;
     }
 
     .p-download-gl {
       transform-origin: 4px 21px;
-      animation: var(--hov) ss-cave 1.4s var(--ease) infinite;
+      animation: var(--hov) ic-cave 1.4s var(--ease) infinite;
     }
 
     .p-download-gr {
       transform-origin: 20px 21px;
-      animation: var(--hov) ss-cave-r 1.4s var(--ease) infinite;
+      animation: var(--hov) ic-cave-r 1.4s var(--ease) infinite;
     }
 
     /* Code: the brackets spring apart and a slash flips in: <> to </>. */
@@ -2480,24 +2480,7 @@
 
     /* Open original: the arrow launches out of the box and slides back in. */
     .ss-btn:is(:hover, :focus-visible) .i-launch {
-      animation: ss-launch 0.9s var(--ease);
-    }
-
-    @keyframes ss-launch {
-      35% {
-        transform: translate(6px, -6px);
-        opacity: 0;
-        animation-timing-function: step-end;
-      }
-
-      40% {
-        transform: translate(-5px, 5px);
-        opacity: 0;
-      }
-
-      75% {
-        opacity: 1;
-      }
+      animation: ic-launch 0.9s var(--ease);
     }
 
     /* Download: the arrow dives into the ground, which caves in under it,
@@ -2512,91 +2495,22 @@
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-drop {
-      animation: ss-drop 1.2s var(--ease);
+      animation: ic-drop 1.2s var(--ease);
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-gl {
-      animation: ss-cave 1.2s var(--ease);
+      animation: ic-cave 1.2s var(--ease);
     }
 
     .ss-btn:is(:hover, :focus-visible) .i-gr {
-      animation: ss-cave-r 1.2s var(--ease);
+      animation: ic-cave-r 1.2s var(--ease);
     }
 
     /* The arrow is clipped at the bottom of the caved-in ground and at
      * the icon's top edge, so it sinks into the hole, fading as it goes,
-     * and drops back in from the top. */
-    @keyframes ss-drop {
-      15% {
-        transform: translateY(-2px);
-      }
-
-      36% {
-        opacity: 1;
-      }
-
-      48% {
-        transform: translateY(17px);
-        opacity: 0;
-        animation-timing-function: step-end;
-      }
-
-      52% {
-        transform: translateY(-15px);
-        opacity: 1;
-        animation-timing-function: cubic-bezier(0.3, 1.4, 0.6, 1);
-      }
-
-      85% {
-        transform: translateY(0);
-      }
-    }
-
-    /* Each ground half tilts about its outer end and stretches by
-     * 1/cos(angle), so the inner ends stay joined at the middle. */
-    @keyframes ss-cave {
-      20% {
-        transform: rotate(0);
-      }
-
-      40% {
-        transform: rotate(24deg) scaleX(1.0946);
-      }
-
-      55% {
-        transform: rotate(28deg) scaleX(1.1326);
-      }
-
-      75% {
-        transform: rotate(-6deg) scaleX(1.0055);
-      }
-
-      88% {
-        transform: rotate(2deg) scaleX(1.0006);
-      }
-    }
-
-    @keyframes ss-cave-r {
-      20% {
-        transform: rotate(0);
-      }
-
-      40% {
-        transform: rotate(-24deg) scaleX(1.0946);
-      }
-
-      55% {
-        transform: rotate(-28deg) scaleX(1.1326);
-      }
-
-      75% {
-        transform: rotate(6deg) scaleX(1.0055);
-      }
-
-      88% {
-        transform: rotate(-2deg) scaleX(1.0006);
-      }
-    }
+     * and drops back in from the top. The keyframes (ic-launch, ic-drop,
+     * ic-cave) are in the shared page template, which the file viewer's
+     * buttons use too. */
 
     /* Close: an old TV switching off. The X's strokes fold flat into one
      * line while the button squeezes, the line carries straight on into a
@@ -2761,12 +2675,6 @@
     @keyframes ic-bob-up {
       50% {
         transform: translateY(-2px);
-      }
-    }
-
-    @keyframes ic-bob-down {
-      50% {
-        transform: translateY(2px);
       }
     }
 
@@ -3335,15 +3243,12 @@
       {{if .HasNonMediaEntry}}
       <section class="files" id="files" aria-label="Folders and files">
         <div class="files-head" aria-hidden="true"><span>Name</span><span class="col-size">Size</span><span class="col-date">Modified</span></div>
-        {{range $index, $element := $.DirEntries}}{{if eq (isMedia $element.Name) false}}
-        <div class="row"{{if $element.IsDir}} data-dir{{end}}>
-          <a class="row-icon" href="{{urlEncode $element.Name}}{{if and $element.IsDir (not $element.IsArchive)}}/{{end}}" aria-label="Open {{$element.Name}} directly"><span class="chip icon-{{$element.IconClass}}"><svg viewBox="0 0 24 24"><use href="#icon-{{$element.IconClass}}" /></svg></span></a>
-          <a class="row-main" href="{{if $element.IsViewable}}{{urlEncode $element.Name}}?view=rich{{else if $element.IsArchive}}{{urlEncode $element.Name}}.d/{{else}}{{urlEncode $element.Name}}{{if $element.IsDir}}/{{end}}{{end}}" title="{{$element.Name}}">
-            <span class="name">{{$element.Name}}</span>
-            <span class="meta"><span class="size">{{if and $element.IsDir (not $element.IsArchive)}}Folder{{else}}{{humanizeBytes $element.Size}}{{end}}</span><span class="date">{{if $.UseTimestamp}}{{humanizeTimestamp $element.ModTime}}{{else}}{{humanizeDate $element.ModTime}}{{end}}</span></span>
-          </a>
-        </div>
-        {{end}}{{end}}
+        {{- /* A row is one line with no space between its tags: a big folder
+               repeats it tens of thousands of times, and every gap would be
+               bytes to send and a text node to keep. */}}
+        {{- range $index, $element := $.DirEntries}}{{if eq (isMedia $element.Name) false}}
+        <div class="row"{{if $element.IsDir}} data-dir{{end}}><a class="row-icon" href="{{urlEncode $element.Name}}{{if and $element.IsDir (not $element.IsArchive)}}/{{end}}" aria-label="Open {{$element.Name}} directly"><span class="chip icon-{{$element.IconClass}}"><svg viewBox="0 0 24 24"><use href="#icon-{{$element.IconClass}}" /></svg></span></a><a class="row-main" href="{{if $element.IsViewable}}{{urlEncode $element.Name}}?view=rich{{else if $element.IsArchive}}{{urlEncode $element.Name}}.d/{{else}}{{urlEncode $element.Name}}{{if $element.IsDir}}/{{end}}{{end}}" title="{{$element.Name}}"><span class="name">{{$element.Name}}</span><span class="meta"><span class="size">{{if and $element.IsDir (not $element.IsArchive)}}Folder{{else}}{{humanizeBytes $element.Size}}{{end}}</span><span class="date">{{if $.UseTimestamp}}{{humanizeTimestamp $element.ModTime}}{{else}}{{humanizeDate $element.ModTime}}{{end}}</span></span></a></div>
+        {{- end}}{{end}}
       </section>
       {{end}}
 
@@ -3399,9 +3304,8 @@
       thumbs: {{.Thumbnails}},
       videoThumbs: {{.VideoThumbnails}},
       // [isVideo, url, name, size, unix mtime]
-      media: [{{range $.DirEntries}}{{if isImage .Name}}
-        [0, {{urlEncode .Name}}, {{.Name}}, {{.Size}}, {{.ModTime.Unix}}],{{else if isVideo .Name}}
-        [1, {{urlEncode .Name}}, {{.Name}}, {{.Size}}, {{.ModTime.Unix}}],{{end}}{{end}}
+      media: [
+        {{- range $.DirEntries}}{{if isImage .Name}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if isVideo .Name}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
       ]
     };
   </script>
@@ -3496,12 +3400,16 @@
         return { video: m[0] === 1, url: m[1], name: m[2], size: m[3], t: m[4], lower: m[2].toLowerCase(), pos: 0, row: -1 };
       });
       var vis = { photos: [], videos: [] };
-      var rowEls = Array.prototype.slice.call(doc.querySelectorAll('.row'));
-      var rowNames = rowEls.map(function (r) { return r.querySelector('.name').textContent.toLowerCase(); });
+      // The list's rows, with what filtering needs to know about each kept
+      // here, so a filter pass reads nothing back from the page and only
+      // touches the rows that change. Names are read on the first filter,
+      // not on load.
+      var rowEls = doc.querySelectorAll('.row');
+      var rowDir = new Uint8Array(rowEls.length), rowHidden = new Uint8Array(rowEls.length);
+      var rowNames = null, lastQuery = null;
+      for (var ri = 0; ri < rowEls.length; ri++) rowDir[ri] = rowEls[ri].hasAttribute('data-dir') ? 1 : 0;
 
-      function summarize() {
-        var folders = 0, files = 0;
-        rowEls.forEach(function (r) { if (!r.hidden) { if (r.hasAttribute('data-dir')) folders++; else files++; } });
+      function summarize(folders, files) {
         var parts = [];
         if (folders) parts.push(plural(folders, 'folder', 'folders'));
         if (files) parts.push(plural(files, 'file', 'files'));
@@ -3513,15 +3421,28 @@
 
       function applyFilter(q) {
         q = q.trim().toLowerCase();
-        rowEls.forEach(function (r, i) { r.hidden = !!q && rowNames[i].indexOf(q) < 0; });
+        // The same filter again (a trailing space, say) changes nothing.
+        if (q === lastQuery) return;
+        lastQuery = q;
+        var i, n = rowEls.length, folders = 0, files = 0;
+        if (q && !rowNames) {
+          rowNames = new Array(n);
+          for (i = 0; i < n; i++) rowNames[i] = rowEls[i].querySelector('.name').textContent.toLowerCase();
+        }
+        for (i = 0; i < n; i++) {
+          var hide = q && rowNames[i].indexOf(q) < 0 ? 1 : 0;
+          if (hide !== rowHidden[i]) { rowHidden[i] = hide; rowEls[i].hidden = !!hide; }
+          if (!hide) { if (rowDir[i]) folders++; else files++; }
+        }
         vis.photos = []; vis.videos = [];
-        all.forEach(function (it) {
-          if (q && it.lower.indexOf(q) < 0) return;
+        for (i = 0; i < all.length; i++) {
+          var it = all[i];
+          if (q && it.lower.indexOf(q) < 0) continue;
           var list = it.video ? vis.videos : vis.photos;
           it.pos = list.length;
           list.push(it);
-        });
-        summarize();
+        }
+        summarize(folders, files);
         if (grid) grid.relayout(false);
       }
 
@@ -3532,39 +3453,64 @@
       // and the rest are weighted by chroma cubed, so any vibrant color on
       // screen beats large muted areas. Each source is {el, w} where w
       // scales its influence. Lightness is left to the theme (--accent-l).
-      var vividCanvas = null;
-      function vividColor(sources) {
+      var vividCanvas = null, vividLin = null;
+      var VIVID_BINS = 24;
+      // One element's colors, by hue bin: four runs of VIVID_BINS numbers
+      // (weight, weighted cos and sin of the hue, weighted chroma), or null
+      // if it can't be read. A loaded photo never changes, so its tally is
+      // kept on the element and the photo is drawn and read back once, not
+      // every time the page stops scrolling with it still on screen.
+      function vividTally(el) {
+        var still = el.tagName === 'IMG' && el.complete && el.currentSrc;
+        if (still && el._vivid && el._vividSrc === el.currentSrc) return el._vivid;
         if (!vividCanvas) {
           vividCanvas = doc.createElement('canvas');
           vividCanvas.width = 16;
           vividCanvas.height = 12;
+          // sRGB to linear, for each of the 256 values a channel can have.
+          vividLin = new Float64Array(256);
+          for (var v = 0; v < 256; v++) {
+            var f = v / 255;
+            vividLin[v] = f <= 0.04045 ? f / 12.92 : Math.pow((f + 0.055) / 1.055, 2.4);
+          }
         }
         var ctx = vividCanvas.getContext('2d', { willReadFrequently: true });
-        var BINS = 24, MIN_C = 0.08;
+        var BINS = VIVID_BINS, MIN_C = 0.08, px;
+        try {
+          ctx.drawImage(el, 0, 0, vividCanvas.width, vividCanvas.height);
+          px = ctx.getImageData(0, 0, vividCanvas.width, vividCanvas.height).data;
+        } catch (e) { return null; }
+        var t = new Float64Array(BINS * 4);
+        for (var i = 0; i < px.length; i += 4) {
+          var r = vividLin[px[i]], g = vividLin[px[i + 1]], b = vividLin[px[i + 2]];
+          // Linear sRGB to OKLab.
+          var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+          var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+          var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+          var L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+          var A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+          var B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+          var c = Math.sqrt(A * A + B * B);
+          if (c < MIN_C || L < 0.3 || L > 0.95) continue;
+          var hue = Math.atan2(B, A);
+          var bin = Math.floor(((hue / (2 * Math.PI) + 1) % 1) * BINS) % BINS;
+          var wt = c * c * c;
+          t[bin] += wt; t[BINS + bin] += wt * Math.cos(hue); t[2 * BINS + bin] += wt * Math.sin(hue); t[3 * BINS + bin] += wt * c;
+        }
+        if (still) { el._vivid = t; el._vividSrc = el.currentSrc; }
+        return t;
+      }
+
+      function vividColor(sources) {
+        var BINS = VIVID_BINS;
         var w = new Float64Array(BINS), sx = new Float64Array(BINS),
           sy = new Float64Array(BINS), sc = new Float64Array(BINS);
-        var lin = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
         sources.forEach(function (src) {
-          var px;
-          try {
-            ctx.drawImage(src.el, 0, 0, vividCanvas.width, vividCanvas.height);
-            px = ctx.getImageData(0, 0, vividCanvas.width, vividCanvas.height).data;
-          } catch (e) { return; }
-          for (var i = 0; i < px.length; i += 4) {
-            var r = lin(px[i]), g = lin(px[i + 1]), b = lin(px[i + 2]);
-            // Linear sRGB to OKLab.
-            var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-            var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-            var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-            var L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-            var A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-            var B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-            var c = Math.sqrt(A * A + B * B);
-            if (c < MIN_C || L < 0.3 || L > 0.95) continue;
-            var hue = Math.atan2(B, A);
-            var bin = Math.floor(((hue / (2 * Math.PI) + 1) % 1) * BINS) % BINS;
-            var wt = c * c * c * src.w;
-            w[bin] += wt; sx[bin] += wt * Math.cos(hue); sy[bin] += wt * Math.sin(hue); sc[bin] += wt * c;
+          var t = vividTally(src.el);
+          if (!t) return;
+          for (var k = 0; k < BINS; k++) {
+            w[k] += t[k] * src.w; sx[k] += t[BINS + k] * src.w;
+            sy[k] += t[2 * BINS + k] * src.w; sc[k] += t[3 * BINS + k] * src.w;
           }
         });
         var best = -1, bestW = 0;
@@ -3583,17 +3529,23 @@
       // the slideshow is open. A slide with no vivid color falls back to the
       // page's color, and a page with none to the default accent.
       var accent = (function () {
-        var src = {}, lastH = null;
+        var src = {}, lastH = null, shownH = '', shownC = '', on = false;
+        // Every element inherits these, so each write restyles the whole
+        // page: only what actually changed is written.
         function apply() {
           var col = src.ss || src.page;
-          if (!col) { root.classList.remove('amb-accent'); return; }
+          if (!col) {
+            if (on) { on = false; root.classList.remove('amb-accent'); }
+            return;
+          }
           // Take the short way around the hue circle when transitioning.
           var h = col.h;
           if (lastH !== null) h = lastH + (((h - lastH) % 360) + 540) % 360 - 180;
           lastH = h;
-          root.style.setProperty('--amb-h', h.toFixed(1));
-          root.style.setProperty('--amb-c', col.c.toFixed(3));
-          root.classList.add('amb-accent');
+          var hs = h.toFixed(1), cs = col.c.toFixed(3);
+          if (hs !== shownH) { shownH = hs; root.style.setProperty('--amb-h', hs); }
+          if (cs !== shownC) { shownC = cs; root.style.setProperty('--amb-c', cs); }
+          if (!on) { on = true; root.classList.add('amb-accent'); }
         }
         return {
           set: function (key, col) { src[key] = col; apply(); },
@@ -3791,8 +3743,17 @@
           }
         }
 
+        // What follows the scroll runs here, once a frame, with every layout
+        // read (the scrubber's, then the grid's) ahead of every write, so
+        // nothing forces the page to be laid out mid-frame.
+        function tick() {
+          var s = scrubber.measure();
+          render();
+          scrubber.place(s);
+        }
+
         function schedule() {
-          if (!frame) frame = requestAnimationFrame(render);
+          if (!frame) frame = requestAnimationFrame(tick);
         }
 
         function onScroll() {
@@ -4066,14 +4027,33 @@
           update();
         }
 
-        function update() {
-          if (!enabled) return;
+        // Where the thumb goes and what the label says for the current
+        // scroll position: measure() only reads the layout and place() only
+        // writes, and only what changed. The grid calls them each frame it
+        // draws (see its tick), around its own reads and writes.
+        var shownY = null, shownLabel = null;
+        function measure() {
+          if (!enabled) return null;
           var m = metrics();
           var ratio = m.max > 0 ? scrollY / m.max : 0;
-          var y = ratio * m.h;
-          thumb.style.transform = 'translateY(' + y + 'px)';
-          label.style.top = (y + THUMB_H / 2) + 'px';
-          label.textContent = grid.labelAt(scrollY + innerHeight / 2);
+          return { y: ratio * m.h, label: grid.labelAt(scrollY + innerHeight / 2) };
+        }
+
+        function place(s) {
+          if (!s) return;
+          if (s.y !== shownY) {
+            shownY = s.y;
+            thumb.style.transform = 'translateY(' + s.y + 'px)';
+            label.style.top = (s.y + THUMB_H / 2) + 'px';
+          }
+          if (s.label !== shownLabel) {
+            shownLabel = s.label;
+            label.textContent = s.label;
+          }
+        }
+
+        function update() {
+          place(measure());
         }
 
         function show() {
@@ -4084,7 +4064,7 @@
           if (!dragging && !finePointer.matches) hideTimer = setTimeout(function () { el.classList.remove('on'); }, 1400);
         }
 
-        addEventListener('scroll', function () { update(); show(); }, { passive: true });
+        addEventListener('scroll', show, { passive: true });
         addEventListener('resize', refresh, { passive: true });
         el.addEventListener('pointerleave', show);
 
@@ -4113,7 +4093,7 @@
         thumb.addEventListener('pointerup', end);
         thumb.addEventListener('pointercancel', end);
 
-        return { refresh: refresh };
+        return { refresh: refresh, measure: measure, place: place };
       })();
 
       // ===== Slideshow =====
