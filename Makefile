@@ -21,6 +21,7 @@ ALL_APPS = gowebserver
 PRODUCTION=1
 RUMDL_IGNORE = internal/gowebserver/testing/testassets/**
 PLAN9_PLATFORMS = 
+IOS_PLATFORMS = 
 NETBSD_PLATFORMS = netbsd/amd64 netbsd/arm64 netbsd/arm/v5 netbsd/arm/v6 netbsd/arm/v7 # netbsd/386 
 
 include Makefile_build.mk
