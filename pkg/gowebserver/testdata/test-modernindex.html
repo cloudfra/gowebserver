@@ -4195,7 +4195,7 @@
         var mounted = new Map(); 
         var width = 0;
         var fast = false, pinned = false, lastY = scrollY, lastT = performance.now(), velocity = 0;
-        var idleTimer = 0, ambientTimer = 0, frame = 0;
+        var idleTimer = 0, ambientTimer = 0, frame = 0, scrolled = false;
         var byDate = CFG.sort.indexOf('date') === 0;
 
         function groupLabel(it) {
@@ -4353,8 +4353,11 @@
         
         
         
+        
+        
         function tick() {
-          var s = scrubber.measure();
+          var s = scrolled ? scrubber.measure() : null;
+          scrolled = false;
           render();
           scrubber.place(s);
         }
@@ -4369,6 +4372,7 @@
           velocity = velocity * 0.5 + (Math.abs(scrollY - lastY) / dt) * 0.5;
           lastY = scrollY; lastT = now;
           fast = pinned || (fast ? velocity > 1.2 : velocity > 2.5);
+          scrolled = true;
           schedule();
           clearTimeout(idleTimer);
           idleTimer = setTimeout(function () { fast = pinned; velocity = 0; schedule(); }, 110);
