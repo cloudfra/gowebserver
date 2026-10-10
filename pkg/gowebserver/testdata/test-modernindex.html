@@ -3996,6 +3996,68 @@
         return item.url + '?width=' + PREVIEW_PX + '&height=' + PREVIEW_PX + '&fit=inside';
       }
 
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      var thumbLoader = (function () {
+        var queue = [], active = 0, limit = 4;
+        try {
+          var nav = performance.getEntriesByType('navigation')[0];
+          if (nav && /^h[23]/.test(nav.nextHopProtocol)) limit = 12;
+        } catch (e) { }
+
+        function pump() {
+          while (active < limit && queue.length) start(queue.shift());
+        }
+
+        function start(img) {
+          active++;
+          img._thumbBusy = true;
+          var done = function () { finish(img); };
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+          img.src = img._thumbURL;
+        }
+
+        function finish(img) {
+          if (!img._thumbBusy) return;
+          img._thumbBusy = false;
+          active--;
+          pump();
+        }
+
+        
+        function unqueue(img) {
+          var i = queue.indexOf(img);
+          if (i < 0) return false;
+          queue.splice(i, 1);
+          return true;
+        }
+
+        return {
+          
+          
+          load: function (img, url, front) {
+            img._thumbURL = url;
+            if (front) queue.unshift(img); else queue.push(img);
+            pump();
+          },
+          unqueue: unqueue,
+          
+          cancel: function (img) {
+            if (unqueue(img)) return;
+            img.removeAttribute('src');
+            finish(img);
+          }
+        };
+      })();
+
       function escapeHTML(s) {
         return String(s).replace(/[&<>"']/g, function (c) {
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -4301,7 +4363,7 @@
         }
 
         function unmountRow(div) {
-          div.querySelectorAll('img').forEach(function (img) { img.removeAttribute('src'); });
+          div.querySelectorAll('img').forEach(thumbLoader.cancel);
           div.querySelectorAll('.vid').forEach(unloadVideo);
           div.remove();
         }
@@ -4314,7 +4376,14 @@
           var img = a.firstChild;
           img.onload = function () { a.classList.add('ready'); };
           img.onerror = function () { a.classList.add('err'); };
-          img.src = tileThumbURL(it, parseFloat(a.style.width));
+          thumbLoader.load(img, tileThumbURL(it, parseFloat(a.style.width)));
+        }
+
+        
+        
+        
+        function unqueueTile(a) {
+          if (a._loading && !a._item.video && thumbLoader.unqueue(a.firstChild)) a._loading = false;
         }
 
         function render() {
@@ -4339,15 +4408,15 @@
           if (frag) el.appendChild(frag);
           
           
-          if (!fast) {
-            var loadTop = viewTop - vh * 0.5, loadBottom = viewTop + vh * 1.5;
-            mounted.forEach(function (div, i) {
-              var r = rows[i];
-              if (r.type === 'tiles' && r.y + r.h > loadTop && r.y < loadBottom) {
-                for (var c = div.firstChild; c; c = c.nextSibling) loadTile(c);
-              }
-            });
-          }
+          var loadTop = viewTop - vh * 0.5, loadBottom = viewTop + vh * 1.5;
+          mounted.forEach(function (div, i) {
+            var r = rows[i];
+            if (r.type !== 'tiles') return;
+            var near = !fast && r.y + r.h > loadTop && r.y < loadBottom;
+            for (var c = div.firstChild; c; c = c.nextSibling) {
+              if (near) loadTile(c); else unqueueTile(c);
+            }
+          });
         }
 
         
@@ -4551,7 +4620,7 @@
           
           
           th.onload = function () { a.classList.add('ready'); };
-          th.src = tileThumbURL(it, parseFloat(a.style.width));
+          thumbLoader.load(th, tileThumbURL(it, parseFloat(a.style.width)));
           a.insertBefore(th, a.firstChild);
           v.src = it.url;
         } else {
@@ -4605,7 +4674,7 @@
         a._hovering = a._warm = a._seeked = false;
         a.classList.remove('vplay', 'vwarm');
         var th = a.querySelector('.vthumb');
-        if (th) th.remove();
+        if (th) { thumbLoader.cancel(th); th.remove(); }
         var v = a.querySelector('video');
         if (v) {
           v.pause();
@@ -5038,7 +5107,7 @@
           var lo = Math.max(0, idx - STRIP_RADIUS), hi = Math.min(list.length - 1, idx + STRIP_RADIUS);
           var keep = {};
           Array.prototype.slice.call(strip.children).forEach(function (b) {
-            if (b._k < lo || b._k > hi) { var im = b.firstChild; if (im) im.removeAttribute('src'); b.remove(); }
+            if (b._k < lo || b._k > hi) { if (b._img) thumbLoader.cancel(b._img); b.remove(); }
             else keep[b._k] = b;
           });
           var before = strip.firstChild;
@@ -5049,8 +5118,14 @@
               b.type = 'button';
               b._k = k;
               b.setAttribute('aria-label', list[k].name);
-              b.innerHTML = list[k].video && !CFG.videoThumbs ? svgUse('ui-play') :
-                '<img alt="" decoding="async" fetchpriority="low" src="' + escapeHTML(tileThumbURL(list[k], 0)) + '">';
+              if (list[k].video && !CFG.videoThumbs) {
+                b.innerHTML = svgUse('ui-play');
+              } else {
+                b.innerHTML = '<img alt="" decoding="async" fetchpriority="low">';
+                b._img = b.firstChild;
+                
+                thumbLoader.load(b._img, tileThumbURL(list[k], 0), true);
+              }
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
             if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
@@ -5570,7 +5645,7 @@
             setTimeout(function () {
               slides.forEach(unmountSlide);
               slides.clear();
-              Array.prototype.slice.call(strip.querySelectorAll('img')).forEach(function (i) { i.removeAttribute('src'); });
+              Array.prototype.slice.call(strip.querySelectorAll('img')).forEach(thumbLoader.cancel);
               strip.innerHTML = '';
               dlg.close();
               root.classList.remove('ss-lock');
