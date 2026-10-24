@@ -125,7 +125,7 @@ ANDROID_NDK = build/toolchain/android-ndk-$(ANDROID_NDK_VERSION)
 ANDROID_NDK_BIN = $(ANDROID_NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin
 ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(FFMPEG) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(if $(FFMPEG_PACKAGE),$(FFMPEG)) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
 	mkdir -p "$(dir $@)"
@@ -143,10 +143,20 @@ $(DOCKER_COMPOSE):
 
 # For the tests that run the real ffmpeg (thumbnails of photos and videos),
 # which find it on PATH and are skipped without it. The download, BtbN's GPL
-# build through pkg/ffmpeg, is kept in the user cache directory, so it
-# survives `make clean` and is fetched again only for a new ffmpeg version.
+# build of the FFMPEG_VERSION release branch through pkg/ffmpeg (which checks
+# its checksum), is kept in the user cache directory, so it survives `make
+# clean` and is fetched again only for a new ffmpeg version. BtbN has no
+# build for macOS or 32-bit arm, where the tests that need it are skipped.
+FFMPEG_VERSION = 9.0
+FFMPEG_HOST := $(HOST_OS)_$(shell uname -m)
+FFMPEG_BUILD_linux_x86_64 = linux64-gpl-$(FFMPEG_VERSION).tar.xz
+FFMPEG_BUILD_linux_aarch64 = linuxarm64-gpl-$(FFMPEG_VERSION).tar.xz
+FFMPEG_BUILD_linux_arm64 = $(FFMPEG_BUILD_linux_aarch64)
+FFMPEG_BUILD_windows_x86_64 = win64-gpl-$(FFMPEG_VERSION).zip
+FFMPEG_PACKAGE = $(if $(FFMPEG_BUILD_$(FFMPEG_HOST)),https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n$(FFMPEG_VERSION)-latest-$(FFMPEG_BUILD_$(FFMPEG_HOST)))
+
 $(FFMPEG):
-	$(GO) run ./internal/tools/installffmpeg -o "$@"
+	$(GO) run ./internal/tools/installffmpeg -url "$(FFMPEG_PACKAGE)" -o "$@"
 
 $(GOCOVER_COBERTURA):
 	mkdir -p "$(dir $@)"

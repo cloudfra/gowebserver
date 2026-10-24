@@ -35,21 +35,22 @@ import (
 func main() {
 	out := flag.String("o", "", "Where to put ffmpeg.")
 	cache := flag.String("cache", "", "Where downloads are kept. Empty means <user cache dir>/gowebserver/ffmpeg.")
+	source := flag.String("url", "", "The ffmpeg archive to install. Empty means the latest release.")
 	flag.Parse()
-	if err := run(*out, *cache); err != nil {
+	if err := run(*out, *cache, *source); err != nil {
 		fmt.Fprintln(os.Stderr, "installffmpeg:", err)
 		os.Exit(1)
 	}
 }
 
-func run(out, cache string) error {
+func run(out, cache, source string) error {
 	if out == "" {
 		return errors.New("-o is required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	// The builds are GPL; the build only runs them, it doesn't ship them.
-	exe, err := ffmpeg.Download(ctx, ffmpeg.Options{InstallOnDemand: true, AcceptLicense: true, DownloadDir: cache})
+	exe, err := ffmpeg.Download(ctx, ffmpeg.Options{InstallOnDemand: true, AcceptLicense: true, DownloadDir: cache, SourceURL: source})
 	if err != nil {
 		return err
 	}
