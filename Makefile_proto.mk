@@ -15,11 +15,11 @@
 include Makefile_core.mk
 
 # https://github.com/grpc/grpc-go/releases
-GOLANG_GRPC_VERSION = latest
+GOLANG_GRPC_VERSION = 1.6.2
 # https://github.com/protocolbuffers/protobuf-go/releases
-GOLANG_PROTOBUF_VERSION = latest
+GOLANG_PROTOBUF_VERSION = 1.36.12
 # https://github.com/grpc-ecosystem/grpc-gateway/releases
-GRPC_GATEWAY_VERSION = latest
+GRPC_GATEWAY_VERSION = 2.32.0
 # https://github.com/protocolbuffers/protobuf/releases
 PROTOC_VERSION = 36.2
 
@@ -72,21 +72,21 @@ build/toolchain/bin/protoc$(EXE): build/archives/protoc.zip
 
 build/toolchain/bin/protoc-gen-go-grpc$(EXE): third_party/google_protobuf/include/google/LICENSE third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE
 	mkdir -p "$(dir $@)"
-	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(GOLANG_GRPC_VERSION)
+	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) google.golang.org/grpc/cmd/protoc-gen-go-grpc@v$(GOLANG_GRPC_VERSION)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/toolchain/bin/protoc-gen-go$(EXE): third_party/google_protobuf/include/google/LICENSE third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE
 	mkdir -p "$(dir $@)"
-	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) google.golang.org/protobuf/cmd/protoc-gen-go@$(GOLANG_PROTOBUF_VERSION)
+	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) google.golang.org/protobuf/cmd/protoc-gen-go@v$(GOLANG_PROTOBUF_VERSION)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/toolchain/bin/protoc-gen-grpc-gateway$(EXE): third_party/google_protobuf/include/google/LICENSE third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE
-	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@$(GRPC_GATEWAY_VERSION)
+	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v$(GRPC_GATEWAY_VERSION)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/toolchain/bin/protoc-gen-openapiv2$(EXE): third_party/google_protobuf/include/google/LICENSE third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE
 	mkdir -p "$(dir $@)"
-	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(GRPC_GATEWAY_VERSION)
+	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v$(GRPC_GATEWAY_VERSION)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/archives/googleapis.zip:
