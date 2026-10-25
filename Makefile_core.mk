@@ -35,11 +35,11 @@ TOOLCHAIN_GO = go
 TOOLCHAIN_GO_INSTALL = GOBIN=$(TOOLCHAIN_BIN) $(TOOLCHAIN_GO) install
 CURL = curl --retry 5 --retry-connrefused
 
-SHORT_SHA = $(shell git rev-parse --short=7 HEAD | tr -d [:punct:])
-DIRTY_VERSION = v0.0.0-$(SHORT_SHA)
-VERSION = $(shell git describe --tags || (echo $(DIRTY_VERSION) && exit 1))
+SHORT_SHA = $(or $(SHORT_SHA_),$(eval SHORT_SHA_ := $(if $(GITHUB_SHA),$(shell printf '%.7s' "$(GITHUB_SHA)"),$(shell git rev-parse --short=7 HEAD 2>/dev/null)))$(SHORT_SHA_))
+DIRTY_VERSION = v0.0.0-$(or $(SHORT_SHA),unknown)
+VERSION = $(or $(VERSION_),$(eval VERSION_ := $(if $(filter tag,$(GITHUB_REF_TYPE)),$(GITHUB_REF_NAME),$(shell git describe --tags 2>/dev/null || echo $(DIRTY_VERSION))))$(VERSION_))
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-TAG := $(VERSION)
+TAG = $(VERSION)
 
 export PATH := $(PWD)/build/toolchain/bin:$(PATH)
 SOURCE_DIRS=$(shell go list ./... | grep -v '/vendor/')
