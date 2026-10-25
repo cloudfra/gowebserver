@@ -1907,6 +1907,18 @@ main {
   pointer-events: none;
 }
 
+/* WebKit (Safari, and every browser on an iPad), the only engine with
+ * -webkit-hyphens: a blurred badge over a video tile's thumbnail keeps
+ * the thumbnail from being drawn at all, so there it's a solid fill,
+ * a little darker to stay as legible. */
+@supports (-webkit-hyphens: none) {
+  .badge {
+    background: rgba(0, 0, 0, 0.62);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 .badge svg {
   width: 10px;
   height: 10px;

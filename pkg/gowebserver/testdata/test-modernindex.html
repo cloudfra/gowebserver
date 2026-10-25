@@ -2418,6 +2418,15 @@
       pointer-events: none;
     }
 
+     
+    @supports (-webkit-hyphens: none) {
+      .badge {
+        background: rgba(0, 0, 0, 0.62);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+    }
+
     .badge svg {
       width: 10px;
       height: 10px;
