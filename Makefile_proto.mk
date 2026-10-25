@@ -89,68 +89,46 @@ build/toolchain/bin/protoc-gen-openapiv2$(EXE): third_party/google_protobuf/incl
 	cd "$(TOOLCHAIN_BIN)" && $(TOOLCHAIN_GO_INSTALL) github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(GRPC_GATEWAY_VERSION)
 	touch "$(REPOSITORY_ROOT)/$@"
 
-build/archives/googleapis.zip:
-	mkdir -p "$(dir $@)"
-	$(CURL) -o "$(ARCHIVES_DIR)/googleapis.zip" -L \
-		"https://github.com/googleapis/googleapis/archive/master.zip"
-	touch "$(REPOSITORY_ROOT)/$@"
-
-build/archives/grpc-gateway.zip:
-	mkdir -p "$(dir $@)"
-	$(CURL) -o "$(ARCHIVES_DIR)/grpc-gateway.zip" -L \
-		"https://github.com/grpc-ecosystem/grpc-gateway/archive/master.zip"
-	touch "$(REPOSITORY_ROOT)/$@"
-
+# The include trees protoc compiles against are vendored into third_party/ and
+# checked in, so a build uses them as they are and downloads nothing. Their
+# rules have no prerequisites: they used to depend on the downloaded archives,
+# which build/ never keeps in CI, so every run re-vendored them, and unpacking
+# the whole googleapis repository (about 10,000 files) took up to half a minute
+# on Windows. update-project.sh re-vendors them by deleting the LICENSE files
+# these rules make; a project without the trees checked in vendors them on its
+# first build. Only the files kept are unpacked, and the tree is replaced only
+# once everything has been downloaded.
 third_party/google_protobuf/include/google/: third_party/google_protobuf/include/google/LICENSE
 	touch "$(REPOSITORY_ROOT)/$@"
 
-third_party/google_protobuf/include/google/LICENSE: build/archives/protoc.zip build/archives/googleapis.zip
-	rm -rf "$(THIRDPARTY_DIR)/google_protobuf/include/"
-	mkdir -p "$(TOOLCHAIN_DIR)/googleapis-temp/"
-	mkdir -p "$(TOOLCHAIN_BIN)/"
-	mkdir -p "$(THIRDPARTY_DIR)/google_protobuf/include/google/"
-	# Copy protobuf
-	cp "$(ARCHIVES_DIR)/protoc.zip" "$(TOOLCHAIN_DIR)/googleapis-temp/"
-	cp "$(ARCHIVES_DIR)/googleapis.zip" "$(TOOLCHAIN_DIR)/googleapis-temp/"
-	(cd "$(TOOLCHAIN_DIR)/googleapis-temp/"; unzip -q -o protoc.zip)
-	cp -rf "$(TOOLCHAIN_DIR)/googleapis-temp/include/google/"* \
-		"$(THIRDPARTY_DIR)/google_protobuf/include/google/"
-
-	# Copy google/apis
-	(cd $(TOOLCHAIN_DIR)/googleapis-temp/; unzip -q -o googleapis.zip)
-	mkdir -p "$(THIRDPARTY_DIR)/google_protobuf/include/google/api/"
-	mkdir -p "$(THIRDPARTY_DIR)/google_protobuf/include/google/rpc/"
-	mkdir -p "$(THIRDPARTY_DIR)/google_protobuf/include/google/longrunning/"
-	cp -rf "$(TOOLCHAIN_DIR)/googleapis-temp/googleapis-master/google/api/"* \
-		"$(THIRDPARTY_DIR)/google_protobuf/include/google/api/"
-	cp -rf "$(TOOLCHAIN_DIR)/googleapis-temp/googleapis-master/google/rpc/"* \
-		"$(THIRDPARTY_DIR)/google_protobuf/include/google/rpc/"
-	cp -rf "$(TOOLCHAIN_DIR)/googleapis-temp/googleapis-master/google/longrunning/"* \
-		"$(THIRDPARTY_DIR)/google_protobuf/include/google/longrunning/"
-	cp -f "$(TOOLCHAIN_DIR)/googleapis-temp/googleapis-master/LICENSE" \
-		"$(THIRDPARTY_DIR)/google_protobuf/include/google/LICENSE"
-	$(FIND) "$(THIRDPARTY_DIR)/google_protobuf/include/google/" -type f -name '*BUILD.bazel' -exec rm {} +
-	rm -rf "$(TOOLCHAIN_DIR)/googleapis-temp"
-	touch "$(REPOSITORY_ROOT)/$@"
+third_party/google_protobuf/include/google/LICENSE:
+	tmp="$(BUILD_DIR)/googleapis.$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	$(CURL) -fL -o "$$tmp/protoc.zip" "$(PROTOC_PACKAGE)" && \
+	$(CURL) -fL -o "$$tmp/googleapis.zip" "https://github.com/googleapis/googleapis/archive/master.zip" && \
+	(cd "$$tmp" && unzip -q protoc.zip 'include/*' && \
+		unzip -q googleapis.zip 'googleapis-master/LICENSE' 'googleapis-master/google/api/*' \
+			'googleapis-master/google/rpc/*' 'googleapis-master/google/longrunning/*') && \
+	dst="$(THIRDPARTY_DIR)/google_protobuf/include/google" && rm -rf "$(THIRDPARTY_DIR)/google_protobuf/include" && \
+	mkdir -p "$$dst" && cp -rf "$$tmp/include/google/"* "$$dst/" && \
+	cp -rf "$$tmp/googleapis-master/google/api" "$$tmp/googleapis-master/google/rpc" \
+		"$$tmp/googleapis-master/google/longrunning" "$$dst/" && \
+	cp -f "$$tmp/googleapis-master/LICENSE" "$$dst/LICENSE" && \
+	$(FIND) "$$dst/" -type f -name '*BUILD.bazel' -exec rm {} +; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
 
 third_party/grpc_gateway/include/protoc-gen-openapiv2/: third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE
 	touch "$(REPOSITORY_ROOT)/$@"
 
-third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE: build/archives/grpc-gateway.zip
-	rm -rf "$(THIRDPARTY_DIR)/grpc_gateway/"
-	mkdir -p "$(TOOLCHAIN_DIR)/grpc-gateway-temp/"
-	mkdir -p "$(TOOLCHAIN_BIN)/"
-	mkdir -p "$(THIRDPARTY_DIR)/grpc_gateway/include/protoc-gen-openapiv2/options/"
-
-	cp "$(ARCHIVES_DIR)/grpc-gateway.zip" "$(TOOLCHAIN_DIR)/grpc-gateway-temp/"
-	(cd "$(TOOLCHAIN_DIR)/grpc-gateway-temp/"; unzip -q -o grpc-gateway.zip)
-	cp -rf "$(TOOLCHAIN_DIR)/grpc-gateway-temp/grpc-gateway-main/protoc-gen-openapiv2/options/"*.proto \
-		"$(THIRDPARTY_DIR)/grpc_gateway/include/protoc-gen-openapiv2/options/"
-	cp -f "$(TOOLCHAIN_DIR)/grpc-gateway-temp/grpc-gateway-main/LICENSE" \
-		"$(THIRDPARTY_DIR)/grpc_gateway/include/protoc-gen-openapiv2/LICENSE"
-	$(FIND) "$(THIRDPARTY_DIR)/grpc_gateway/include/protoc-gen-openapiv2/" -type f -name '*BUILD.bazel' -exec rm {} +
-	rm -rf "$(TOOLCHAIN_DIR)/grpc-gateway-temp"
-	touch "$(REPOSITORY_ROOT)/$@"
+third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE:
+	tmp="$(BUILD_DIR)/grpc-gateway.$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	$(CURL) -fL -o "$$tmp/grpc-gateway.zip" "https://github.com/grpc-ecosystem/grpc-gateway/archive/master.zip" && \
+	(cd "$$tmp" && unzip -q grpc-gateway.zip 'grpc-gateway-main/LICENSE' \
+		'grpc-gateway-main/protoc-gen-openapiv2/options/*.proto') && \
+	dst="$(THIRDPARTY_DIR)/grpc_gateway/include/protoc-gen-openapiv2" && rm -rf "$(THIRDPARTY_DIR)/grpc_gateway" && \
+	mkdir -p "$$dst/options" && \
+	cp -f "$$tmp/grpc-gateway-main/protoc-gen-openapiv2/options/"*.proto "$$dst/options/" && \
+	cp -f "$$tmp/grpc-gateway-main/LICENSE" "$$dst/LICENSE"; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
 
 %_grpc.pb.go: %.proto %.pb.go $(PROTOC_TOOLCHAIN)
 	$(PROTOC) $(PROTOC_INCLUDE_FLAGS) $(PROTOC_GO_GRPC_PLUGIN) --go-grpc_out=. --go-grpc_opt=paths=source_relative $<

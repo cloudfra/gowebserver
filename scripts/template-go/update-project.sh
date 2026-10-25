@@ -651,14 +651,15 @@ bump_terraform() {
 
 # --- step 5: re-vendor third_party ------------------------------------------
 
-# The vendored proto trees are produced by make targets that unzip upstream
-# archives. The archives are cached under build/archives, so they are removed
-# first to force a fresh download rather than re-vendoring a stale copy.
+# The vendored proto trees are produced by make targets that download and
+# unzip upstream archives (googleapis and grpc-gateway from their master
+# branches, protoc's includes from PROTOC_VERSION). Those targets have no
+# prerequisites, so a build keeps the checked-in trees; deleting a target's
+# LICENSE file is what makes make vendor it again.
 VENDOR_TARGETS=(
   "third_party/google_protobuf/include/google/LICENSE"
   "third_party/grpc_gateway/include/protoc-gen-openapiv2/LICENSE"
 )
-VENDOR_ARCHIVES=(protoc.zip googleapis.zip grpc-gateway.zip)
 
 refresh_vendored() {
   echo
@@ -683,9 +684,8 @@ refresh_vendored() {
     return 0
   fi
 
-  local archive
-  for archive in "${VENDOR_ARCHIVES[@]}"; do
-    rm -f "$TARGET/build/archives/$archive"
+  for t in "${targets[@]}"; do
+    rm -f "$TARGET/$t"
   done
   if ! make -C "$TARGET" "${targets[@]}"; then
     echo "  error: re-vendor failed" >&2
