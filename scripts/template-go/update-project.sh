@@ -26,11 +26,13 @@
 #   5. move the Go modules to their latest releases through the repo's own
 #      `make deps` target, then verify the checksums
 #
-# Step 2 only touches pins that hold a concrete version. Pins set to `latest`
-# (actionlint, gofumpt, golangci-lint, revive, tflint, gocover-cobertura) are
-# already floating and are left alone. ANDROID_NDK_VERSION is skipped: Google
-# publishes the NDK without a versioned releases API, so there is nothing to
-# query it against.
+# Step 2 only touches pins that hold a concrete version; a pin set to `latest`
+# is left alone. Every tool is pinned, so builds are reproducible and an
+# installed tool is only replaced when its pin moves. The exception is
+# gocover-cobertura, whose upstream has no tagged release: it is pinned to a
+# pseudo-version and has to be bumped by hand. ANDROID_NDK_VERSION is skipped:
+# Google publishes the NDK without a versioned releases API, so there is
+# nothing to query it against.
 #
 # Every candidate version is verified before the pin is rewritten. Tools whose
 # binaries are downloaded as archives (terraform, trivy, rumdl, shellcheck,
@@ -325,7 +327,16 @@ sync_template() {
 #   github:<owner>/<repo> | hashicorp:<name> | goproxy:<module> | skip
 # Pins absent from this list are reported as unmapped rather than guessed at.
 PIN_SOURCES=(
+  "ACTIONLINT:goproxy:github.com/rhysd/actionlint"
   "DOCKERCOMPOSE:github:docker/compose"
+  "GOCOVER_COBERTURA:skip"
+  "GOFUMPT:goproxy:mvdan.cc/gofumpt"
+  "GOLANGCI_LINT:goproxy:github.com/golangci/golangci-lint/v2"
+  "REVIVE:goproxy:github.com/mgechev/revive"
+  "TFLINT:goproxy:github.com/terraform-linters/tflint"
+  "GOLANG_GRPC:goproxy:google.golang.org/grpc/cmd/protoc-gen-go-grpc"
+  "GOLANG_PROTOBUF:goproxy:google.golang.org/protobuf"
+  "GRPC_GATEWAY:goproxy:github.com/grpc-ecosystem/grpc-gateway/v2"
   "TERRAFORM:hashicorp:terraform"
   "CERTTOOL:github:cloudfra/certtool"
   "HADOLINT:github:hadolint/hadolint"

@@ -15,7 +15,7 @@
 include Makefile_core.mk
 
 # https://github.com/rhysd/actionlint/releases
-ACTIONLINT_VERSION=latest
+ACTIONLINT_VERSION = 1.7.12
 # https://github.com/docker/compose/releases
 DOCKERCOMPOSE_VERSION = 5.6.0
 # https://developer.hashicorp.com/terraform/install
@@ -25,21 +25,21 @@ CERTTOOL_VERSION = 0.6.0
 # https://github.com/hadolint/hadolint/releases
 HADOLINT_VERSION = 2.15.1
 # https://github.com/t-yuki/gocover-cobertura/releases
-GOCOVER_COBERTURA_VERSION = latest
+GOCOVER_COBERTURA_VERSION = 0.0.0-20180217150009-aaee18c8195c
 # https://github.com/mvdan/gofumpt/releases
-GOFUMPT_VERSION = latest
+GOFUMPT_VERSION = 0.12.0
 # https://github.com/golangci/golangci-lint/releases
-GOLANGCI_LINT_VERSION = latest
+GOLANGCI_LINT_VERSION = 2.15.0
 # https://github.com/golang/vuln/releases
 GOVULNCHECK_VERSION = 1.8.0
 # https://github.com/mgechev/revive/releases
-REVIVE_VERSION=latest
+REVIVE_VERSION = 1.17.1
 # https://github.com/rvben/rumdl/releases
 RUMDL_VERSION = 0.2.78
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
-TFLINT_VERSION = latest
+TFLINT_VERSION = 0.65.0
 # https://github.com/aquasecurity/trivy/releases
 TRIVY_VERSION = 0.75.0
 # https://github.com/goptics/vizb/releases
@@ -125,11 +125,11 @@ ANDROID_NDK = build/toolchain/android-ndk-$(ANDROID_NDK_VERSION)
 ANDROID_NDK_BIN = $(ANDROID_NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin
 ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(FFMPEG) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(if $(FFMPEG_PACKAGE),$(FFMPEG)) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
 
 $(CERTTOOL):
 	mkdir -p "$(dir $@)"
@@ -143,26 +143,36 @@ $(DOCKER_COMPOSE):
 
 # For the tests that run the real ffmpeg (thumbnails of photos and videos),
 # which find it on PATH and are skipped without it. The download, BtbN's GPL
-# build through pkg/ffmpeg, is kept in the user cache directory, so it
-# survives `make clean` and is fetched again only for a new ffmpeg version.
+# build of the FFMPEG_VERSION release branch through pkg/ffmpeg (which checks
+# its checksum), is kept in the user cache directory, so it survives `make
+# clean` and is fetched again only for a new ffmpeg version. BtbN has no
+# build for macOS or 32-bit arm, where the tests that need it are skipped.
+FFMPEG_VERSION = 9.0
+FFMPEG_HOST := $(HOST_OS)_$(shell uname -m)
+FFMPEG_BUILD_linux_x86_64 = linux64-gpl-$(FFMPEG_VERSION).tar.xz
+FFMPEG_BUILD_linux_aarch64 = linuxarm64-gpl-$(FFMPEG_VERSION).tar.xz
+FFMPEG_BUILD_linux_arm64 = $(FFMPEG_BUILD_linux_aarch64)
+FFMPEG_BUILD_windows_x86_64 = win64-gpl-$(FFMPEG_VERSION).zip
+FFMPEG_PACKAGE = $(if $(FFMPEG_BUILD_$(FFMPEG_HOST)),https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n$(FFMPEG_VERSION)-latest-$(FFMPEG_BUILD_$(FFMPEG_HOST)))
+
 $(FFMPEG):
-	$(GO) run ./internal/tools/installffmpeg -o "$@"
+	$(GO) run ./internal/tools/installffmpeg -url "$(FFMPEG_PACKAGE)" -o "$@"
 
 $(GOCOVER_COBERTURA):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/t-yuki/gocover-cobertura@$(GOCOVER_COBERTURA_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/t-yuki/gocover-cobertura@v$(GOCOVER_COBERTURA_VERSION)
 
 # Stricter formatting than `go fmt` (gofmt superset).
 $(GOFUMPT):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
 
 # golangci-lint's own default config (errcheck, govet, ineffassign,
 # staticcheck, unused) already covers what a standalone staticcheck run
 # would, so it's the only Go correctness linter wired into `lint`.
 $(GOLANGCI_LINT):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
 
 $(GOVULNCHECK):
 	mkdir -p "$(dir $@)"
@@ -177,7 +187,7 @@ $(HADOLINT):
 # Style/doc-comment linter; not covered by golangci-lint's default config.
 $(REVIVE):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/mgechev/revive@$(REVIVE_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/mgechev/revive@v$(REVIVE_VERSION)
 
 $(RUMDL): $(RUMDL_ARCHIVE)
 	mkdir -p "$(dir $@)"
@@ -218,7 +228,7 @@ $(TERRAFORM): build/archives/terraform.zip
 
 $(TFLINT):
 	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/terraform-linters/tflint@$(TFLINT_VERSION)
+	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/terraform-linters/tflint@v$(TFLINT_VERSION)
 
 # Also not a Go module; ships as an archive like shellcheck, but unlike
 # shellcheck the binary sits at the archive root with no versioned
