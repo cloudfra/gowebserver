@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/cloudfra/certtool v0.7.0
+	github.com/cloudfra/certtool v0.8.0
 	github.com/cloudfra/gomain v0.15.0
 	github.com/cloudfra/ufs v0.16.1
 	github.com/dustin/go-humanize v1.1.0
@@ -41,6 +41,9 @@ require (
 	cloud.google.com/go/pubsub/v2 v2.7.0 // indirect
 	cloud.google.com/go/storage v1.69.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
+	filippo.io/age v1.3.2 // indirect
+	filippo.io/hpke v0.4.0 // indirect
+	filippo.io/nistec v0.0.4 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.62.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.62.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -117,11 +120,12 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/api v0.300.0 // indirect
@@ -131,7 +135,7 @@ require (
 	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	software.sslmate.com/src/go-pkcs12 v0.7.3 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.7.4 // indirect
 )
 
 ignore (
