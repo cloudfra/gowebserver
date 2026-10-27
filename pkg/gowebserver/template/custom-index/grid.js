@@ -310,15 +310,23 @@ function createGrid(el) {
   });
 
   // Muted preview on hover: a mouse or trackpad only, never a finger,
-  // even on a tablet that has both.
+  // even on a tablet that has both. Only once the pointer stays on the
+  // tile (HOVER_INTENT), not as it crosses tiles on its way somewhere:
+  // each preview is a video to fetch and decode.
   el.addEventListener('pointerover', function (e) {
     if (e.pointerType === 'touch' || !finePointer.matches) return;
     var a = e.target.closest('.tile.vid');
-    if (a) previewVideo(a, true);
+    if (!a || a._intent || a._hovering) return;
+    a._intent = setTimeout(function () {
+      a._intent = 0;
+      previewVideo(a, true);
+    }, HOVER_INTENT);
   });
   el.addEventListener('pointerout', function (e) {
     var a = e.target.closest('.tile.vid');
     if (!a || a.contains(e.relatedTarget)) return;
+    clearTimeout(a._intent);
+    a._intent = 0;
     previewVideo(a, false);
   });
 
@@ -335,6 +343,15 @@ function createGrid(el) {
     reveal: reveal,
     labelAt: labelAt,
     setFast: function (v) { pinned = fast = v; if (!v) schedule(); },
+    // Drops every hover preview, for the slideshow, whose videos come
+    // first while it covers the grid.
+    dropPreviews: function () {
+      el.querySelectorAll('.tile.vid').forEach(function (a) {
+        clearTimeout(a._intent);
+        a._intent = 0;
+      });
+      previews.slice().forEach(unloadVideo);
+    },
     // Whether the page is on the move: it scrolled within the last
     // few frames.
     scrolling: function () { return performance.now() - scrolledAt < SCROLL_SETTLE; }
@@ -454,6 +471,27 @@ function mountVideo(a) {
 // .tile img transition.
 var VTHUMB_FADE_BACK = 400;
 
+// How long the pointer stays on a video tile before its preview starts.
+var HOVER_INTENT = 300;
+
+// The tiles with a hover preview, least recently hovered first. Only
+// the last WARM_PREVIEWS keep theirs once the pointer has left, so
+// going back to one is quick; older ones are unloaded, rather than
+// every tile the pointer has rested on holding a video (a decoder and
+// buffers) until its row scrolls away.
+var previews = [], WARM_PREVIEWS = 2;
+
+function keepPreview(a) {
+  var i = previews.indexOf(a);
+  if (i >= 0) previews.splice(i, 1);
+  previews.push(a);
+  while (previews.length > WARM_PREVIEWS) {
+    var old = previews[0];
+    if (old._hovering) break;
+    unloadVideo(old);
+  }
+}
+
 // Starts (on) or stops the hover preview of video tile a. Under a
 // thumbnail the video is made now, the first time, and the thumbnail
 // fades out only once it is actually playing, so there's no flash of
@@ -481,6 +519,7 @@ function previewVideo(a, on) {
     // Ahead of the thumbnail, which is then drawn over it.
     a.insertBefore(v, a.firstChild);
   }
+  keepPreview(a);
   // Back before the video paused: it's still playing, so show it now.
   if (!v.paused && v.readyState > 2) revealVideo(a);
   v.play().catch(function () { });
@@ -494,6 +533,8 @@ function revealVideo(a) {
 
 function unloadVideo(a) {
   clearTimeout(a._pauseTimer);
+  var i = previews.indexOf(a);
+  if (i >= 0) previews.splice(i, 1);
   a._hovering = a._warm = false;
   a.classList.remove('vplay', 'vwarm');
   var v = a.querySelector('video');

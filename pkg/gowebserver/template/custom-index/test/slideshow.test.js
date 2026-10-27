@@ -132,6 +132,36 @@ test('without server thumbnails there is no filmstrip', () => {
   assert.equal(t.slides().length, 3);
 });
 
+test('a video slide loads before its neighbors\' videos', () => {
+  const t = setup(100, { videos: true });
+  // Only the videos (m9, m19, ...), from the fourth: m39, between m29
+  // and m49.
+  t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
+  const vs = t.slides().map((d) => d.firstChild);
+  assert.equal(vs.length, 3);
+  const loaded = () => vs.filter((v) => v.src).map((v) => v.src).sort();
+  assert.deepEqual(loaded(), ['m39'], 'only the current video loads');
+  vs.find((v) => v.src === 'm39').fire('loadeddata');
+  assert.deepEqual(loaded(), ['m29', 'm39', 'm49'], 'then its neighbors');
+});
+
+test('the neighbors load anyway if the current video is slow to show', () => {
+  const t = setup(100, { videos: true });
+  t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
+  const vs = t.slides().map((d) => d.firstChild);
+  assert.equal(vs.filter((v) => v.src).length, 1);
+  t.pg.tick(3000);
+  assert.equal(vs.filter((v) => v.src).length, 3);
+});
+
+test('stepping to a neighbor loads it now', () => {
+  const t = setup(100, { videos: true });
+  t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
+  t.key('ArrowRight');
+  const cur = t.slides().map((d) => d.firstChild).find((v) => v.src === 'm49');
+  assert.ok(cur, 'm49 is loading as soon as it is current');
+});
+
 test('closing takes everything back out of the page', async () => {
   const t = setup(100, { videos: true });
   t.slideshow.open(t.all, 9, null, false);
