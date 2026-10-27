@@ -32,7 +32,7 @@ NODE = node
 NPM = npm
 
 # https://github.com/microsoft/playwright/releases
-PLAYWRIGHT_VERSION = 1.64.0
+PLAYWRIGHT_VERSION = 1.64.1
 
 # The browsers to install and test in: chromium, firefox and/or webkit.
 # Chromium and Firefox run on a plain Linux install. WebKit needs system
