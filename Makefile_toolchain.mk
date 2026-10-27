@@ -17,11 +17,11 @@ include Makefile_core.mk
 # https://github.com/rhysd/actionlint/releases
 ACTIONLINT_VERSION = 1.7.12
 # https://github.com/docker/compose/releases
-DOCKERCOMPOSE_VERSION = 5.6.0
+DOCKERCOMPOSE_VERSION = 5.6.1
 # https://developer.hashicorp.com/terraform/install
-TERRAFORM_VERSION = 1.16.5
+TERRAFORM_VERSION = 1.17.0
 # https://github.com/cloudfra/certtool/releases
-CERTTOOL_VERSION = 0.6.0
+CERTTOOL_VERSION = 0.8.0
 # https://github.com/hadolint/hadolint/releases
 HADOLINT_VERSION = 2.15.1
 # https://github.com/t-yuki/gocover-cobertura/releases
@@ -31,21 +31,21 @@ GOFUMPT_VERSION = 0.12.0
 # https://github.com/golangci/golangci-lint/releases
 GOLANGCI_LINT_VERSION = 2.15.0
 # https://github.com/golang/vuln/releases
-GOVULNCHECK_VERSION = 1.8.0
+GOVULNCHECK_VERSION = 1.9.0
 # https://github.com/mgechev/revive/releases
 REVIVE_VERSION = 1.17.1
 # https://github.com/rvben/rumdl/releases
-RUMDL_VERSION = 0.2.78
+RUMDL_VERSION = 0.3.0
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
 TFLINT_VERSION = 0.65.0
 # https://github.com/aquasecurity/trivy/releases
-TRIVY_VERSION = 0.75.0
+TRIVY_VERSION = 0.76.1
 # https://github.com/goptics/vizb/releases
-VIZB_VERSION = 0.21.0
+VIZB_VERSION = 0.23.1
 # https://developer.android.com/ndk/downloads
-ANDROID_NDK_VERSION = r28c
+ANDROID_NDK_VERSION = r30
 # Minimum Android API level for the NDK's clang target wrappers; 21 is the
 # lowest the NDK supports.
 ANDROID_API = 21
@@ -124,6 +124,10 @@ VIZB = build/toolchain/bin/vizb$(EXE)
 ANDROID_NDK = build/toolchain/android-ndk-$(ANDROID_NDK_VERSION)
 ANDROID_NDK_BIN = $(ANDROID_NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin
 ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
+# Kept as a variable (rather than inline in the download rule) so
+# scripts/template-go/update-project.sh can expand the exact URL this build
+# would fetch and HEAD-check a candidate NDK release before rewriting the pin.
+ANDROID_NDK_PACKAGE = https://dl.google.com/android/repository/android-ndk-$(ANDROID_NDK_VERSION)-linux.zip
 
 COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(if $(FFMPEG_PACKAGE),$(FFMPEG)) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
@@ -257,7 +261,7 @@ $(ANDROID_NDK_CLANG): build/archives/android-ndk.zip
 
 build/archives/android-ndk.zip:
 	mkdir -p "$(dir $@)"
-	$(CURL) -o "$(REPOSITORY_ROOT)/$@" -L "https://dl.google.com/android/repository/android-ndk-$(ANDROID_NDK_VERSION)-linux.zip"
+	$(CURL) -o "$(REPOSITORY_ROOT)/$@" -L "$(ANDROID_NDK_PACKAGE)"
 	touch "$(REPOSITORY_ROOT)/$@"
 
 build/archives/terraform.zip:

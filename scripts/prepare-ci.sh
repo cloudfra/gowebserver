@@ -17,7 +17,8 @@
 # Per-project CI preparation hook for Linux and macOS jobs.
 #
 # The CI workflow runs this immediately before "make system-info" in the
-# build-linux job (see .github/workflows/deploy.yaml), so it is the place to
+# build-linux job (see .github/workflows/deploy.yaml) and the build-release
+# job (see .github/workflows/create-release.yaml), so it is the place to
 # install or configure whatever a specific project needs on its runners:
 # distribution packages, extra toolchain, runner-local fixes.
 #

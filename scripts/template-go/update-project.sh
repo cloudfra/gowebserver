@@ -30,9 +30,12 @@
 # is left alone. Every tool is pinned, so builds are reproducible and an
 # installed tool is only replaced when its pin moves. The exception is
 # gocover-cobertura, whose upstream has no tagged release: it is pinned to a
-# pseudo-version and has to be bumped by hand. ANDROID_NDK_VERSION is skipped:
-# Google publishes the NDK without a versioned releases API, so there is
-# nothing to query it against.
+# pseudo-version and has to be bumped by hand.
+#
+# ANDROID_NDK_VERSION resolves from the android/ndk GitHub releases, whose tags
+# are the download-suffix the makefile builds its URL from (r28c, r29, r30).
+# Those tags are not semver, so the comparison below is the only place NDK
+# versions are ordered.
 #
 # Every candidate version is verified before the pin is rewritten. Tools whose
 # binaries are downloaded as archives (terraform, trivy, rumdl, shellcheck,
@@ -346,7 +349,7 @@ PIN_SOURCES=(
   "TRIVY:github:aquasecurity/trivy"
   "VIZB:goproxy:github.com/goptics/vizb"
   "PROTOC:github:protocolbuffers/protobuf"
-  "ANDROID_NDK:skip"
+  "ANDROID_NDK:github:android/ndk"
 )
 
 # source_for PIN echoes the mapped source, or nothing when unmapped.

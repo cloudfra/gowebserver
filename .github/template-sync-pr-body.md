@@ -23,10 +23,10 @@ Any local edit to a managed file is discarded by the sync, and this PR is
 where that becomes visible. Check the diff for:
 
 - Project-specific edits under `.github/` - workflow triggers, build
-  matrix. The release artifacts in `deploy.yaml`'s "Create Release" step
-  are regenerated from `ALL_APPS` in the root `Makefile` (one
-  `build/release/<app>-*` set per app), so check they match the binaries
-  the project actually builds. Workflows a project needs to keep should
+  matrix. Releases are built by `create-release.yaml` on a `v*` tag push;
+  its release files are globs that match every app in `ALL_APPS`, so check
+  they match the binaries the project actually publishes. Workflows a
+  project needs to keep should
   be named `deploy-*.yaml`; those are never touched.
 - Customized root dotfiles - `.gitignore` entries for local paths, lint
   config tweaks.

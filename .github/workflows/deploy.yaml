@@ -14,9 +14,9 @@
 
 name: CI
 
+# Releases are built and published by create-release.yaml, on a tag push.
 on:
   push:
-    tags: ["v*"]
     branches: ["main"]
   pull_request:
     branches: ["main"]
@@ -40,8 +40,7 @@ jobs:
     name: "Build Linux"
     runs-on: ["self-hosted", "linux", "large"]
     permissions:
-      contents: write
-      packages: write
+      contents: read
       checks: write
       # Required by actions/upload-code-coverage below.
       # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage
@@ -99,7 +98,7 @@ jobs:
         # https://github.com/actions/upload-code-coverage
         # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage#step-2-upload-the-coverage-report
         # Requires: code-quality: write
-        if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !startsWith(github.ref, 'refs/tags/')
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: actions/upload-code-coverage@v1
         with:
@@ -122,70 +121,6 @@ jobs:
           if-no-files-found: error
       - name: Build Binaries
         run: make all -j"$(nproc)"
-      - name: Set up Docker Buildx (Scan)
-        # https://github.com/docker/setup-buildx-action
-        # Skipped on pull requests along with the image scan below.
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/setup-buildx-action@v4
-      - name: Scan Container Image
-        # Builds a local single-arch image with --load purely so trivy has
-        # something to scan; independent of the multi-arch push pipeline
-        # further down, which never loads images into the local daemon.
-        # Skipped on pull requests, and never fails the build.
-        if: ${{ github.event_name != 'pull_request' }}
-        continue-on-error: true
-        run: make scan-images
-      - name: Release Package
-        if: ${{ github.event_name != 'pull_request' }}
-        run: make build/packages/release.tar.gz
-      - name: Create Release
-        # https://github.com/softprops/action-gh-release
-        uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          files: |
-            LICENSE
-            build/packages/release.tar.gz
-            build/release/gowebserver-darwin_arm64
-            build/release/gowebserver-linux_amd64
-            build/release/gowebserver-linux_arm64
-            build/release/gowebserver-windows_amd64.exe
-            build/release/gowebserver-windows_arm64.exe
-      - name: Login to GitHub Container Registry
-        # https://github.com/docker/login-action#github-packages-docker-registry
-        uses: docker/login-action@v4
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker Hub
-        # https://github.com/docker/login-action#github-packages-docker-registry
-        uses: docker/login-action@v4
-        if: ${{ github.event_name != 'pull_request' }}
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Set up QEMU
-        # https://github.com/docker/setup-qemu-action
-        uses: docker/setup-qemu-action@v4
-        if: ${{ github.event_name != 'pull_request' }}
-      - name: Set up Docker Buildx
-        # https://github.com/docker/setup-buildx-action
-        uses: docker/setup-buildx-action@v4
-        if: ${{ github.event_name != 'pull_request' }}
-      - name: Push Images (Commit)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request' }}
-        run: |
-          make DOCKER_PUSH="" REGISTRY=docker.io/cloudfra linux-images windows-images
-      - name: Push Images (Release)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          make DOCKER_PUSH=--push REGISTRY=docker.io/cloudfra images
-          make DOCKER_PUSH=--push REGISTRY=ghcr.io/cloudfra images
 
   build-windows:
     name: "Build Windows"
