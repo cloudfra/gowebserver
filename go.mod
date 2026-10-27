@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/cloudfra/certtool v0.8.1
 	github.com/cloudfra/gomain v0.16.0
-	github.com/cloudfra/ufs v0.16.1
+	github.com/cloudfra/ufs v0.16.2-0.20261027143928-6e42f8a8506b
 	github.com/dustin/go-humanize v1.1.0
 	github.com/google/go-cmp v0.7.0
 	github.com/prometheus/client_golang v1.25.0
