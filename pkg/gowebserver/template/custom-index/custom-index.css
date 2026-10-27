@@ -1827,9 +1827,10 @@ main {
   pointer-events: none;
 }
 
-/* The placeholder for a picture that didn't load. */
+/* The placeholder for a picture that didn't load, and for a filmstrip
+   photo whose thumbnail hasn't yet. */
 .tile.err::before,
-.ss-strip button.err::before {
+.ss-strip button:not(.ready):not(.vid)::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1843,15 +1844,15 @@ main {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.ss-strip button.err {
-  position: relative;
+.ss-strip button:not(.ready):not(.vid)::before {
+  width: 20px;
+  height: 20px;
+  opacity: 0.45;
+  color: #fff;
 }
 
 .ss-strip button.err::before {
-  width: 20px;
-  height: 20px;
   opacity: 0.6;
-  color: #fff;
 }
 
 .tile:focus-visible {
@@ -2794,7 +2795,11 @@ main {
   border: 0;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.14);
   opacity: 0.55;
   cursor: pointer;
   transition: opacity 0.2s, transform 0.3s var(--ease), box-shadow 0.2s;
@@ -2810,11 +2815,26 @@ main {
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+.ss-strip button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Fades in over its placeholder once it has loaded (stripThumbDone). */
 .ss-strip img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.ss-strip button.ready img {
+  opacity: 1;
 }
 
 /* In full screen the strip stays out of the way, even while the other

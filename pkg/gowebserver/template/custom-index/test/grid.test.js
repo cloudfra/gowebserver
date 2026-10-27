@@ -223,7 +223,11 @@ test('a video tile is the server\'s thumbnail; the video comes on hover', async 
   tile.fire('pointerover', { pointerType: 'touch' });
   assert.equal(tile.querySelector('video'), null);
 
+  // A mouse does, once it stays on the tile.
   tile.fire('pointerover', { pointerType: 'mouse' });
+  g.pg.tick(299);
+  assert.equal(tile.querySelector('video'), null);
+  g.pg.tick(1);
   const v = tile.querySelector('video');
   assert.equal(v.src, 'v0.mp4');
   assert.equal(v.paused, false);
@@ -246,8 +250,49 @@ test('a video tile is the server\'s thumbnail; the video comes on hover', async 
   g.pg.tick(400);
   assert.equal(v.paused, true);
   tile.fire('pointerover');
+  g.pg.tick(300);
   assert.equal(tile.querySelectorAll('video').length, 1);
   assert.equal(v.paused, false);
+});
+
+test('a pointer crossing video tiles on its way elsewhere makes no videos', async () => {
+  const g = setup(folder(0, 9));
+  await g.pg.settle();
+  g.arrive();
+  for (const tile of g.el.querySelectorAll('.tile.vid')) {
+    tile.fire('pointerover');
+    g.pg.tick(120);
+    tile.fire('pointerout', { relatedTarget: null });
+  }
+  g.pg.tick(1000);
+  assert.equal(g.el.querySelectorAll('video').length, 0);
+});
+
+test('only the last two previews are kept once the pointer leaves', async () => {
+  const g = setup(folder(0, 9));
+  await g.pg.settle();
+  g.arrive();
+  const tiles = g.el.querySelectorAll('.tile.vid').slice(0, 3);
+  const hover = (tile) => {
+    tile.fire('pointerover');
+    g.pg.tick(300);
+    tile.fire('pointerout', { relatedTarget: null });
+    g.pg.tick(400);
+  };
+  hover(tiles[0]);
+  hover(tiles[1]);
+  assert.equal(g.el.querySelectorAll('video').length, 2);
+  hover(tiles[2]);
+  assert.equal(tiles[0].querySelector('video'), null, 'the oldest is unloaded');
+  assert.ok(tiles[1].querySelector('video') && tiles[2].querySelector('video'));
+  // Back to one still kept: the same video, at once.
+  const kept = tiles[1].querySelector('video');
+  tiles[1].fire('pointerover');
+  g.pg.tick(300);
+  assert.equal(tiles[1].querySelector('video'), kept);
+  // The slideshow drops them all.
+  g.grid.dropPreviews();
+  assert.equal(g.el.querySelectorAll('video').length, 0);
 });
 
 test('without a mouse a video tile never makes a video', async () => {

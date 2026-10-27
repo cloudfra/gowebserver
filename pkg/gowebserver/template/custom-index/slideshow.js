@@ -148,7 +148,8 @@ var slideshow = (function () {
       v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
       v.addEventListener('ended', function () { if (auto && list[idx] === it) step(1, true); });
       if (CFG.videoThumbs) v.poster = previewURL(it);
-      v.src = it.url;
+      // A neighbor's video waits for the current slide (loadNeighbors).
+      if (k === idx) v.src = it.url; else v._pendingSrc = it.url;
       sizeMedia(v);
       div.appendChild(v);
     } else {
@@ -295,11 +296,43 @@ var slideshow = (function () {
     }
     var cur = slides.get(idx);
     var m = cur && cur.firstChild;
+    if (m && m._pendingSrc) loadVideo(m);
+    loadNeighborsAfter(m);
     if (m && m.tagName === 'IMG' && m.classList.contains('ready')) { ambient.show(m._amb || m); upgrade(cur, list[idx]); }
     // The new current slide's preview, if still loading, jumps the
     // queue ahead of its neighbors'.
     if (m && m.tagName === 'IMG') m.fetchPriority = 'high';
     if (m && m.tagName === 'VIDEO' && m.readyState >= 2) ambient.show(m);
+  }
+
+  function loadVideo(v) {
+    v.src = v._pendingSrc;
+    v._pendingSrc = null;
+  }
+
+  // The neighbors' videos load once the current slide's video shows a
+  // frame (or soon after, if it doesn't): a video starting up is held
+  // back by every other one loading beside it, and on an iPad by a lot.
+  // A photo's neighbors load at once.
+  var NEIGHBORS_AFTER = 3000, neighborsTimer = 0, neighborsWait = null;
+  function loadNeighborsAfter(m) {
+    clearTimeout(neighborsTimer);
+    if (neighborsWait) neighborsWait.removeEventListener('loadeddata', loadNeighbors);
+    neighborsWait = null;
+    if (!m || m.tagName !== 'VIDEO' || m.readyState >= 2) { loadNeighbors(); return; }
+    neighborsWait = m;
+    m.addEventListener('loadeddata', loadNeighbors, { once: true });
+    neighborsTimer = setTimeout(loadNeighbors, NEIGHBORS_AFTER);
+  }
+
+  function loadNeighbors() {
+    clearTimeout(neighborsTimer);
+    if (neighborsWait) neighborsWait.removeEventListener('loadeddata', loadNeighbors);
+    neighborsWait = null;
+    slides.forEach(function (div) {
+      var v = div.firstChild;
+      if (v && v._pendingSrc) loadVideo(v);
+    });
   }
 
   function position(ms) {
@@ -330,9 +363,10 @@ var slideshow = (function () {
   // Swaps a filmstrip thumbnail that didn't load for the placeholder.
   function stripThumbDone(b) {
     return function (ok) {
-      if (ok) return;
-      b._img.remove();
+      if (ok) { b.classList.add('ready'); return; }
+      b.textContent = '';
       b._img = null;
+      b.classList.remove('vid');
       b.classList.add('err');
     };
   }
@@ -360,11 +394,14 @@ var slideshow = (function () {
         b.type = 'button';
         b._k = k;
         b.setAttribute('aria-label', list[k].name);
+        // A video's play icon is its placeholder until the thumbnail
+        // fades in over it (a photo's is the picture icon, in CSS).
+        if (list[k].video) b.classList.add('vid');
         if (list[k].video && !CFG.videoThumbs) {
           b.innerHTML = svgUse('ui-play');
         } else {
-          b.innerHTML = '<img alt="" decoding="async" fetchpriority="low">';
-          b._img = b.firstChild;
+          b.innerHTML = (list[k].video ? svgUse('ui-play') : '') + '<img alt="" decoding="async" fetchpriority="low">';
+          b._img = b.lastChild;
           // Ahead of the grid's, which the slideshow covers.
           thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true);
         }
@@ -767,6 +804,7 @@ var slideshow = (function () {
     strip.innerHTML = '';
     dlg.querySelector('.ss-bg').style.opacity = '';
     root.classList.add('ss-lock');
+    if (grid) grid.dropPreviews();
     dlg.showModal();
     measure();
     mountWindow();
