@@ -45,7 +45,10 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
+// newHandlerFromFS serves fsSpec: a reverse proxy for an http(s) URL, or
+// the file system ufs opens for anything else, behind disk's latency
+// when there is one.
+func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer, disk *slowDisk) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
@@ -53,7 +56,11 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 		return handler, nilFuncWithError, err
 	}
 
-	nFS, err := ufs.New(ctx, fsSpec)
+	openSpec, err := disk.fsSpec(fsSpec)
+	if err != nil {
+		return nil, nilFuncWithError, fmt.Errorf("cannot serve %q from a slow disk, %w", fsSpec, err)
+	}
+	nFS, err := ufs.New(ctx, openSpec)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}

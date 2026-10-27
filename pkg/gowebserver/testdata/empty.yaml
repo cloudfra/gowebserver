@@ -15,6 +15,12 @@ https:
     duration: 0s
 monitoring:
   debugEndpoint: ""
+  perfLog: ""
+  slowDisk:
+    latency: 0s
+    jitter: 0s
+    readMBps: 0
+    seek: 0s
   metrics:
     enabled: false
     path: ""

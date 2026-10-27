@@ -67,6 +67,13 @@ func TestPopulatedConfig(t *testing.T) {
 		},
 		Monitoring: Monitoring{
 			DebugEndpoint: "/debugging",
+			PerfLog:       "/var/log/gowebserver/perf.jsonl",
+			SlowDisk: SlowDisk{
+				Latency:  6 * time.Millisecond,
+				Jitter:   10 * time.Millisecond,
+				ReadMBps: 150,
+				Seek:     12 * time.Millisecond,
+			},
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/prometheus",
@@ -137,6 +144,11 @@ func TestNoDefaultConfig(t *testing.T) {
 		},
 		Monitoring: Monitoring{
 			DebugEndpoint: "/zdebug",
+			PerfLog:       "perf.jsonl",
+			SlowDisk: SlowDisk{
+				Latency:  5 * time.Millisecond,
+				ReadMBps: 80.5,
+			},
 			Metrics: Metrics{
 				Enabled: false,
 				Path:    "/metrics",
@@ -196,6 +208,13 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		},
 		Monitoring: Monitoring{
 			DebugEndpoint: "/debugging",
+			PerfLog:       "/var/log/gowebserver/perf.jsonl",
+			SlowDisk: SlowDisk{
+				Latency:  6 * time.Millisecond,
+				Jitter:   10 * time.Millisecond,
+				ReadMBps: 150,
+				Seek:     12 * time.Millisecond,
+			},
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/prometheus",

@@ -50,6 +50,8 @@ type webServerImpl struct {
 	uploadHTTPPath      string
 	enhancedListMode    bool
 	enableDebugMethods  bool
+	perfLogPath         string
+	slowDisk            SlowDisk
 	thumbnails          Thumbnails
 	monitoringCtx       *monitoringContext
 	requestMetrics      *requestMetrics
@@ -150,6 +152,8 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	}
 	allCleanups = append(allCleanups, thumbs.close)
 
+	disk := newSlowDisk(ws.slowDisk)
+
 	mounts := map[string]string{}
 	rootPath := ""
 	for _, paths := range ws.fileSystemServePath {
@@ -175,7 +179,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler, handlerIndex)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs, disk)
 			if err != nil {
 				return err
 			}
@@ -192,7 +196,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs, disk)
 		if err != nil {
 			return err
 		}
@@ -256,7 +260,20 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 	}()
 
-	httpHandler := cors.Default().Handler(serverMux)
+	handler := disk.wrap(serverMux)
+	if ws.perfLogPath != "" {
+		perfLog, err := openPerfLog(ws.perfLogPath)
+		if err != nil {
+			return err
+		}
+		allCleanups = append(allCleanups, perfLog.Close)
+		slog.Info("Performance log", "path", ws.perfLogPath)
+		ws.addHandler(serverMux, perfLogScriptPath, http.HandlerFunc(perfLog.serveScript), handlerDebug)
+		ws.addHandler(serverMux, perfLogEventsPath, http.HandlerFunc(perfLog.serveEvents), handlerDebug)
+		// Outside the slow disk, so a request's time includes it.
+		handler = perfLog.wrap(handler)
+	}
+	httpHandler := cors.Default().Handler(handler)
 
 	httpPort, err := getPort(httpSocket)
 	if err != nil {
@@ -330,6 +347,8 @@ func New(conf *Config) (WebServer, error) {
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
 		enableDebugMethods:  conf.Debug,
+		perfLogPath:         conf.Monitoring.PerfLog,
+		slowDisk:            conf.Monitoring.SlowDisk,
 		thumbnails:          conf.Thumbnails,
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,

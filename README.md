@@ -84,6 +84,39 @@ With ffmpeg, thumbnails are cheaper and smaller. It decodes JPEG photos several 
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, covering square photo tiles or 16:9 video tiles (`fit=outside`, so the thumbnail keeps the file's shape and the tile crops it), chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
+## Performance log
+
+To find out why browsing is slow on a particular device (say, videos on an iPad), turn on the performance log and browse there as usual:
+
+```yaml
+monitoring:
+  perfLog: /var/log/gowebserver/perf.jsonl
+```
+
+or `-monitoring.perflog=/var/log/gowebserver/perf.jsonl`. The server then appends to that file, one JSON object per line:
+
+* Every request it answers (`"src": "server"`): path, `Range`, status, bytes, time to the first byte and in all, and whether the browser gave up on it.
+* What each page does in the browser (`"src": "client"`), from a script the server adds to every HTML page: the device and browser, frame rate each second and any long frame, every video event with how much is buffered and how many frames were shown or dropped, how long each request took the browser, taps and how soon the page answered them, errors, and a note when the previous page in the tab ended without closing (as when iOS runs out of memory and reloads it).
+
+A cookie ties a page's requests to its events (`"sid"`). Pages show a small **mark** button at the bottom left: tap it when something feels slow, and the log gets a marker with what was on the page at that moment.
+
+The log holds addresses, user agents and the paths browsed, and any page can write to it, so turn it on only while diagnosing. It stops growing at 256 MiB. Leave `perfLog` empty (the default) to turn it off.
+
+### Slow disk
+
+To reproduce on a test server what a hard disk does to browsing (the server's own disk is often far faster, and the files are cached in memory), serve the files as from a slow disk:
+
+```yaml
+monitoring:
+  slowDisk:
+    latency: 6ms     # on every open, stat and directory read
+    jitter: 10ms     # random extra, up to this
+    readMBps: 150    # files are sent one read at a time at this speed
+    seek: 10ms       # to move to another place (the default)
+```
+
+or `-monitoring.slowdisk.latency`, `-monitoring.slowdisk.jitter`, `-monitoring.slowdisk.readmbps` and `-monitoring.slowdisk.seek`. These figures are about those of a 7200 rpm disk. Thumbnails are made at full speed (only the per-call latency applies to them), and with `readMBps` set, files are no longer sent with `sendfile`. This is for testing only.
+
 ## Downloads
 
 |   OS    | Arch  | Link
@@ -171,6 +204,7 @@ The core server implementation lives in `pkg/gowebserver/`:
 * `filesystem.go` and `filesystem_*.go` — `FileSystem` interface and its implementations for local directories, archives, git repositories, and nested archives.
 * `index.go` / `customindex.go` — directory listing templates (basic and custom CSS UI).
 * `monitoring.go` — Prometheus metrics, OpenTelemetry tracing, and pprof endpoints.
+* `perflog.go` / `slowdisk.go` — the performance log and the slow disk (see [Performance log](#performance-log)).
 * `upload.go` — multi-file upload with MD5 token validation.
 
 ## Example

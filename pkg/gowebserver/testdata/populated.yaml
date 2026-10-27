@@ -17,6 +17,12 @@ https:
     duration: 24h0m0s
 monitoring:
   debugEndpoint: /debugging
+  perfLog: /var/log/gowebserver/perf.jsonl
+  slowDisk:
+    latency: 6ms
+    jitter: 10ms
+    readMBps: 150
+    seek: 12ms
   metrics:
     enabled: true
     path: /prometheus

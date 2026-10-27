@@ -58,6 +58,11 @@ var (
 	monitoringDebugEndpointFlag = flag.String("monitoring.debugendpoint", "", "URL path prefix for pprof and OpenTelemetry tracez debug endpoints. Leave empty to disable these endpoints.")
 	monitoringTraceURIFlag      = flag.String("monitoring.trace.uri", "", "OTLP HTTP endpoint URL for tracing (e.g. http://host:4318).")
 	monitoringMetricsPath       = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
+	monitoringPerfLogFlag       = flag.String("monitoring.perflog", "", "File to append a performance log to: every request the server answers, and what each page does in the browser (frame times, video events, request timings, errors), one JSON object per line. Empty turns it off.")
+	slowDiskLatencyFlag         = flag.Duration("monitoring.slowdisk.latency", 0, "For testing: delay added to every file system call (open, stat, read dir) of the served paths, as a slow disk would.")
+	slowDiskJitterFlag          = flag.Duration("monitoring.slowdisk.jitter", 0, "For testing: random extra delay, up to this, on top of -monitoring.slowdisk.latency.")
+	slowDiskReadMBpsFlag        = flag.Float64("monitoring.slowdisk.readmbps", 0, "For testing: send files as one hard disk would read them, one at a time at this many MB/s. 0 sends them at full speed.")
+	slowDiskSeekFlag            = flag.Duration("monitoring.slowdisk.seek", 0, "For testing: time the -monitoring.slowdisk.readmbps disk takes to move to another place (default 10ms).")
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
 
@@ -97,9 +102,29 @@ type Certificate struct {
 
 // Monitoring holds the monitoring configuration.
 type Monitoring struct {
-	DebugEndpoint string  `yaml:"debugEndpoint"`
-	Metrics       Metrics `yaml:"metrics"`
-	Trace         Trace   `yaml:"trace"`
+	DebugEndpoint string `yaml:"debugEndpoint"`
+	// PerfLog is a file the server appends a performance log to: every
+	// request it answers, and what each page does in the browser. Empty
+	// turns it off.
+	PerfLog  string   `yaml:"perfLog"`
+	SlowDisk SlowDisk `yaml:"slowDisk"`
+	Metrics  Metrics  `yaml:"metrics"`
+	Trace    Trace    `yaml:"trace"`
+}
+
+// SlowDisk makes the served paths behave like a slow disk, to reproduce
+// on a test server what a hard disk does to browsing. All zero (the
+// default) turns it off.
+type SlowDisk struct {
+	// Latency is a delay added to every file system call (open, stat,
+	// read dir), and Jitter a random extra delay up to that much.
+	Latency time.Duration `yaml:"latency"`
+	Jitter  time.Duration `yaml:"jitter"`
+	// ReadMBps sends files as one hard disk would read them: one at a
+	// time, at this many MB/s, with Seek (10ms when zero) to move to
+	// another place. Zero sends them at full speed.
+	ReadMBps float64       `yaml:"readMBps"`
+	Seek     time.Duration `yaml:"seek"`
 }
 
 // Trace holds the trace configuration.
@@ -262,6 +287,13 @@ func loadFromFlags() (*Config, error) {
 		},
 		Monitoring: Monitoring{
 			DebugEndpoint: *monitoringDebugEndpointFlag,
+			PerfLog:       *monitoringPerfLogFlag,
+			SlowDisk: SlowDisk{
+				Latency:  *slowDiskLatencyFlag,
+				Jitter:   *slowDiskJitterFlag,
+				ReadMBps: *slowDiskReadMBpsFlag,
+				Seek:     *slowDiskSeekFlag,
+			},
 			Metrics: Metrics{
 				Enabled: *monitoringMetricsPath != "",
 				Path:    *monitoringMetricsPath,

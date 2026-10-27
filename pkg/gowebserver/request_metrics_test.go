@@ -102,7 +102,7 @@ func TestRequestMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, closeFS, err := newHandlerFromFS(dir, mc, true, thumbs)
+	h, closeFS, err := newHandlerFromFS(dir, mc, true, thumbs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestRequestMetricsProxy(t *testing.T) {
 	defer backend.Close()
 
 	mc, reader, spans := testMonitoring()
-	h, _, err := newHandlerFromFS(backend.URL, mc, true, nil)
+	h, _, err := newHandlerFromFS(backend.URL, mc, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
