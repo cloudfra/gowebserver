@@ -23,6 +23,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +38,12 @@ import (
 // errors) to perfLogEventsPath; those are lines too. A cookie ties a
 // page's requests to its events. Each line is one JSON object, with
 // "src" "server" or "client".
+//
+// The log never holds a path. Of a file or page it keeps only the file
+// extension and how many folders deep it is (pathShape), and any text
+// that might carry a path, such as an error message, has its URLs and
+// paths replaced (redactPaths). The server does this to the browser's
+// events too, whatever the script sent.
 
 const (
 	perfLogScriptPath = "/__perf.js"
@@ -126,7 +134,7 @@ func (l *perfLog) serveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	var batch struct {
 		SID    string           `json:"sid"`
-		Page   string           `json:"page"`
+		Page   any              `json:"page"`
 		Events []map[string]any `json:"events"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, perfLogMaxBatchBytes)).Decode(&batch); err != nil {
@@ -137,11 +145,15 @@ func (l *perfLog) serveEvents(w http.ResponseWriter, r *http.Request) {
 		batch.Events = batch.Events[:perfLogMaxEvents]
 	}
 	at := time.Now().UTC().Format(time.RFC3339Nano)
+	page := shapeValue(batch.Page)
 	for _, ev := range batch.Events {
+		scrubEvent(ev)
 		ev["src"] = "client"
 		ev["at"] = at
-		ev["sid"] = batch.SID
-		ev["page"] = batch.Page
+		ev["sid"] = redactPaths(batch.SID, false)
+		if page != nil {
+			ev["page"] = page
+		}
 		l.write(ev)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -164,11 +176,21 @@ func (l *perfLog) wrap(next http.Handler) http.Handler {
 			"at":     start.UTC().Format(time.RFC3339Nano),
 			"remote": r.RemoteAddr,
 			"method": r.Method,
-			"path":   r.URL.RequestURI(),
 			"proto":  r.Proto,
 			"status": pw.status,
 			"bytes":  pw.written,
 			"ms":     millis(time.Since(start)),
+		}
+		for k, v := range pathShape(r.URL.Path) {
+			rec[k] = v
+		}
+		// Of the query, only what says what kind of response it was: a
+		// thumbnail's size, fit and format, or the text viewer.
+		q := r.URL.Query()
+		for _, k := range []string{"width", "height", "fit", "format", "view"} {
+			if v := q.Get(k); perfLogQueryValue.MatchString(v) {
+				rec[k] = v
+			}
 		}
 		if c, err := r.Cookie(perfLogCookie); err == nil {
 			rec["sid"] = c.Value
@@ -188,6 +210,114 @@ func (l *perfLog) wrap(next http.Handler) http.Handler {
 		}
 		l.write(rec)
 	})
+}
+
+var (
+	// An extension the log keeps; anything else is "?".
+	perfLogExt = regexp.MustCompile(`^(\.[a-z0-9]{1,5})?$`)
+	// A query value the log keeps.
+	perfLogQueryValue = regexp.MustCompile(`^[a-z0-9]{1,10}$`)
+
+	urlPattern     = regexp.MustCompile(`(?i)[a-z][a-z0-9+.-]*://[^\s"'<>()]*`)
+	absPathPattern = regexp.MustCompile(`(^|[\s"'(=:,\[])/[^\s"'<>()]+`)
+	relPathPattern = regexp.MustCompile(`(?i)[^\s"'<>()]*/[^\s"'<>()]*\.[a-z0-9]{1,5}\b`)
+)
+
+// pathShape is what the log keeps of a path or URL: its extension ("/"
+// for a folder, "" for a file with none, "?" for one that doesn't look
+// like an extension) and how many folders deep it is.
+func pathShape(p string) map[string]any {
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	if i := strings.Index(p, "://"); i >= 0 {
+		rest := p[i+3:]
+		if j := strings.IndexByte(rest, '/'); j >= 0 {
+			p = rest[j:]
+		} else {
+			p = "/"
+		}
+	}
+	var segs []string
+	for _, seg := range strings.Split(p, "/") {
+		if seg != "" {
+			segs = append(segs, seg)
+		}
+	}
+	if len(segs) == 0 || strings.HasSuffix(p, "/") {
+		return map[string]any{"ext": "/", "depth": len(segs)}
+	}
+	ext := strings.ToLower(path.Ext(segs[len(segs)-1]))
+	if !perfLogExt.MatchString(ext) {
+		ext = "?"
+	}
+	return map[string]any{"ext": ext, "depth": len(segs) - 1}
+}
+
+// shapeValue is pathShape for a path the browser sent, or the shape it
+// worked out itself, checked; nil for anything else.
+func shapeValue(v any) map[string]any {
+	switch v := v.(type) {
+	case string:
+		return pathShape(v)
+	case map[string]any:
+		ext, _ := v["ext"].(string)
+		depth, ok := v["depth"].(float64)
+		if (ext != "/" && !perfLogExt.MatchString(ext)) || !ok || depth < 0 || depth > 1000 {
+			return nil
+		}
+		return map[string]any{"ext": ext, "depth": int(depth)}
+	}
+	return nil
+}
+
+// redactPaths replaces the URLs and absolute paths in s with "<path>",
+// and in a message (which names files freely) any word with a slash and
+// an extension too.
+func redactPaths(s string, message bool) string {
+	s = urlPattern.ReplaceAllString(s, "<path>")
+	s = absPathPattern.ReplaceAllString(s, "$1<path>")
+	if message {
+		s = relPathPattern.ReplaceAllString(s, "<path>")
+	}
+	return s
+}
+
+// The fields of the browser's events that are a path, and those that
+// are text which may name one.
+var (
+	perfLogPathFields    = map[string]bool{"url": true, "n": true, "page": true, "file": true}
+	perfLogMessageFields = map[string]bool{"msg": true, "stack": true}
+	// Fields left as they are: the browser's own description of itself.
+	perfLogKeptFields = map[string]bool{"ua": true, "platform": true}
+)
+
+// scrubEvent keeps the paths out of an event from the browser: path
+// fields become their shape, text has its paths replaced, and values
+// the script never sends (lists, other objects) are dropped.
+func scrubEvent(ev map[string]any) {
+	for k, v := range ev {
+		switch {
+		case perfLogPathFields[k]:
+			if shape := shapeValue(v); shape != nil {
+				ev[k] = shape
+			} else {
+				delete(ev, k)
+			}
+		case perfLogKeptFields[k]:
+			if _, ok := v.(string); !ok {
+				delete(ev, k)
+			}
+		default:
+			switch v := v.(type) {
+			case string:
+				ev[k] = redactPaths(v, perfLogMessageFields[k])
+			case float64, bool, nil:
+			default:
+				delete(ev, k)
+			}
+		}
+	}
 }
 
 func millis(d time.Duration) float64 {

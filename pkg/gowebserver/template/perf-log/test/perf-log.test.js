@@ -25,7 +25,8 @@ function setup(html, opts) {
   const sent = [];
   const session = Object.assign({}, opts.session);
   const pg = page(html, {
-    location: { pathname: '/photos/', search: '' },
+    // Behind a proxy that serves the server under /proxy/8182/.
+    location: { pathname: '/proxy/8182/photos/2025/', search: '?sort=date' },
     navigator: { userAgent: 'test', maxTouchPoints: 5 },
     globals: {
       fetch: (url, init) => { sent.push({ url, batch: JSON.parse(init.body) }); return Promise.resolve(); },
@@ -55,7 +56,8 @@ test('it posts batches beside its script, so a proxy\'s prefix is kept', () => {
   t.pg.tick(2000);
   assert.equal(t.sent.length, 1);
   assert.equal(t.sent[0].url, 'https://example.test/proxy/8182/__perf');
-  assert.equal(t.sent[0].batch.page, '/photos/');
+  // The page as a folder two below the server's root, not its path.
+  assert.deepEqual(plain(t.sent[0].batch.page), { ext: '/', depth: 2 });
   const start = t.of('start')[0];
   assert.equal(start.ua, 'test');
   assert.equal(start.touch, 5);
@@ -89,7 +91,7 @@ test('a video\'s events say which video, where it is and how far it has got', ()
   const v = t.of('video');
   assert.deepEqual(v.map((e) => [e.id, e.ev, e.where]), [[1, 'loadedmetadata', 'dialog'], [2, 'playing', 'tile'], [1, 'waiting', 'dialog']]);
   assert.equal(v[0].rs, 1);
-  assert.equal(v[0].url, 'https://example.test/proxy/8182/clip.mp4');
+  assert.deepEqual(v[0].url, { ext: '.mp4', depth: 0 }, 'the file\'s extension and depth, not its name');
 });
 
 test('the mark button logs a marker with the page\'s state, and sends it at once', () => {
@@ -133,9 +135,27 @@ test('a page that ended without closing (iOS killed it) is noted by the next', (
 
 test('errors on the page are logged', () => {
   const t = setup('');
-  t.pg.fire('error', { target: t.pg, message: 'boom', filename: 'https://example.test/app.js', lineno: 3, colno: 7 });
+  t.pg.fire('error', { target: t.pg, message: 'boom loading /proxy/8182/photos/a.jpg', filename: 'https://example.test/proxy/8182/js/app.js', lineno: 3, colno: 7 });
   t.pg.tick(2000);
   const e = t.of('err')[0];
-  assert.equal(e.msg, 'boom');
-  assert.match(e.at, /:3:7$/);
+  assert.equal(e.msg, 'boom loading <path>');
+  assert.deepEqual(e.file, { ext: '.js', depth: 1 });
+  assert.equal(e.line, '3:7');
+});
+
+test('nothing it sends holds a path', () => {
+  const t = setup('<a class="tile"><video id="v"></video></a><img id="i">');
+  const v = t.pg.document.getElementById('v');
+  v.src = 'https://example.test/proxy/8182/photos/2025/beach.mp4';
+  v.fire('loadstart');
+  const img = t.pg.document.getElementById('i');
+  img.src = '/proxy/8182/photos/2025/beach.jpg';
+  img.fire('error');
+  t.pg.console.error('could not load', 'https://example.test/proxy/8182/photos/2025/beach.jpg');
+  t.pg.tick(2000);
+  const sent = JSON.stringify(t.sent.map((s) => s.batch));
+  for (const word of ['photos', '2025', 'beach', 'proxy']) {
+    assert.ok(!sent.includes(word), word + ' is in ' + sent);
+  }
+  assert.deepEqual(t.of('load-error')[0].url, { ext: '.jpg', depth: 2 });
 });

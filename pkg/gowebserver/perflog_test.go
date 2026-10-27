@@ -195,8 +195,8 @@ func TestPerfLogRecordsRequests(t *testing.T) {
 		return out
 	}
 	want := []map[string]any{
-		{"src": "server", "method": "GET", "path": "/videos/clip.mp4", "proto": "HTTP/1.1", "status": 200.0, "bytes": 10000.0, "ua": "tester"},
-		{"src": "server", "method": "GET", "path": "/videos/clip.mp4", "proto": "HTTP/1.1", "status": 206.0, "bytes": 100.0, "sid": "abc123", "range": "bytes=100-199"},
+		{"src": "server", "method": "GET", "ext": ".mp4", "depth": 1.0, "proto": "HTTP/1.1", "status": 200.0, "bytes": 10000.0, "ua": "tester"},
+		{"src": "server", "method": "GET", "ext": ".mp4", "depth": 1.0, "proto": "HTTP/1.1", "status": 206.0, "bytes": 100.0, "sid": "abc123", "range": "bytes=100-199"},
 	}
 	for i := range want {
 		if diff := cmp.Diff(want[i], strip(recs[i])); diff != "" {
@@ -245,7 +245,7 @@ func TestPerfLogEvents(t *testing.T) {
 		t.Fatalf("got %d records, want %d", len(recs), 2+perfLogMaxEvents)
 	}
 	delete(recs[0], "at")
-	if diff := cmp.Diff(map[string]any{"src": "client", "sid": "s1", "page": "/photos/", "type": "start", "ts": 12.0}, recs[0]); diff != "" {
+	if diff := cmp.Diff(map[string]any{"src": "client", "sid": "s1", "page": map[string]any{"ext": "/", "depth": 1.0}, "type": "start", "ts": 12.0}, recs[0]); diff != "" {
 		t.Errorf("event mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -333,27 +333,80 @@ func TestServeWithPerfLog(t *testing.T) {
 	var server, client []string
 	for _, rec := range readPerfLog(t, logPath) {
 		if rec["src"] == "server" {
-			server = append(server, rec["path"].(string))
+			server = append(server, fmt.Sprintf("%v %v", rec["ext"], rec["depth"]))
 		} else {
 			client = append(client, rec["type"].(string))
 		}
 	}
-	if !contains(server, "/sub/") {
-		t.Errorf("the page's request isn't logged: %v", server)
-	}
-	if contains(server, "/__perf.js") || contains(server, "/__perf") {
-		t.Errorf("the log's own requests are logged: %v", server)
+	// serveAsync's check that the server is up, then the folder's page;
+	// the log's own requests aren't logged.
+	if diff := cmp.Diff([]string{"/ 0", "/ 1"}, server); diff != "" {
+		t.Errorf("server records mismatch (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff([]string{"mark"}, client); diff != "" {
 		t.Errorf("client events mismatch (-want +got):\n%s", diff)
 	}
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte("sub")) {
+		t.Errorf("the log holds a path:\n%s", raw)
+	}
 }
 
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
+func TestPathShape(t *testing.T) {
+	for p, want := range map[string]string{
+		"":                                 "/ 0",
+		"/":                                "/ 0",
+		"/photos/":                         "/ 1",
+		"/photos/2025/IMG_0001.JPG":        ".jpg 2",
+		"/a.txt?view=rich":                 ".txt 0",
+		"/videos/clip.mp4#t=0.5":           ".mp4 1",
+		"https://host:8080/proxy/x/y.webm": ".webm 2",
+		"https://host":                     "/ 0",
+		"/notes/README":                    " 1",
+		"/a/my.secret-name":                "? 1",
+		"/a/archive.tar.gz":                ".gz 1",
+	} {
+		shape := pathShape(p)
+		if got := fmt.Sprintf("%v %v", shape["ext"], shape["depth"]); got != want {
+			t.Errorf("pathShape(%q) = %q, want %q", p, got, want)
 		}
 	}
-	return false
+}
+
+func TestPerfLogScrubsEvents(t *testing.T) {
+	ev := map[string]any{
+		"type":  "err",
+		"url":   "https://h/proxy/8182/photos/IMG_1.jpg",
+		"n":     map[string]any{"ext": ".mp4", "depth": 2.0},
+		"file":  map[string]any{"ext": "/etc/passwd", "depth": 1.0},
+		"page":  map[string]any{"ext": ".jpg", "depth": -1.0},
+		"msg":   "Failed to load https://h/photos/a.jpg and /videos/b.mp4 (from photos/2025/c.png)",
+		"stack": "at load (https://h/__perf.js:12:3)",
+		"line":  "12:3",
+		"ua":    "Mozilla/5.0 (iPad) AppleWebKit/605.1.15 Safari/605.1.15",
+		"where": "dialog",
+		"list":  []any{"/photos/a.jpg"},
+		"obj":   map[string]any{"path": "/photos/a.jpg"},
+		"ok":    true,
+		"ts":    12.0,
+	}
+	scrubEvent(ev)
+	want := map[string]any{
+		"type":  "err",
+		"url":   map[string]any{"ext": ".jpg", "depth": 3},
+		"n":     map[string]any{"ext": ".mp4", "depth": 2},
+		"msg":   "Failed to load <path> and <path> (from <path>)",
+		"stack": "at load (<path>)",
+		"line":  "12:3",
+		"ua":    "Mozilla/5.0 (iPad) AppleWebKit/605.1.15 Safari/605.1.15",
+		"where": "dialog",
+		"ok":    true,
+		"ts":    12.0,
+	}
+	if diff := cmp.Diff(want, ev); diff != "" {
+		t.Errorf("scrubbed event mismatch (-want +got):\n%s", diff)
+	}
 }

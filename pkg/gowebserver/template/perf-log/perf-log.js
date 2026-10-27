@@ -26,9 +26,28 @@
     data.ts = now();
     q.push(data);
   }
-  function short(u) {
-    if (!u) return '';
-    try { u = new URL(u, location.href); return decodeURIComponent(u.pathname + u.search + u.hash); } catch (e) { return String(u); }
+  // What the log keeps of a URL: its file's extension ("/" for a
+  // folder, "?" for one that doesn't look like an extension) and how
+  // many folders below the server's root it is. Never the path itself;
+  // the server checks this again.
+  function shape(u) {
+    var p = String(u || '').split(/[?#]/)[0];
+    var m = p.match(/^[a-z][a-z0-9+.-]*:\/\/[^/]*(\/.*)?$/i);
+    if (m) p = m[1] || '/';
+    if (p.indexOf(basePath) === 0) p = p.slice(basePath.length);
+    var segs = p.split('/').filter(Boolean);
+    if (!segs.length || p.charAt(p.length - 1) === '/') return { ext: '/', depth: segs.length };
+    var last = segs[segs.length - 1], dot = last.lastIndexOf('.');
+    var ext = dot > 0 ? last.slice(dot).toLowerCase() : '';
+    if (!/^(\.[a-z0-9]{1,5})?$/.test(ext)) ext = '?';
+    return { ext: ext, depth: segs.length - 1 };
+  }
+  // Text that may name files (an error's message or stack, the console),
+  // with its URLs and paths replaced.
+  function redact(s) {
+    return String(s).replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>()]*/gi, '<path>')
+      .replace(/(^|[\s"'(=:,[])\/[^\s"'<>()]+/g, '$1<path>')
+      .replace(/[^\s"'<>()]*\/[^\s"'<>()]*\.[a-z0-9]{1,5}\b/gi, '<path>');
   }
   function describe(el) {
     if (!el || !el.tagName) return '';
@@ -52,7 +71,7 @@
 
   function flush(beacon) {
     if (!q.length) return;
-    var body = JSON.stringify({ sid: sid, page: location.pathname + location.search, events: q });
+    var body = JSON.stringify({ sid: sid, page: shape(location.pathname), events: q });
     q = [];
     if (beacon && navigator.sendBeacon && navigator.sendBeacon(endpoint, body)) return;
     try {
@@ -139,7 +158,7 @@
   function videoInfo(v) {
     if (!v.__pid) { v.__pid = ++vidN; v.__born = now(); }
     return {
-      id: v.__pid, url: short(v.currentSrc || v.src), age: now() - v.__born, ct: r2(v.currentTime || 0),
+      id: v.__pid, url: shape(v.currentSrc || v.src), age: now() - v.__born, ct: r2(v.currentTime || 0),
       dur: isFinite(v.duration) ? r2(v.duration) : null, rs: v.readyState, ns: v.networkState,
       buf: buffered(v), paused: v.paused, preload: v.preload, w: v.videoWidth, h: v.videoHeight,
       err: v.error ? v.error.code + ' ' + (v.error.message || '') : null,
@@ -179,7 +198,7 @@
       list.getEntries().forEach(function (en) {
         if (en.name.indexOf('/__perf') >= 0) return;
         var d = {
-          n: short(en.name), it: en.initiatorType, st: Math.round(en.startTime), dur: Math.round(en.duration),
+          n: shape(en.name), it: en.initiatorType, st: Math.round(en.startTime), dur: Math.round(en.duration),
           ttfb: en.responseStart ? Math.round(en.responseStart - en.startTime) : null,
           dl: en.responseEnd && en.responseStart ? Math.round(en.responseEnd - en.responseStart) : null,
           size: en.transferSize, body: en.encodedBodySize, proto: en.nextHopProtocol
@@ -195,19 +214,19 @@
   // ---- Errors and console ----
   addEventListener('error', function (e) {
     if (e.target && e.target !== window && e.target.tagName) {
-      rec('load-error', { el: describe(e.target), url: short(e.target.currentSrc || e.target.src) });
+      rec('load-error', { el: describe(e.target), url: shape(e.target.currentSrc || e.target.src) });
       return;
     }
-    rec('err', { msg: String(e.message), at: (e.filename ? short(e.filename) : '') + ':' + e.lineno + ':' + e.colno, stack: e.error && e.error.stack ? String(e.error.stack).slice(0, 2000) : '' });
+    rec('err', { msg: redact(e.message), file: shape(e.filename), line: e.lineno + ':' + e.colno, stack: e.error && e.error.stack ? redact(String(e.error.stack).slice(0, 2000)) : '' });
   }, true);
   addEventListener('unhandledrejection', function (e) {
     var r = e.reason;
-    rec('err', { msg: 'unhandled rejection: ' + (r && r.message || r), stack: r && r.stack ? String(r.stack).slice(0, 2000) : '' });
+    rec('err', { msg: redact('unhandled rejection: ' + (r && r.message || r)), stack: r && r.stack ? redact(String(r.stack).slice(0, 2000)) : '' });
   });
   ['error', 'warn'].forEach(function (k) {
     var orig = console[k];
     console[k] = function () {
-      try { rec('console', { level: k, msg: Array.prototype.map.call(arguments, String).join(' ').slice(0, 2000) }); } catch (e) { }
+      try { rec('console', { level: k, msg: redact(Array.prototype.map.call(arguments, String).join(' ').slice(0, 2000)) }); } catch (e) { }
       return orig.apply(console, arguments);
     };
   });

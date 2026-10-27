@@ -95,12 +95,12 @@ monitoring:
 
 or `-monitoring.perflog=/var/log/gowebserver/perf.jsonl`. The server then appends to that file, one JSON object per line:
 
-* Every request it answers (`"src": "server"`): path, `Range`, status, bytes, time to the first byte and in all, and whether the browser gave up on it.
+* Every request it answers (`"src": "server"`): the file's extension and folder depth, a thumbnail's size, `Range`, status, bytes, time to the first byte and in all, and whether the browser gave up on it.
 * What each page does in the browser (`"src": "client"`), from a script the server adds to every HTML page: the device and browser, frame rate each second and any long frame, every video event with how much is buffered and how many frames were shown or dropped, how long each request took the browser, taps and how soon the page answered them, errors, and a note when the previous page in the tab ended without closing (as when iOS runs out of memory and reloads it).
 
 A cookie ties a page's requests to its events (`"sid"`). Pages show a small **mark** button at the bottom left: tap it when something feels slow, and the log gets a marker with what was on the page at that moment.
 
-The log holds addresses, user agents and the paths browsed, and any page can write to it, so turn it on only while diagnosing. It stops growing at 256 MiB. Leave `perfLog` empty (the default) to turn it off.
+The log never holds a path or a file name. Of each file and page it keeps only the extension (`.jpg`, `/` for a folder, `?` for one that doesn't look like an extension) and how many folders deep it is, and URLs and paths in error messages are replaced with `<path>`. The server applies this to what pages send as well. The log does hold client addresses and user agents, and any page can write to it, so turn it on only while diagnosing. It stops growing at 256 MiB. Leave `perfLog` empty (the default) to turn it off.
 
 ### Slow disk
 
