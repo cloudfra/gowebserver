@@ -102,9 +102,9 @@ Tests use Go's standard `testing` package with `testify` for assertions. Test ar
 
 ## CI/CD
 
-GitHub Actions runs on push to main, tags, and PRs:
+GitHub Actions (`deploy.yaml`) runs on push to main and PRs:
 
 - Build: `make clean deps lint all`
 - Test: `make test-10 benchmark coverage.txt`
 - Code quality: misspell, hadolint, codespell, CodeQL
-- Release: Tag-triggered multi-platform binary releases
+- Release: `create-release.yaml`, on a `v*` tag push, runs `make test` once, then publishes the multi-platform binaries and the container images
