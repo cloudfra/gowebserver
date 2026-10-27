@@ -151,7 +151,7 @@ build/packages/all-binaries.tar.gz: $(ALL_BINARIES)
 ifeq ($(CODESIGN_CERT)|$(CODESIGN_KEY),build/certs/codesign.crt|build/certs/codesign.key)
 build/certs/codesign.crt build/certs/codesign.key &: $(CERTTOOL)
 	mkdir -p "$(dir $(CODESIGN_CERT))"
-	"$(TOOLCHAIN_BIN)/certtool$(EXE)" --code-sign --target=linux --public-certificate="$(CODESIGN_CERT)" --private-key="$(CODESIGN_KEY)"
+	"$(CERTTOOL)" --code-sign --target=linux --public-certificate="$(CODESIGN_CERT)" --private-key="$(CODESIGN_KEY)"
 endif
 
 # Binaries are built without cgo unless a platform needs it. GO_BUILD_ENV and
@@ -161,9 +161,9 @@ GO_BUILD_FLAGS =
 
 # These Android ports require external linking, so they build with cgo and
 # the NDK's clang for the target (CC), and depend on the NDK download.
-build/bin/android/386/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(REPOSITORY_ROOT)/$(ANDROID_NDK_BIN)/i686-linux-android$(ANDROID_API)-clang"
-build/bin/android/amd64/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(REPOSITORY_ROOT)/$(ANDROID_NDK_BIN)/x86_64-linux-android$(ANDROID_API)-clang"
-build/bin/android/arm/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(REPOSITORY_ROOT)/$(ANDROID_NDK_BIN)/armv7a-linux-androideabi$(ANDROID_API)-clang"
+build/bin/android/386/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(ANDROID_NDK_BIN)/i686-linux-android$(ANDROID_API)-clang"
+build/bin/android/amd64/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(ANDROID_NDK_BIN)/x86_64-linux-android$(ANDROID_API)-clang"
+build/bin/android/arm/%: GO_BUILD_ENV = CGO_ENABLED=1 CC="$(ANDROID_NDK_BIN)/armv7a-linux-androideabi$(ANDROID_API)-clang"
 $(foreach app,$(ALL_APPS),build/bin/android/386/$(app) build/bin/android/amd64/$(app) build/bin/android/arm/v7/$(app)): $(ANDROID_NDK_CLANG)
 
 # Go defaults to a PIE binary on iOS, which needs cgo external linking; a
@@ -189,54 +189,54 @@ wasm-binaries: $(WASM_BINARIES)
 lint: lint-go lint-terraform lint-docker lint-yaml lint-shell lint-markdown lint-vuln
 
 ifneq ($(wildcard install/terraform),)
-lint-terraform: build/toolchain/bin/terraform$(EXE) build/toolchain/bin/tflint$(EXE) build/toolchain/bin/trivy$(EXE)
-	$(IGNORE_LINT_CHECK)(cd "$(REPOSITORY_ROOT)/install/terraform"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" fmt .)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --init --chdir install/terraform
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/tflint$(EXE)" --chdir install/terraform
+lint-terraform: $(TERRAFORM) $(TFLINT) $(TRIVY)
+	$(IGNORE_LINT_CHECK)(cd "$(REPOSITORY_ROOT)/install/terraform"; "$(TERRAFORM)" fmt .)
+	$(IGNORE_LINT_CHECK)"$(TFLINT)" --init --chdir install/terraform
+	$(IGNORE_LINT_CHECK)"$(TFLINT)" --chdir install/terraform
 	# tflint covers style/correctness, not security misconfigurations (overly
 	# permissive IAM, public storage buckets, missing encryption, etc.) -
 	# trivy config (successor to the now-maintenance-mode tfsec, folded into
 	# trivy) covers that instead, reusing the same tool already pinned for
 	# image scanning rather than adding a second, redundant IaC scanner.
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" config --severity HIGH,CRITICAL --exit-code 1 "$(REPOSITORY_ROOT)/install/terraform"
+	$(IGNORE_LINT_CHECK)"$(TRIVY)" config --severity HIGH,CRITICAL --exit-code 1 "$(REPOSITORY_ROOT)/install/terraform"
 else
 lint-terraform:
 endif
 
-lint-go: build/toolchain/bin/golangci-lint$(EXE) build/toolchain/bin/gofumpt$(EXE) build/toolchain/bin/revive$(EXE)
+lint-go: $(GOLANGCI_LINT) $(GOFUMPT) $(REVIVE)
 	$(IGNORE_LINT_CHECK)$(GO) fmt ./...
 	$(IGNORE_LINT_CHECK)$(GO) mod verify
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/gofumpt$(EXE)" -l -w .
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" fmt ./...
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/golangci-lint$(EXE)" run ./...
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/revive$(EXE)" -set_exit_status -exclude=build/... ./...
+	$(IGNORE_LINT_CHECK)"$(GOFUMPT)" -l -w .
+	$(IGNORE_LINT_CHECK)"$(GOLANGCI_LINT)" fmt ./...
+	$(IGNORE_LINT_CHECK)"$(GOLANGCI_LINT)" run ./...
+	$(IGNORE_LINT_CHECK)"$(REVIVE)" -set_exit_status -exclude=build/... ./...
 
-lint-docker: build/toolchain/bin/hadolint$(EXE)
-	$(IGNORE_LINT_CHECK)$(FIND) cmd -iname 'Dockerfile*' -exec "$(REPOSITORY_ROOT)/build/toolchain/bin/hadolint$(EXE)" --ignore=DL3066 {} +
+lint-docker: $(HADOLINT)
+	$(IGNORE_LINT_CHECK)$(FIND) cmd -iname 'Dockerfile*' -exec "$(HADOLINT)" --ignore=DL3066 {} +
 
-lint-yaml: build/toolchain/bin/actionlint$(EXE) build/toolchain/bin/shellcheck$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/actionlint$(EXE)" -shellcheck="$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" -config-file "$(REPOSITORY_ROOT)/.github/actionlint.yaml"
+lint-yaml: $(ACTIONLINT) $(SHELLCHECK)
+	$(IGNORE_LINT_CHECK)"$(ACTIONLINT)" -shellcheck="$(SHELLCHECK)" -config-file "$(REPOSITORY_ROOT)/.github/actionlint.yaml"
 
-lint-shell: build/toolchain/bin/shellcheck$(EXE)
+lint-shell: $(SHELLCHECK)
 	$(IGNORE_LINT_CHECK)@scripts="$$($(FIND) . -name '*.sh' -not -path './third_party/*' -not -path './build/*' -not -path '*/testassets/*')"; \
 	shellcheck_exclude=""; \
 	if [ "$(OS)" = "Windows_NT" ]; then shellcheck_exclude="--exclude=SC1009,SC1017,SC1044,SC1072,SC1073"; fi; \
-	if [ -n "$$scripts" ]; then "$(REPOSITORY_ROOT)/build/toolchain/bin/shellcheck$(EXE)" $$shellcheck_exclude $$scripts; fi
+	if [ -n "$$scripts" ]; then "$(SHELLCHECK)" $$shellcheck_exclude $$scripts; fi
 
 # RUMDL_IGNORE is an optional comma-separated list of extra globs to exclude.
 RUMDL_EXCLUDE = third_party/**,build/**$(if $(RUMDL_IGNORE),$(COMMA)$(RUMDL_IGNORE))
 
-lint-markdown: build/toolchain/bin/rumdl$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/rumdl$(EXE)" check --exclude "$(RUMDL_EXCLUDE)" .
+lint-markdown: $(RUMDL)
+	$(IGNORE_LINT_CHECK)"$(RUMDL)" check --exclude "$(RUMDL_EXCLUDE)" .
 
-lint-vuln: build/toolchain/bin/govulncheck$(EXE)
-	$(IGNORE_LINT_CHECK)"$(REPOSITORY_ROOT)/build/toolchain/bin/govulncheck$(EXE)" ./...
+lint-vuln: $(GOVULNCHECK)
+	$(IGNORE_LINT_CHECK)"$(GOVULNCHECK)" ./...
 
 bench: $(TEST_ASSETS)
 	$(GO) test -bench=. -benchmem -tags testing ${SOURCE_DIRS}
 
-benchmark.html: $(TEST_ASSETS) build/toolchain/bin/vizb$(EXE)
-	$(GO) test -json -bench=. -benchmem -tags testing ${SOURCE_DIRS} | build/toolchain/bin/vizb$(EXE) -o benchmark.html
+benchmark.html: $(TEST_ASSETS) $(VIZB)
+	$(GO) test -json -bench=. -benchmem -tags testing ${SOURCE_DIRS} | "$(VIZB)" -o benchmark.html
 
 # What `make test` runs. A makefile included before this one adds its own
 # with TEST_TARGETS += (see Makefile_javascript.mk).
@@ -251,12 +251,12 @@ test-deflake: $(TEST_ASSETS)
 	CGO_ENABLED=1 $(GO) test -shuffle=on -tags testing $(GO_RACE) ${SOURCE_DIRS} -cover -count $(GO_TEST_COUNT) -test.short
 
 ifneq ($(wildcard install/terraform),)
-test-tf: build/toolchain/bin/terraform$(EXE) $(TEST_ASSETS)
+test-tf: $(TERRAFORM) $(TEST_ASSETS)
 	# -backend=false: main.tftest.hcl mocks the providers and never touches
 	# real state, so there's no need to configure the (real, per-environment)
 	# GCS backend just to run tests.
-	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" init -backend=false)
-	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(REPOSITORY_ROOT)/build/toolchain/bin/terraform$(EXE)" test)
+	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(TERRAFORM)" init -backend=false)
+	(cd "$(REPOSITORY_ROOT)/install/terraform/"; "$(TERRAFORM)" test)
 else
 test-tf:
 endif
@@ -271,8 +271,8 @@ coverage.txt: $(ASSETS)
 	done; \
 	sed -i '2,$${/mode: /d;}' $@
 
-coverage.xml: coverage.txt build/toolchain/bin/gocover-cobertura$(EXE)
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/gocover-cobertura$(EXE)" < $< > $@
+coverage.xml: coverage.txt $(GOCOVER_COBERTURA)
+	"$(GOCOVER_COBERTURA)" < $< > $@
 
 deps:
 	$(GO_WITH_PROXY) get -u ./...
@@ -285,6 +285,12 @@ clean:
 	@if [ -n output/ ]; then rm -rf output/; fi
 	@if [ -n "$(strip $(ASSETS))" ]; then rm -rf $(ASSETS); fi
 	@if [ -n "$(strip $(TEST_ASSETS))" ]; then rm -rf $(TEST_ASSETS); fi
+
+# Empties the toolchain cache, which `clean` leaves alone when TOOLCHAIN_CACHE
+# points outside build/. The next `make tools` installs every pinned release
+# again; use it to reclaim space from superseded versions.
+clean-cache:
+	-@if [ -n "$(strip $(TOOLCHAIN_CACHE))" ]; then chmod -R +w "$(TOOLCHAIN_CACHE)"; rm -rf "$(TOOLCHAIN_CACHE)"; fi
 
 presubmit: no-sudo tools assets testassets lint all test-deflake release-binaries
 
@@ -304,9 +310,9 @@ scan-images: $(ALL_SCAN_IMAGES)
 # runs - so there's nothing there for trivy to scan. This target does its own
 # single-arch --load build purely so trivy has a local image to scan,
 # independent of the release push pipeline.
-scan-image-%: build/bin/linux/amd64/% build/toolchain/bin/trivy$(EXE) ensure-builder
+scan-image-%: build/bin/linux/amd64/% $(TRIVY) ensure-builder
 	$(DOCKER) buildx build $(DOCKER_EXTRA_FLAGS) --platform linux/amd64 --build-arg BINARY_PATH=$< $(DOCKER_LABEL_ARGS) --build-arg BINARY_NAME=$* -f cmd/$*/Dockerfile -t $(REGISTRY)/$*:$(TAG)-scan --load .
-	"$(REPOSITORY_ROOT)/build/toolchain/bin/trivy$(EXE)" image --severity HIGH,CRITICAL --exit-code 1 $(REGISTRY)/$*:$(TAG)-scan
+	"$(TRIVY)" image --severity HIGH,CRITICAL --exit-code 1 $(REGISTRY)/$*:$(TAG)-scan
 
 ALL_IMAGES = $(foreach app,$(ALL_APPS),$(REGISTRY)/$(app))
 # https://github.com/docker-library/official-images#architectures-other-than-amd64
@@ -388,4 +394,4 @@ system-info:
 sync-upstream:
 	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main
 
-.PHONY: tools all assets testassets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
+.PHONY: tools all assets testassets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean clean-cache presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
