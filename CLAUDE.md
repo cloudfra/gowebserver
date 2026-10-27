@@ -60,6 +60,8 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **thumbnail.go**: Resized images and video frames (`?width=`/`?height=`), made once and stored
 - **thumbnail_metrics.go**: Where thumbnail time goes: `thumbnail_*` Prometheus metrics, a span per stage (wait, decode, scale, encode, store), and a `Server-Timing` header on each thumbnail for the browser's network panel
 - **request_metrics.go**: What otelhttp's request metrics leave out: the `handler` label (file, listing, thumbnail, richview, upload, proxy, index) on them, time to first byte, requests in progress; and `stageMetrics`, the span-and-histogram per stage that listings and the text viewer use. A handler says what it is with `setRequestHandler`
+- **perflog.go**: The performance log (`monitoring.perfLog`): every request, and what each page does in the browser via `template/perf-log/perf-log.js`, which it adds to HTML pages, one JSON object per line. It never records a path: only a file's extension and folder depth (`pathShape`), with paths in messages replaced (`redactPaths`), applied on the server to what pages send too. Use it (with a person browsing on the device) to diagnose slowness you can't see from here
+- **slowdisk.go**: `monitoring.slowDisk`, for testing: per-call latency via ufs's fault decorator, and files sent at hard-disk speed. It throttles where files are sent, not in the file system, so the thumbnailer still gets `*os.File`
 - **templates.go**: Loads the page templates; see below
 
 ### Page templates (pkg/gowebserver/template/)
@@ -71,6 +73,7 @@ Each template has a directory, `template/NAME/NAME.html`, with its CSS and JavaS
 - **rich-view/**: The text viewer's page
 - **upload/**: The upload page
 - **template-index/**: The plain directory listing
+- **perf-log/**: The performance log's recorder: `perf-log.html` is only `{{include "perf-log.js"}}`, so the template is the script, served as `__perf.js` and added to every HTML page only when `monitoring.perfLog` is set
 
 JavaScript tests come in two kinds, both driven by `Makefile_javascript.mk` (Node and npm are assumed installed; nothing is installed beside the sources):
 

@@ -19,6 +19,10 @@ https:
     forceoverwrite: false
 monitoring:
   debugEndpoint: /zdebug
+  perfLog: perf.jsonl
+  slowDisk:
+    latency: 5ms
+    readMBps: 80.5
   metrics:
     enabled: false
     path: /metrics
