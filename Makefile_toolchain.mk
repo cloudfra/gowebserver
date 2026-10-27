@@ -21,7 +21,7 @@ DOCKERCOMPOSE_VERSION = 5.6.1
 # https://developer.hashicorp.com/terraform/install
 TERRAFORM_VERSION = 1.17.0
 # https://github.com/cloudfra/certtool/releases
-CERTTOOL_VERSION = 0.8.0
+CERTTOOL_VERSION = 0.8.1
 # https://github.com/hadolint/hadolint/releases
 HADOLINT_VERSION = 2.15.1
 # https://github.com/t-yuki/gocover-cobertura/releases

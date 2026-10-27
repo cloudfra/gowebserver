@@ -19,7 +19,7 @@ GOLANG_GRPC_VERSION = 1.6.2
 # https://github.com/protocolbuffers/protobuf-go/releases
 GOLANG_PROTOBUF_VERSION = 1.36.12
 # https://github.com/grpc-ecosystem/grpc-gateway/releases
-GRPC_GATEWAY_VERSION = 2.32.0
+GRPC_GATEWAY_VERSION = 2.33.0
 # https://github.com/protocolbuffers/protobuf/releases
 PROTOC_VERSION = 36.2
 
