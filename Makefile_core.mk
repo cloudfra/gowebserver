@@ -20,20 +20,58 @@ REPOSITORY_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))
 BUILD_DIR = $(REPOSITORY_ROOT)/build
 ARCHIVES_DIR = $(BUILD_DIR)/archives
 TOOLCHAIN_DIR = $(BUILD_DIR)/toolchain
-TOOLCHAIN_BIN = $(TOOLCHAIN_DIR)/bin
 THIRDPARTY_DIR = $(REPOSITORY_ROOT)/third_party
 
 TOOLCHAIN_GO = go
-# Install to GOBIN (build/toolchain/bin, on PATH) instead of pinning GOPATH to
-# the repo: Go stores the read-only module cache under $GOPATH/pkg/mod, so
-# parking it in the repo means `actions/checkout`'s `git clean -ffdx` and `make
-# clean` (rm -rf build/) have to delete thousands of read-only files — what
-# makes the Windows self-hosted runner's checkout step take over a minute.
-# Using the default GOPATH keeps the cache out of the repo (persistent across
-# runs, never touched by clean); the proto plugins now match every other
-# toolchain rule, which already uses GOBIN.
-TOOLCHAIN_GO_INSTALL = GOBIN=$(TOOLCHAIN_BIN) $(TOOLCHAIN_GO) install
 CURL = curl --retry 5 --retry-connrefused
+
+# Pinned toolchain releases are installed here and run from there, each tool
+# into a directory of its own (see tool_dir below). A version bump installs
+# only that tool, and an installed tool is never rebuilt or re-extracted, so a
+# build with a populated cache does no toolchain work at all. It defaults to
+# build/toolchain, which `make clean` removes as before; CI points it at a
+# directory outside the workspace (see .github/workflows/deploy.yaml) that
+# survives `actions/checkout`'s `git clean -ffdx` and `make clean`, so each
+# release is installed once per runner. `make clean-cache` empties it.
+TOOLCHAIN_CACHE ?= $(TOOLCHAIN_DIR)
+override TOOLCHAIN_CACHE := $(abspath $(TOOLCHAIN_CACHE))
+
+# Jobs on one runner share TOOLCHAIN_CACHE, so every recipe below works in a
+# per-process scratch name next to $@ and renames the finished file into place:
+# a concurrent job never sees a partial file, and curl -f keeps an HTTP error
+# page from being installed. If the rename fails because another job already
+# installed $@ (Windows will not replace a running .exe), its copy is used.
+#
+# Download the prebuilt binary at URL to $@.
+DOWNLOAD_TOOL = mkdir -p "$(dir $@)" && $(CURL) -fL -o "$@.$$$$.tmp" "$(1)" && \
+	chmod +x "$@.$$$$.tmp" && { mv -f "$@.$$$$.tmp" "$@" || [ -f "$@" ]; }; \
+	status=$$?; rm -f "$@.$$$$.tmp"; exit $$status
+# Unpack the release archive at URL and install the file in it named like $@
+# (wherever the archive keeps it) as $@.
+INSTALL_FROM_ARCHIVE = tmp="$@.$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	archive="$$tmp/$(notdir $(1))" && $(CURL) -fL -o "$$archive" "$(1)" && \
+	(cd "$$tmp" && case "$$archive" in *.zip) unzip -q "$$archive" ;; *) tar -xf "$$archive" ;; esac) && \
+	bin="$$($(FIND) "$$tmp" -type f -name "$(notdir $@)" | head -n 1)" && [ -n "$$bin" ] && \
+	chmod +x "$$bin" && { mv -f "$$bin" "$@" || [ -f "$@" ]; }; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
+# go install PACKAGE@VERSION as $@. Go's module and build caches stay in the
+# default GOPATH/GOCACHE, outside the repo: a read-only module cache under
+# build/ is what made the Windows runner's `git clean -ffdx` take over a
+# minute.
+#
+# The tool is built for this machine even when the build cross-compiles:
+# GOOS, GOARCH and the rest are cleared, or a GOOS from the command line would
+# build a binary this machine can't run, and a GOAMD64=v3 one that an older
+# CPU sharing the cache can't. Built without cgo, it needs no C toolchain and
+# no shared libraries.
+GO_INSTALL_TOOL = tmp="$@.$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	GOOS= GOARCH= GOARM= GO386= GOAMD64= GOARM64= CGO_ENABLED=0 \
+	GOBIN="$$tmp" $(TOOLCHAIN_GO) install $(1) && \
+	{ mv -f "$$tmp/$(notdir $@)" "$@" || [ -f "$@" ]; }; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
+
+# go_ref VERSION is the @ suffix go install takes for a pinned VERSION.
+go_ref = $(if $(filter latest,$(1)),latest,v$(1))
 
 SHORT_SHA = $(or $(SHORT_SHA_),$(eval SHORT_SHA_ := $(if $(GITHUB_SHA),$(shell printf '%.7s' "$(GITHUB_SHA)"),$(shell git rev-parse --short=7 HEAD 2>/dev/null)))$(SHORT_SHA_))
 DIRTY_VERSION = v0.0.0-$(or $(SHORT_SHA),unknown)
@@ -41,7 +79,6 @@ VERSION = $(or $(VERSION_),$(eval VERSION_ := $(if $(filter tag,$(GITHUB_REF_TYP
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 TAG = $(VERSION)
 
-export PATH := $(PWD)/build/toolchain/bin:$(PATH)
 SOURCE_DIRS=$(shell go list ./... | grep -v '/vendor/')
 
 ifeq ($(OS),Windows_NT)
@@ -78,3 +115,38 @@ else
 		endif
 	endif
 endif
+
+# Many projects, pinned to different versions, share one TOOLCHAIN_CACHE on a
+# runner, so each tool goes in a directory named for the tool, its version and
+# a key, a git hash of everything that decides which binary gets installed:
+#
+# - the machine's OS and exact CPU (uname -m tells arm64 from 32-bit arm,
+#   which HOST_PLATFORM doesn't); this is also the cache subdirectory, so the
+#   cache can be shared by machines of every kind;
+# - the install recipes above, so a template that installs tools differently
+#   installs them again;
+# - the tool, its version and where it comes from: a download URL, or a Go
+#   package and the Go version that builds it (a linter built with an older Go
+#   can't read code written for a newer one);
+# - for a version of `latest`, today's date, so a floating tool is fetched
+#   again each day instead of being kept forever.
+#
+# Projects therefore never install over each other's tools, and a project
+# that changes nothing finds its tools where it left them.
+# git_hash TEXT is a short git object hash of TEXT.
+git_hash = $(shell printf '%s' '$(subst ','\'',$(1))' | git hash-object --stdin | cut -c1-12)
+TOOLCHAIN_HOST := $(HOST_OS)-$(shell uname -m)
+TOOLCHAIN_HOST_CACHE = $(TOOLCHAIN_CACHE)/$(TOOLCHAIN_HOST)
+TOOLCHAIN_RECIPES_KEY := $(call git_hash,$(value DOWNLOAD_TOOL) $(value INSTALL_FROM_ARCHIVE) $(value GO_INSTALL_TOOL))
+# tool_dir TOOL,VERSION,SOURCE names the directory TOOL is installed into.
+tool_dir = $(TOOLCHAIN_HOST_CACHE)/$(1)-$(2)-$(call tool_key,$(1),$(2),$(3))
+# tool_path TOOL,VERSION,URL names the installed binary of a downloaded tool.
+tool_path = $(call tool_dir,$(1),$(2),$(3))/$(1)$(EXE)
+# go_tool_path TOOL,VERSION,GO_PACKAGE names the binary go install builds.
+go_tool_path = $(call tool_path,$(1),$(2),$(3)@$(call go_ref,$(2)) $(TOOLCHAIN_GO_VERSION))
+
+# Each key and the Go version are worked out once per make run, when first
+# used.
+tool_key = $(or $(TOOL_KEY_$(1)_$(2)),$(eval TOOL_KEY_$(1)_$(2) := $(call git_hash,$(TOOLCHAIN_HOST) $(TOOLCHAIN_RECIPES_KEY) $(1) $(2) $(3)$(if $(filter latest,$(2)), $(TOOLCHAIN_DATE))))$(TOOL_KEY_$(1)_$(2)))
+TOOLCHAIN_GO_VERSION = $(or $(TOOLCHAIN_GO_VERSION_),$(eval TOOLCHAIN_GO_VERSION_ := $(shell $(TOOLCHAIN_GO) env GOVERSION))$(TOOLCHAIN_GO_VERSION_))
+TOOLCHAIN_DATE = $(shell date -u +%Y-%m-%d)

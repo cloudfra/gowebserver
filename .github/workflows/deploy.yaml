@@ -53,6 +53,16 @@ jobs:
       - name: Checkout code
         # https://github.com/actions/checkout
         uses: actions/checkout@v7
+      - name: Configure Toolchain Cache
+        # Install toolchain releases into the runner's persistent tool
+        # directory instead of build/, so they survive checkout's
+        # `git clean -ffdx` and the Clean step below and are installed once
+        # per runner. Projects made from template-go share it, and only
+        # install the versions they pin that are not there yet. See
+        # TOOLCHAIN_CACHE in Makefile_core.mk.
+        run: |
+          echo "TOOLCHAIN_CACHE=$RUNNER_TOOL_CACHE/toolchain" \
+            >> "$GITHUB_ENV"
       - name: Setup Go
         # https://github.com/actions/setup-go
         uses: actions/setup-go@v7
@@ -131,6 +141,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Configure Toolchain Cache
+        # Same as the Linux job. make treats the colon in a C:\ path as a
+        # rule separator, so the path is converted to MSYS form (/c/...).
+        shell: bash
+        run: |
+          cache="$(cygpath -u "$RUNNER_TOOL_CACHE")/toolchain"
+          echo "TOOLCHAIN_CACHE=$cache" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@v7
         with:

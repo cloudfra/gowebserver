@@ -56,11 +56,8 @@ ifeq ($(OS),Windows_NT)
 	CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-windows_amd64.exe
 	HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-windows-x86_64.exe
 	RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-x86_64-pc-windows-msvc.zip
-	RUMDL_ARCHIVE = build/archives/rumdl.zip
 	SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).zip
-	SHELLCHECK_ARCHIVE = build/archives/shellcheck.zip
 	TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_windows-64bit.zip
-	TRIVY_ARCHIVE = build/archives/trivy.zip
 else
 	UNAME_S := $(shell uname -s)
 	UNAME_ARCH := $(shell uname -m)
@@ -82,9 +79,6 @@ else
 			SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.x86_64.tar.xz
 			TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_Linux-64bit.tar.gz
 		endif
-		RUMDL_ARCHIVE = build/archives/rumdl.tar.gz
-		SHELLCHECK_ARCHIVE = build/archives/shellcheck.tar.xz
-		TRIVY_ARCHIVE = build/archives/trivy.tar.gz
 	endif
 	ifeq ($(UNAME_S),Darwin)
 		DOCKERCOMPOSE_PACKAGE = https://github.com/docker/compose/releases/download/v$(DOCKERCOMPOSE_VERSION)/docker-compose-darwin-aarch64
@@ -92,36 +86,44 @@ else
 		CERTTOOL_PACKAGE = https://github.com/cloudfra/certtool/releases/download/v$(CERTTOOL_VERSION)/certtool-darwin_arm64
 		HADOLINT_PACKAGE = https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-macos-arm64
 		RUMDL_PACKAGE = https://github.com/rvben/rumdl/releases/download/v$(RUMDL_VERSION)/rumdl-v$(RUMDL_VERSION)-aarch64-apple-darwin.tar.gz
-		RUMDL_ARCHIVE = build/archives/rumdl.tar.gz
 		SHELLCHECK_PACKAGE = https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).darwin.aarch64.tar.xz
-		SHELLCHECK_ARCHIVE = build/archives/shellcheck.tar.xz
 		TRIVY_PACKAGE = https://github.com/aquasecurity/trivy/releases/download/v$(TRIVY_VERSION)/trivy_$(TRIVY_VERSION)_macOS-ARM64.tar.gz
-		TRIVY_ARCHIVE = build/archives/trivy.tar.gz
 	endif
 endif
 
-ACTIONLINT = build/toolchain/bin/actionlint$(EXE)
-FFMPEG = build/toolchain/bin/ffmpeg$(EXE)
-CERTTOOL = build/toolchain/bin/certtool$(EXE)
-DOCKER_COMPOSE = build/toolchain/bin/docker-compose$(EXE)
-GOCOVER_COBERTURA = build/toolchain/bin/gocover-cobertura$(EXE)
-GOFUMPT = build/toolchain/bin/gofumpt$(EXE)
-GOLANGCI_LINT = build/toolchain/bin/golangci-lint$(EXE)
-GOVULNCHECK = build/toolchain/bin/govulncheck$(EXE)
-HADOLINT = build/toolchain/bin/hadolint$(EXE)
-REVIVE = build/toolchain/bin/revive$(EXE)
-RUMDL = build/toolchain/bin/rumdl$(EXE)
-SHELLCHECK = build/toolchain/bin/shellcheck$(EXE)
-TERRAFORM = build/toolchain/bin/terraform$(EXE)
-TFLINT = build/toolchain/bin/tflint$(EXE)
-TRIVY = build/toolchain/bin/trivy$(EXE)
-VIZB = build/toolchain/bin/vizb$(EXE)
+# Each tool is installed once into TOOLCHAIN_CACHE (see Makefile_core.mk), in a
+# directory keyed by its version and source, and run from there. A Go tool's
+# source is its X_GO_PACKAGE (not X_PACKAGE, which update-project.sh takes to be
+# a download URL to check).
+ACTIONLINT_GO_PACKAGE = github.com/rhysd/actionlint/cmd/actionlint
+ACTIONLINT = $(call go_tool_path,actionlint,$(ACTIONLINT_VERSION),$(ACTIONLINT_GO_PACKAGE))
+CERTTOOL = $(call tool_path,certtool,$(CERTTOOL_VERSION),$(CERTTOOL_PACKAGE))
+DOCKER_COMPOSE = $(call tool_path,docker-compose,$(DOCKERCOMPOSE_VERSION),$(DOCKERCOMPOSE_PACKAGE))
+GOCOVER_COBERTURA_GO_PACKAGE = github.com/t-yuki/gocover-cobertura
+GOCOVER_COBERTURA = $(call go_tool_path,gocover-cobertura,$(GOCOVER_COBERTURA_VERSION),$(GOCOVER_COBERTURA_GO_PACKAGE))
+GOFUMPT_GO_PACKAGE = mvdan.cc/gofumpt
+GOFUMPT = $(call go_tool_path,gofumpt,$(GOFUMPT_VERSION),$(GOFUMPT_GO_PACKAGE))
+GOLANGCI_LINT_GO_PACKAGE = github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+GOLANGCI_LINT = $(call go_tool_path,golangci-lint,$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_GO_PACKAGE))
+GOVULNCHECK_GO_PACKAGE = golang.org/x/vuln/cmd/govulncheck
+GOVULNCHECK = $(call go_tool_path,govulncheck,$(GOVULNCHECK_VERSION),$(GOVULNCHECK_GO_PACKAGE))
+HADOLINT = $(call tool_path,hadolint,$(HADOLINT_VERSION),$(HADOLINT_PACKAGE))
+REVIVE_GO_PACKAGE = github.com/mgechev/revive
+REVIVE = $(call go_tool_path,revive,$(REVIVE_VERSION),$(REVIVE_GO_PACKAGE))
+RUMDL = $(call tool_path,rumdl,$(RUMDL_VERSION),$(RUMDL_PACKAGE))
+SHELLCHECK = $(call tool_path,shellcheck,$(SHELLCHECK_VERSION),$(SHELLCHECK_PACKAGE))
+TERRAFORM = $(call tool_path,terraform,$(TERRAFORM_VERSION),$(TERRAFORM_PACKAGE))
+TFLINT_GO_PACKAGE = github.com/terraform-linters/tflint
+TFLINT = $(call go_tool_path,tflint,$(TFLINT_VERSION),$(TFLINT_GO_PACKAGE))
+TRIVY = $(call tool_path,trivy,$(TRIVY_VERSION),$(TRIVY_PACKAGE))
+VIZB_GO_PACKAGE = github.com/goptics/vizb
+VIZB = $(call go_tool_path,vizb,$(VIZB_VERSION),$(VIZB_GO_PACKAGE))
 
 # The Android NDK supplies the C toolchain that android/386, android/amd64 and
 # android/arm need for cgo external linking. It is ~700 MB, so it is not part
 # of COMMON_TOOLCHAIN (`make tools`); only those binaries depend on it (see
 # Makefile_build.mk). Only the linux-x86_64 host package is wired up.
-ANDROID_NDK = build/toolchain/android-ndk-$(ANDROID_NDK_VERSION)
+ANDROID_NDK = $(call tool_dir,android-ndk,$(ANDROID_NDK_VERSION),$(ANDROID_NDK_PACKAGE))/android-ndk
 ANDROID_NDK_BIN = $(ANDROID_NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin
 ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 # Kept as a variable (rather than inline in the download rule) so
@@ -129,157 +131,70 @@ ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 # would fetch and HEAD-check a candidate NDK release before rewriting the pin.
 ANDROID_NDK_PACKAGE = https://dl.google.com/android/repository/android-ndk-$(ANDROID_NDK_VERSION)-linux.zip
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(if $(FFMPEG_PACKAGE),$(FFMPEG)) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
+	$(call GO_INSTALL_TOOL,$(ACTIONLINT_GO_PACKAGE)@$(call go_ref,$(ACTIONLINT_VERSION)))
 
 $(CERTTOOL):
-	mkdir -p "$(dir $@)"
-	$(CURL) -Lo $@ "$(CERTTOOL_PACKAGE)"
-	chmod +x "$(REPOSITORY_ROOT)/$@"
+	$(call DOWNLOAD_TOOL,$(CERTTOOL_PACKAGE))
 
 $(DOCKER_COMPOSE):
-	mkdir -p "$(dir $@)"
-	$(CURL) -Lo $@ "$(DOCKERCOMPOSE_PACKAGE)"
-	chmod +x "$(REPOSITORY_ROOT)/$@"
-
-# For the tests that run the real ffmpeg (thumbnails of photos and videos),
-# which find it on PATH and are skipped without it. The download, BtbN's GPL
-# build of the FFMPEG_VERSION release branch through pkg/ffmpeg (which checks
-# its checksum), is kept in the user cache directory, so it survives `make
-# clean` and is fetched again only for a new ffmpeg version. BtbN has no
-# build for macOS or 32-bit arm, where the tests that need it are skipped.
-FFMPEG_VERSION = 9.0
-FFMPEG_HOST := $(HOST_OS)_$(shell uname -m)
-FFMPEG_BUILD_linux_x86_64 = linux64-gpl-$(FFMPEG_VERSION).tar.xz
-FFMPEG_BUILD_linux_aarch64 = linuxarm64-gpl-$(FFMPEG_VERSION).tar.xz
-FFMPEG_BUILD_linux_arm64 = $(FFMPEG_BUILD_linux_aarch64)
-FFMPEG_BUILD_windows_x86_64 = win64-gpl-$(FFMPEG_VERSION).zip
-FFMPEG_PACKAGE = $(if $(FFMPEG_BUILD_$(FFMPEG_HOST)),https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n$(FFMPEG_VERSION)-latest-$(FFMPEG_BUILD_$(FFMPEG_HOST)))
-
-$(FFMPEG):
-	$(GO) run ./internal/tools/installffmpeg -url "$(FFMPEG_PACKAGE)" -o "$@"
+	$(call DOWNLOAD_TOOL,$(DOCKERCOMPOSE_PACKAGE))
 
 $(GOCOVER_COBERTURA):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/t-yuki/gocover-cobertura@v$(GOCOVER_COBERTURA_VERSION)
+	$(call GO_INSTALL_TOOL,$(GOCOVER_COBERTURA_GO_PACKAGE)@$(call go_ref,$(GOCOVER_COBERTURA_VERSION)))
 
 # Stricter formatting than `go fmt` (gofmt superset).
 $(GOFUMPT):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install mvdan.cc/gofumpt@v$(GOFUMPT_VERSION)
+	$(call GO_INSTALL_TOOL,$(GOFUMPT_GO_PACKAGE)@$(call go_ref,$(GOFUMPT_VERSION)))
 
 # golangci-lint's own default config (errcheck, govet, ineffassign,
 # staticcheck, unused) already covers what a standalone staticcheck run
 # would, so it's the only Go correctness linter wired into `lint`.
 $(GOLANGCI_LINT):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
+	$(call GO_INSTALL_TOOL,$(GOLANGCI_LINT_GO_PACKAGE)@$(call go_ref,$(GOLANGCI_LINT_VERSION)))
 
 $(GOVULNCHECK):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install golang.org/x/vuln/cmd/govulncheck@v$(GOVULNCHECK_VERSION)
+	$(call GO_INSTALL_TOOL,$(GOVULNCHECK_GO_PACKAGE)@$(call go_ref,$(GOVULNCHECK_VERSION)))
 
-# Not a Go module, so it's fetched as a prebuilt binary like terraform/docker-compose above.
+# Not a Go module, so it's fetched as a prebuilt binary like docker-compose above.
 $(HADOLINT):
-	mkdir -p "$(dir $@)"
-	$(CURL) -o $@ -L "$(HADOLINT_PACKAGE)"
-	chmod +x "$(REPOSITORY_ROOT)/$@"
+	$(call DOWNLOAD_TOOL,$(HADOLINT_PACKAGE))
 
 # Style/doc-comment linter; not covered by golangci-lint's default config.
 $(REVIVE):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/mgechev/revive@v$(REVIVE_VERSION)
+	$(call GO_INSTALL_TOOL,$(REVIVE_GO_PACKAGE)@$(call go_ref,$(REVIVE_VERSION)))
 
-$(RUMDL): $(RUMDL_ARCHIVE)
-	mkdir -p "$(dir $@)"
-	mkdir -p "$(TOOLCHAIN_DIR)/rumdl-temp/"
-ifeq ($(HOST_OS),windows)
-	(cd "$(TOOLCHAIN_DIR)/rumdl-temp/" && unzip -q "$(REPOSITORY_ROOT)/$<")
-else
-	tar -xzf $< -C "$(TOOLCHAIN_DIR)/rumdl-temp/"
-endif
-	cp "$(TOOLCHAIN_DIR)/rumdl-temp/rumdl$(EXE)" "$(TOOLCHAIN_BIN)/rumdl$(EXE)"
-	chmod +x "$(TOOLCHAIN_BIN)/rumdl$(EXE)"
-	rm -rf "$(TOOLCHAIN_DIR)/rumdl-temp/"
+$(RUMDL):
+	$(call INSTALL_FROM_ARCHIVE,$(RUMDL_PACKAGE))
 
 # Also not a Go module. Unlike hadolint, shellcheck ships as an archive (a
 # .zip with shellcheck.exe on Windows, a .tar.xz with a versioned
-# subdirectory everywhere else), so it needs extracting rather than a
-# straight download. actionlint auto-detects it on PATH (which already
-# includes this toolchain dir), so no separate lint invocation is needed.
-$(SHELLCHECK): $(SHELLCHECK_ARCHIVE)
-	mkdir -p "$(dir $@)"
-	mkdir -p "$(TOOLCHAIN_DIR)/shellcheck-temp/"
-ifeq ($(HOST_OS),windows)
-	(cd "$(TOOLCHAIN_DIR)/shellcheck-temp/" && unzip -q -j "$(REPOSITORY_ROOT)/$<")
-else
-	tar -xJf $< -C "$(TOOLCHAIN_DIR)/shellcheck-temp/" --strip-components=1
-endif
-	cp "$(TOOLCHAIN_DIR)/shellcheck-temp/shellcheck$(EXE)" "$(TOOLCHAIN_BIN)/shellcheck$(EXE)"
-	chmod +x "$(TOOLCHAIN_BIN)/shellcheck$(EXE)"
-	rm -rf "$(TOOLCHAIN_DIR)/shellcheck-temp/"
+# subdirectory everywhere else); INSTALL_FROM_ARCHIVE finds the binary in
+# either layout. lint-yaml passes its path to actionlint.
+$(SHELLCHECK):
+	$(call INSTALL_FROM_ARCHIVE,$(SHELLCHECK_PACKAGE))
 
-$(TERRAFORM): build/archives/terraform.zip
-	mkdir -p "$(dir $@)"
-	mkdir -p "$(TOOLCHAIN_DIR)/terraform-temp/"
-	cp "$(ARCHIVES_DIR)/terraform.zip" "$(TOOLCHAIN_DIR)/terraform-temp/"
-	(cd "$(TOOLCHAIN_DIR)/terraform-temp/" && unzip -q -j terraform.zip)
-	cp "$(TOOLCHAIN_DIR)/terraform-temp/terraform$(EXE)" "$(TOOLCHAIN_BIN)/terraform$(EXE)"
-	rm -rf "$(TOOLCHAIN_DIR)/terraform-temp/"
+$(TERRAFORM):
+	$(call INSTALL_FROM_ARCHIVE,$(TERRAFORM_PACKAGE))
 
 $(TFLINT):
-	mkdir -p "$(dir $@)"
-	GOBIN="$(dir $(REPOSITORY_ROOT)/$@)" $(GO_WITH_PROXY) install github.com/terraform-linters/tflint@v$(TFLINT_VERSION)
+	$(call GO_INSTALL_TOOL,$(TFLINT_GO_PACKAGE)@$(call go_ref,$(TFLINT_VERSION)))
 
-# Also not a Go module; ships as an archive like shellcheck, but unlike
-# shellcheck the binary sits at the archive root with no versioned
-# subdirectory, so no --strip-components/-j is needed.
-$(TRIVY): $(TRIVY_ARCHIVE)
-	mkdir -p "$(dir $@)"
-	mkdir -p "$(TOOLCHAIN_DIR)/trivy-temp/"
-ifeq ($(HOST_OS),windows)
-	(cd "$(TOOLCHAIN_DIR)/trivy-temp/" && unzip -q "$(REPOSITORY_ROOT)/$<")
-else
-	tar -xzf $< -C "$(TOOLCHAIN_DIR)/trivy-temp/"
-endif
-	cp "$(TOOLCHAIN_DIR)/trivy-temp/trivy$(EXE)" "$(TOOLCHAIN_BIN)/trivy$(EXE)"
-	chmod +x "$(TOOLCHAIN_BIN)/trivy$(EXE)"
-	rm -rf "$(TOOLCHAIN_DIR)/trivy-temp/"
+# Also not a Go module; ships as an archive like shellcheck.
+$(TRIVY):
+	$(call INSTALL_FROM_ARCHIVE,$(TRIVY_PACKAGE))
 
+# https://github.com/goptics/vizb
 $(VIZB):
-	# https://github.com/goptics/vizb
-	GOBIN="$(TOOLCHAIN_BIN)" $(GO_WITH_PROXY) install github.com/goptics/vizb@v$(VIZB_VERSION)
+	$(call GO_INSTALL_TOOL,$(VIZB_GO_PACKAGE)@$(call go_ref,$(VIZB_VERSION)))
 
-$(ANDROID_NDK_CLANG): build/archives/android-ndk.zip
-	rm -rf "$(REPOSITORY_ROOT)/$(ANDROID_NDK)"
-	mkdir -p "$(TOOLCHAIN_DIR)"
-	(cd "$(TOOLCHAIN_DIR)" && unzip -q "$(REPOSITORY_ROOT)/$<")
-	touch "$(REPOSITORY_ROOT)/$@"
-
-build/archives/android-ndk.zip:
-	mkdir -p "$(dir $@)"
-	$(CURL) -o "$(REPOSITORY_ROOT)/$@" -L "$(ANDROID_NDK_PACKAGE)"
-	touch "$(REPOSITORY_ROOT)/$@"
-
-build/archives/terraform.zip:
-	mkdir -p "$(dir $@)"
-	$(CURL) -o "$(ARCHIVES_DIR)/terraform.zip" -L "$(TERRAFORM_PACKAGE)"
-	touch "$(REPOSITORY_ROOT)/$@"
-
-$(RUMDL_ARCHIVE):
-	mkdir -p "$(dir $@)"
-	$(CURL) -o $@ -L "$(RUMDL_PACKAGE)"
-	touch "$(REPOSITORY_ROOT)/$@"
-
-$(SHELLCHECK_ARCHIVE):
-	mkdir -p "$(dir $@)"
-	$(CURL) -o $@ -L "$(SHELLCHECK_PACKAGE)"
-	touch "$(REPOSITORY_ROOT)/$@"
-
-$(TRIVY_ARCHIVE):
-	mkdir -p "$(dir $@)"
-	$(CURL) -o $@ -L "$(TRIVY_PACKAGE)"
-	touch "$(REPOSITORY_ROOT)/$@"
+# The NDK is a whole directory tree rather than one binary, so it is unpacked
+# next to its final location and renamed into place as a directory.
+$(ANDROID_NDK_CLANG):
+	tmp="$(ANDROID_NDK).$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	$(CURL) -fL -o "$$tmp/ndk.zip" "$(ANDROID_NDK_PACKAGE)" && \
+	(cd "$$tmp" && unzip -q ndk.zip) && \
+	{ [ -d "$(ANDROID_NDK)" ] || mv "$$tmp/android-ndk-$(ANDROID_NDK_VERSION)" "$(ANDROID_NDK)"; }; \
+	status=$$?; rm -rf "$$tmp"; exit $$status

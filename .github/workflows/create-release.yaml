@@ -43,6 +43,13 @@ jobs:
       - name: Checkout code
         # https://github.com/actions/checkout
         uses: actions/checkout@v7
+      - name: Configure Toolchain Cache
+        # The same runner tool directory as deploy.yaml, so the release
+        # reuses the toolchain CI already installed. See TOOLCHAIN_CACHE in
+        # Makefile_core.mk.
+        run: |
+          echo "TOOLCHAIN_CACHE=$RUNNER_TOOL_CACHE/toolchain" \
+            >> "$GITHUB_ENV"
       - name: Setup Go
         # https://github.com/actions/setup-go
         uses: actions/setup-go@v7

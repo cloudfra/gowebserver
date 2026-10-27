@@ -16,7 +16,7 @@ include Makefile_core.mk
 
 # JavaScript tests, benchmarks and the headless browsers they can run in.
 # Node.js and npm are expected to be installed; everything else is fetched
-# into build/toolchain, like the rest of the toolchain, and nothing is
+# into the toolchain cache, like the rest of the toolchain, and nothing is
 # installed beside the sources (no package.json or node_modules there).
 #
 # The Makefile that includes this sets:
@@ -42,11 +42,15 @@ HEADLESS_BROWSERS = chromium firefox
 # The one a benchmark or a look at a page uses.
 BROWSER = $(firstword $(HEADLESS_BROWSERS))
 
-NODE_TOOLCHAIN_DIR = $(TOOLCHAIN_DIR)/node
-BROWSERS_DIR = $(TOOLCHAIN_DIR)/browsers
+# Playwright and its browsers go in the toolchain cache, in a directory keyed
+# like the template's tools (see TOOLCHAIN_CACHE in Makefile_core.mk), so a
+# runner fetches them once per Playwright version.
+PLAYWRIGHT_DIR = $(call tool_dir,playwright,$(PLAYWRIGHT_VERSION),npm)
+NODE_TOOLCHAIN_DIR = $(PLAYWRIGHT_DIR)/node
+BROWSERS_DIR = $(PLAYWRIGHT_DIR)/browsers
 
-PLAYWRIGHT = build/toolchain/node/node_modules/playwright/package.json
-BROWSER_TOOLCHAIN = $(foreach browser,$(HEADLESS_BROWSERS),build/toolchain/browsers/$(browser).installed)
+PLAYWRIGHT = $(NODE_TOOLCHAIN_DIR)/node_modules/playwright/package.json
+BROWSER_TOOLCHAIN = $(foreach browser,$(HEADLESS_BROWSERS),$(BROWSERS_DIR)/$(browser).installed)
 JAVASCRIPT_TOOLCHAIN = $(PLAYWRIGHT) $(BROWSER_TOOLCHAIN)
 
 # Lets a script require('playwright') from the toolchain and find the
@@ -55,16 +59,21 @@ JAVASCRIPT_ENV = NODE_PATH="$(NODE_TOOLCHAIN_DIR)/node_modules" PLAYWRIGHT_BROWS
 
 TEST_TARGETS += test-js
 
+# npm installs into a scratch directory that is renamed into place, so a job
+# sharing the cache never sees a partial node_modules.
 $(PLAYWRIGHT):
-	mkdir -p "$(NODE_TOOLCHAIN_DIR)"
-	$(NPM) install --prefix "$(NODE_TOOLCHAIN_DIR)" --no-save --no-audit --no-fund playwright@$(PLAYWRIGHT_VERSION)
-	touch "$(REPOSITORY_ROOT)/$@"
+	tmp="$(NODE_TOOLCHAIN_DIR).$$$$.d" && rm -rf "$$tmp" && mkdir -p "$$tmp" && \
+	$(NPM) install --prefix "$$tmp" --no-save --no-audit --no-fund playwright@$(PLAYWRIGHT_VERSION) && \
+	{ [ -d "$(NODE_TOOLCHAIN_DIR)" ] || mv "$$tmp" "$(NODE_TOOLCHAIN_DIR)"; }; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
 
 # Headless Chromium is its own, smaller download.
-build/toolchain/browsers/%.installed: $(PLAYWRIGHT)
+# Playwright locks the browsers directory while it installs, so jobs sharing
+# the cache are safe.
+$(BROWSERS_DIR)/%.installed: $(PLAYWRIGHT)
 	mkdir -p "$(dir $@)"
 	PLAYWRIGHT_BROWSERS_PATH="$(BROWSERS_DIR)" "$(NODE_TOOLCHAIN_DIR)/node_modules/.bin/playwright" install $(patsubst chromium,chromium-headless-shell,$*)
-	touch "$(REPOSITORY_ROOT)/$@"
+	touch "$@"
 
 tools-js: $(JAVASCRIPT_TOOLCHAIN)
 browsers: $(BROWSER_TOOLCHAIN)
