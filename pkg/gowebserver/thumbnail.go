@@ -44,6 +44,7 @@ import (
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
+	"github.com/cloudfra/ufs/drivers/types"
 
 	// Registers the bolt: filesystem that stores thumbnails.
 	_ "github.com/cloudfra/ufs/drivers/boltfs"
@@ -1327,7 +1328,7 @@ func exifOrientation(t []byte) int {
 // size. Nothing else is evicted: the store grows with the number of
 // distinct thumbnails made.
 type thumbnailStore struct {
-	fsys ufs.WriteFS
+	fsys types.WriteFS
 	// The bolt database's file, or empty when thumbnails are in memory.
 	dbPath string
 }
