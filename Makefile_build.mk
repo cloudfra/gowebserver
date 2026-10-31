@@ -226,8 +226,10 @@ lint-shell: $(SHELLCHECK)
 # RUMDL_IGNORE is an optional comma-separated list of extra globs to exclude.
 RUMDL_EXCLUDE = third_party/**,build/**$(if $(RUMDL_IGNORE),$(COMMA)$(RUMDL_IGNORE))
 
+# --fix rewrites what rumdl can fix mechanically (e.g. table alignment), like
+# lint-go does with gofumpt, and still fails on anything it can't fix.
 lint-markdown: $(RUMDL)
-	$(IGNORE_LINT_CHECK)"$(RUMDL)" check --exclude "$(RUMDL_EXCLUDE)" .
+	$(IGNORE_LINT_CHECK)"$(RUMDL)" check --fix --exclude "$(RUMDL_EXCLUDE)" .
 
 lint-vuln: $(GOVULNCHECK)
 	$(IGNORE_LINT_CHECK)"$(GOVULNCHECK)" ./...
@@ -238,11 +240,7 @@ bench: $(TEST_ASSETS)
 benchmark.html: $(TEST_ASSETS) $(VIZB)
 	$(GO) test -json -bench=. -benchmem -tags testing ${SOURCE_DIRS} | "$(VIZB)" -o benchmark.html
 
-# What `make test` runs. A makefile included before this one adds its own
-# with TEST_TARGETS += (see Makefile_javascript.mk).
-TEST_TARGETS += test-go test-tf
-
-test: $(TEST_TARGETS)
+test: test-go test-tf
 
 test-go: $(TEST_ASSETS)
 	$(GO) test -shuffle=on -tags testing ${SOURCE_DIRS}

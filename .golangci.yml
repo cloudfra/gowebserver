@@ -28,10 +28,10 @@ linters:
   # and layer a security-focused, curated set on top of it.
   default: standard
   enable:
-    # - bodyclose
+    - bodyclose
     - gocritic
-    # - gosec
-    # - noctx
+    - gosec
+    - noctx
     - prealloc
     - revive
     - unconvert
@@ -43,4 +43,3 @@ linters:
     paths:
       - "build/"
       - "third_party/"
-      - "internal/gowebserver/testing/testassets/"
