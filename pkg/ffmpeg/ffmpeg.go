@@ -34,6 +34,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -91,15 +92,17 @@ type FFmpeg struct {
 }
 
 // New chooses an ffmpeg binary following o: o.Path, else ffmpeg on PATH,
-// else a download when o allows one. It returns an error wrapping
-// ErrNotFound when none is available. It doesn't download anything; that
-// happens the first time ffmpeg is run.
+// else a download when o allows one. o.Path may also be the folder ffmpeg
+// is in (see Resolve). It returns an error wrapping ErrNotFound when none
+// is available. It doesn't download anything; that happens the first time
+// ffmpeg is run.
 func New(o Options) (*FFmpeg, error) {
 	if o.Path != "" {
-		if _, err := os.Stat(o.Path); err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		p, err := Resolve(o.Path)
+		if err != nil {
+			return nil, err
 		}
-		return &FFmpeg{path: o.Path}, nil
+		return &FFmpeg{path: p}, nil
 	}
 	if installed, err := exec.LookPath("ffmpeg"); err == nil {
 		return &FFmpeg{path: installed}, nil
@@ -115,6 +118,38 @@ func New(o Options) (*FFmpeg, error) {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
 	return &FFmpeg{dl: dl}, nil
+}
+
+// Resolve returns the ffmpeg program that path names: path itself when
+// it's a program, or, when it's a folder, the ffmpeg in it or in its bin
+// folder, the layout of the release archives. On Windows the program may
+// be named without its .exe. Anything else is an error wrapping
+// ErrNotFound that says what path is and what was wanted.
+func Resolve(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrNotFound, err)
+	}
+	if !info.IsDir() {
+		p, err := exec.LookPath(path)
+		if err != nil {
+			return "", fmt.Errorf("%w: %q is not a program that can be run: %w", ErrNotFound, path, err)
+		}
+		return p, nil
+	}
+	for _, dir := range []string{path, filepath.Join(path, "bin")} {
+		candidate := filepath.Join(dir, exeName())
+		if info, err := os.Stat(candidate); err != nil || info.IsDir() {
+			continue
+		}
+		p, err := exec.LookPath(candidate)
+		if err != nil {
+			return "", fmt.Errorf("%w: %q is not a program that can be run: %w", ErrNotFound, candidate, err)
+		}
+		return p, nil
+	}
+	return "", fmt.Errorf("%w: %q is a folder with no %s in it or in its bin folder; set the path of %s itself",
+		ErrNotFound, path, exeName(), exeName())
 }
 
 // Download downloads ffmpeg as o says, or finds the copy it downloaded

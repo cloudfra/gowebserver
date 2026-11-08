@@ -18,7 +18,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 )
 
 func TestNewFFmpeg(t *testing.T) {
@@ -27,30 +30,74 @@ func TestNewFFmpeg(t *testing.T) {
 	}
 	t.Setenv("PATH", t.TempDir()) // none installed
 
-	if ff := newFFmpeg(FFmpeg{}); ff != nil {
+	mustNew := func(conf FFmpeg) *ffmpeg.FFmpeg {
+		t.Helper()
+		ff, err := newFFmpeg(conf)
+		if err != nil {
+			t.Fatalf("newFFmpeg(%+v): %v", conf, err)
+		}
+		return ff
+	}
+	if ff := mustNew(FFmpeg{}); ff != nil {
 		t.Errorf("newFFmpeg with nothing installed = %v, want nil", ff.Source())
 	}
 	// Downloading needs the license accepted.
-	if ff := newFFmpeg(FFmpeg{InstallOnDemand: true}); ff != nil {
+	if ff := mustNew(FFmpeg{InstallOnDemand: true}); ff != nil {
 		t.Errorf("newFFmpeg without accepting the license = %v, want nil", ff.Source())
 	}
-	if ff := newFFmpeg(FFmpeg{Path: filepath.Join(t.TempDir(), "missing")}); ff != nil {
-		t.Errorf("newFFmpeg with a missing path = %v, want nil", ff.Source())
-	}
 
-	bin := filepath.Join(t.TempDir(), "ffmpeg")
-	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o700); err != nil {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin", "ffmpeg")
+	if err := os.MkdirAll(filepath.Dir(bin), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if ff := newFFmpeg(FFmpeg{Path: bin}); ff == nil || ff.Source() != bin {
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'ffmpeg version test'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if ff := mustNew(FFmpeg{Path: bin}); ff == nil || ff.Source() != bin {
 		t.Errorf("newFFmpeg(path) = %v, want %q", ff, bin)
 	}
+	// The folder ffmpeg is in, or the one above its bin folder.
+	for _, folder := range []string{filepath.Dir(bin), dir} {
+		if ff := mustNew(FFmpeg{Path: folder}); ff == nil || ff.Source() != bin {
+			t.Errorf("newFFmpeg(%q) = %v, want %q", folder, ff, bin)
+		}
+	}
 	t.Setenv("PATH", filepath.Dir(bin))
-	if ff := newFFmpeg(FFmpeg{}); ff == nil || ff.Source() != bin {
+	if ff := mustNew(FFmpeg{}); ff == nil || ff.Source() != bin {
 		t.Errorf("newFFmpeg with ffmpeg installed = %v, want %q", ff, bin)
 	}
 	// Installed wins over downloading, so this makes no request.
-	if ff := newFFmpeg(FFmpeg{InstallOnDemand: true, AcceptLicense: true}); ff == nil || ff.Source() != bin {
+	if ff := mustNew(FFmpeg{InstallOnDemand: true, AcceptLicense: true}); ff == nil || ff.Source() != bin {
 		t.Errorf("newFFmpeg preferring installed = %v, want %q", ff, bin)
+	}
+}
+
+// A path that is set has to be ffmpeg, or its folder, and run: anything
+// else stops the server with an error saying what's wrong.
+func TestNewFFmpegBadPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as ffmpeg")
+	}
+	t.Setenv("PATH", t.TempDir())
+	empty := t.TempDir()
+	notProgram := filepath.Join(t.TempDir(), "ffmpeg")
+	if err := os.WriteFile(notProgram, []byte("not a program"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	failing := filepath.Join(t.TempDir(), "ffmpeg")
+	if err := os.WriteFile(failing, []byte("#!/bin/sh\nexit 3\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{
+		filepath.Join(empty, "missing"): "no such file",
+		empty:                           "is a folder with no ffmpeg in it or in its bin folder",
+		notProgram:                      "is not a program that can be run",
+		failing:                         "doesn't run",
+	} {
+		ff, err := newFFmpeg(FFmpeg{Path: path})
+		if err == nil || !strings.Contains(err.Error(), want) || !strings.HasPrefix(err.Error(), "ffmpeg.path: ") {
+			t.Errorf("newFFmpeg(%q) = %v, %v; want an error with %q", path, ff, err, want)
+		}
 	}
 }
