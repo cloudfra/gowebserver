@@ -32,7 +32,8 @@ applyFilter($('filter').value || '');
   });
   var last = '';
   setInterval(function () {
-    if (doc.visibilityState !== 'visible') return;
+    // A folder with no photos or videos has no grid.
+    if (doc.visibilityState !== 'visible' || !mediaEl) return;
     var s = { tiles: 0, ready: 0, err: 0, plain: 0, loading: 0 };
     mediaEl.querySelectorAll('a').forEach(function (a) {
       var r = a.getBoundingClientRect();
