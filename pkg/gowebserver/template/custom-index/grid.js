@@ -150,7 +150,7 @@ function createGrid(el) {
       a._plain = true;
       a._loading = false;
       schedule();
-    });
+    }, false, it.video);
   }
 
   // Takes a tile whose picture is still waiting to load out of the

@@ -16,21 +16,30 @@ var diagResource = typeof diagResource === 'function' ? diagResource : function 
 // fills in a few steps, not one style change and paint per picture.
 // A batch waits at most BATCH_WAIT for its slowest picture; what has
 // arrived by then is shown, and the rest joins the next batch.
+// A video's thumbnail can take the server seconds to make, where a
+// photo's takes a fraction of one, so videos ("heavy" ones) get at most
+// half the slots: a folder of videos being thumbnailed for the first
+// time never holds up its photos, or the thumbnails already made.
 var thumbLoader = (function () {
-  var queue = [], arrived = [], loading = 0, limit = 4, timer = 0, pumping = false;
+  var queue = [], arrived = [], loading = 0, heavy = 0, limit = 4, timer = 0, pumping = false;
   var BATCH_WAIT = 1500;
   try {
     var nav = performance.getEntriesByType('navigation')[0];
     if (nav && /^h[23]/.test(nav.nextHopProtocol)) limit = 12;
   } catch (e) { }
+  var heavyLimit = Math.max(1, Math.floor(limit / 2));
 
-  // Fills the batch's free slots from the queue, opening a batch if
-  // none is.
+  // Fills the batch's free slots from the queue, in order, passing over
+  // heavy images while they have their share; opens a batch if none is.
   function pump() {
     pumping = false;
-    if (!queue.length || loading >= limit) return;
-    queue.splice(0, limit - loading).forEach(start);
-    if (!timer) timer = setTimeout(close, BATCH_WAIT);
+    var started = false;
+    for (var i = 0; i < queue.length && loading < limit;) {
+      if (queue[i]._thumbHeavy && heavy >= heavyLimit) { i++; continue; }
+      start(queue.splice(i, 1)[0]);
+      started = true;
+    }
+    if (started && !timer) timer = setTimeout(close, BATCH_WAIT);
   }
 
   // Pumps once everything being queued right now has been, so a
@@ -43,6 +52,7 @@ var thumbLoader = (function () {
 
   function start(img) {
     loading++;
+    if (img._thumbHeavy) heavy++;
     img._thumb = 'loading';
     img._diagT = performance.now();
     img._thumbEnd = function (e) { arrive(img, e.type === 'load'); };
@@ -57,6 +67,7 @@ var thumbLoader = (function () {
     img.removeEventListener('error', img._thumbEnd);
     img._thumbEnd = null;
     loading--;
+    if (img._thumbHeavy) heavy--;
   }
 
   function arrive(img, ok) {
@@ -112,9 +123,11 @@ var thumbLoader = (function () {
   return {
     // Loads url into img in an upcoming batch, then calls done with
     // whether it loaded, along with the rest of its batch. front
-    // puts it ahead of everything waiting.
-    load: function (img, url, done, front) {
+    // puts it ahead of everything waiting; heavy is a video's
+    // thumbnail, which gets at most half the slots.
+    load: function (img, url, done, front, heavy) {
       img._thumbURL = url;
+      img._thumbHeavy = !!heavy;
       img._thumbDone = done;
       img._thumb = 'queued';
       if (front) queue.unshift(img); else queue.push(img);

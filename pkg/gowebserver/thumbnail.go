@@ -37,6 +37,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,7 +57,7 @@ import (
 	// Decoders for image.Decode.
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
+	"golang.org/x/image/webp" // also registers the WebP decoder
 )
 
 // Thumbnails are requested by adding query parameters to an image or video
@@ -238,7 +239,25 @@ type thumbnailer struct {
 	probeCtx    context.Context
 	probeCancel context.CancelFunc
 	probes      sync.WaitGroup
+
+	// Video thumbnails are off until this time, after ffmpeg couldn't be
+	// started (see ffmpegFailed).
+	downMu    sync.Mutex
+	downUntil time.Time
+
+	// Videos that can't be thumbnailed, by unsupportedKey, until when
+	// that's remembered (see rememberUnsupported).
+	unsupportedMu sync.Mutex
+	unsupported   map[string]time.Time
 }
+
+// thumbnailUnsupportedFor is how long a video that couldn't be
+// thumbnailed is answered with 415 straight away, without trying again.
+// It's tried again sooner when it changes, which changes its key.
+const thumbnailUnsupportedFor = time.Hour
+
+// thumbnailUnsupportedMax bounds how many such videos are remembered.
+const thumbnailUnsupportedMax = 100000
 
 // photoTools is what ffmpeg does for photos: decode JPEGs, which it does
 // several times faster than Go, and at a fraction of their size, and
@@ -423,9 +442,59 @@ func (t *thumbnailer) close() error {
 	return t.store.close()
 }
 
-// videos reports whether video thumbnails are available.
+// videos reports whether video thumbnails are available: there is an
+// ffmpeg, and it hasn't failed to start lately.
 func (t *thumbnailer) videos() bool {
-	return t != nil && t.ffmpeg != nil
+	if t == nil || t.ffmpeg == nil {
+		return false
+	}
+	t.downMu.Lock()
+	defer t.downMu.Unlock()
+	return time.Now().After(t.downUntil)
+}
+
+// ffmpegFailed turns video thumbnails off for thumbnailProbeRetry after
+// ffmpeg couldn't be started (err), so pages show videos without asking
+// for thumbnails, and requests for them are answered at once. It's said
+// once a period, not for every video.
+func (t *thumbnailer) ffmpegFailed(err error) {
+	t.downMu.Lock()
+	defer t.downMu.Unlock()
+	if time.Now().Before(t.downUntil) {
+		return
+	}
+	t.downUntil = time.Now().Add(thumbnailProbeRetry)
+	slog.Warn("video thumbnails are off: ffmpeg can't be started", "source", t.ffmpeg.Source(), "error", err, "retry after", thumbnailProbeRetry)
+}
+
+// unsupportedKey names a version of a file for rememberUnsupported.
+func unsupportedKey(source, name string, info fs.FileInfo) string {
+	return fmt.Sprintf("%s/%s@%d:%d", source, name, info.ModTime().UnixNano(), info.Size())
+}
+
+// isUnsupported reports whether key was found not to make a thumbnail
+// lately.
+func (t *thumbnailer) isUnsupported(key string) bool {
+	t.unsupportedMu.Lock()
+	defer t.unsupportedMu.Unlock()
+	until, ok := t.unsupported[key]
+	if ok && time.Now().After(until) {
+		delete(t.unsupported, key)
+		ok = false
+	}
+	return ok
+}
+
+// rememberUnsupported remembers that key doesn't make a thumbnail, for
+// thumbnailUnsupportedFor, so the next request (another size, a reloaded
+// page) is answered without trying again.
+func (t *thumbnailer) rememberUnsupported(key string) {
+	t.unsupportedMu.Lock()
+	defer t.unsupportedMu.Unlock()
+	if t.unsupported == nil || len(t.unsupported) >= thumbnailUnsupportedMax {
+		t.unsupported = map[string]time.Time{}
+	}
+	t.unsupported[key] = time.Now().Add(thumbnailUnsupportedFor)
 }
 
 // handler serves thumbnails for files in fsys and passes every other
@@ -494,7 +563,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		span.SetAttributes(attribute.String("result", result))
 		h.t.metrics.request(ctx, kind, result, start)
 		diagEvent("server", "thumbnail", map[string]any{
-			"file": anon(path.Base(name)), "dir": anonPath(path.Dir(name)), "spec": spec.key(), "kind": kind,
+			"file": anon(path.Base(name)), "dir": anonDir(path.Dir(name)), "spec": spec.key(), "kind": kind,
 			"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(diagErr),
 		})
 	}()
@@ -507,6 +576,16 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	th, cached := h.t.store.get(key)
 	lookedUp(cached)
 	span.SetAttributes(attribute.Bool("cached", cached))
+	unsupported := ""
+	if video {
+		unsupported = unsupportedKey(h.source, name, info)
+	}
+	// Remembered: the video doesn't make one, or ffmpeg can't be run, so
+	// trying again now would only fail again, slowly or not.
+	if !cached && video && (h.t.isUnsupported(unsupported) || !h.t.videos()) {
+		result = thumbnailUnsupported
+		cached, th = true, &thumbnail{}
+	}
 	if !cached {
 		var err error
 		th, err = h.t.shared(ctx, key, func(ctx context.Context) (*thumbnail, error) {
@@ -519,9 +598,15 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case r.Context().Err() != nil:
 			result = thumbnailCanceled
 			return // the client went away
+		case errors.Is(err, errFFmpegUnavailable):
+			result = thumbnailUnsupported
+			th = &thumbnail{}
 		case errors.Is(err, errThumbnailUnsupported):
 			result = thumbnailUnsupported
 			th = &thumbnail{}
+			if video {
+				h.t.rememberUnsupported(unsupported)
+			}
 		default:
 			result = thumbnailFailed
 			slog.Warn("thumbnail failed", "path", name, "error", err)
@@ -531,6 +616,14 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if th.data == nil {
 		if video {
+			// The page shows the video instead. While ffmpeg is down that's
+			// no answer for the video, so it isn't kept; a video that can't
+			// be thumbnailed is, for as long as the server remembers it.
+			if h.t.videos() {
+				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(thumbnailUnsupportedFor.Seconds())))
+			} else {
+				w.Header().Set("Cache-Control", "no-store")
+			}
 			http.Error(w, "cannot make a thumbnail of this video", http.StatusUnsupportedMediaType)
 			return
 		}
@@ -574,7 +667,9 @@ func (t *thumbnailer) chooseWebP(spec *thumbnailSpec, accept string) *thumbnailS
 func thumbnailPath(name string, info fs.FileInfo, spec *thumbnailSpec, video bool) string {
 	version := fmt.Sprintf("%d/%d", info.Size(), info.ModTime().UnixNano())
 	if video {
-		version += "/keyframe@" + thumbnailVideoFrameAt.String()
+		// "+bright": past a dark frame (see ffmpegFrames); thumbnails made
+		// before that may be black.
+		version += "/keyframe@" + thumbnailVideoFrameAt.String() + "+bright"
 	}
 	v := sha256.Sum256([]byte(version))
 	return path.Join(name, spec.key()+"@"+hex.EncodeToString(v[:6]))
@@ -803,16 +898,38 @@ func (s *thumbnailSpec) ffmpegBox() (w, h int, inside bool) {
 }
 
 // thumbnailVideoFrameAt is how far into a video its thumbnail is taken
-// from: far enough to be past titles and fades from black. The thumbnail
-// is the first keyframe at or after it, which is the one frame ffmpeg has
-// to decode; any frame past this point does. A video with none gives an
-// earlier one instead (see ffmpegFrames).
+// from: far enough to be past most titles and fades from black. The
+// thumbnail is the first keyframe at or after it, which is the one frame
+// ffmpeg has to decode; any frame past this point does. A video with none
+// gives an earlier one instead, and one whose frame there is black a later
+// one (see ffmpegFrames).
 const thumbnailVideoFrameAt = 10 * time.Second
 
+// thumbnailDarkLuma is the average brightness (0 to 255) below which a
+// video's frame is too dark to show what's in it: a black intro, a fade,
+// or titles on black.
+const thumbnailDarkLuma = 24
+
+// thumbnailLaterFrames is how many later points a video whose frame is
+// too dark is looked at, at most, for a brighter one.
+const thumbnailLaterFrames = 3
+
+// errFFmpegUnavailable is a video thumbnail that wasn't made because
+// ffmpeg can't be run at all, which says nothing about the video.
+var errFFmpegUnavailable = errors.New("thumbnail: ffmpeg is unavailable")
+
+// videoFrame is a frame taken from a video: the image, or, when ffmpeg
+// made the whole WebP thumbnail in the same run, that.
+type videoFrame struct {
+	img   image.Image
+	whole []byte
+	luma  float64 // average brightness, 0 to 255
+}
+
 // videoFrame grabs the first keyframe thumbnailVideoFrameAt or more into
-// the video (see ffmpegFrames for shorter ones) with ffmpeg, which also
-// applies the video's rotation and shrinks the frame to what spec needs.
-// When spec is a WebP ffmpeg can make by itself (see
+// the video (see ffmpegFrames for shorter ones and dark frames) with
+// ffmpeg, which also applies the video's rotation and shrinks the frame
+// to what spec needs. When spec is a WebP ffmpeg can make by itself (see
 // thumbnailSpec.direct), it makes the whole thumbnail in the same run,
 // and that's returned as whole instead.
 // Files on local disk are passed by path so ffmpeg can seek.
@@ -821,32 +938,38 @@ const thumbnailVideoFrameAt = 10 * time.Second
 // usual layout), the file is copied to a temporary file up to
 // thumbnailMaxVideoCopy bytes.
 func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *thumbnailSpec) (img image.Image, whole []byte, err error) {
-	if h.t.ffmpeg == nil {
-		return nil, nil, errThumbnailUnsupported
+	if !h.t.videos() {
+		return nil, nil, errFFmpegUnavailable
 	}
 	// The frame only has to cover the box: making the thumbnail from it
 	// crops or pads it, and enlarges only a frame that was smaller to
 	// begin with.
 	o := ffmpeg.FrameOptions{Keyframe: true, Width: spec.width, Height: spec.height}
-	webp := spec.format == "webp" && spec.direct()
-	if webp {
+	webpOut := spec.format == "webp" && spec.direct()
+	if webpOut {
 		o.Width, o.Height, o.Inside = spec.ffmpegBox()
 	}
-	grab := func(ctx context.Context, input string, stdin io.Reader, at time.Duration) error {
+	grab := func(ctx context.Context, input string, stdin io.Reader, at time.Duration) (videoFrame, error) {
 		o := o
 		o.At = at
-		if webp {
+		if webpOut {
 			data, err := h.t.ffmpeg.FrameWebP(ctx, input, stdin, o, spec.quality)
-			if err == nil {
-				whole = data
+			if err != nil {
+				return videoFrame{}, err
 			}
-			return err
+			fr := videoFrame{whole: data, luma: 255}
+			// Brightness is only judged on a frame that decodes; one that
+			// doesn't is shown as it is.
+			if img, err := webp.Decode(bytes.NewReader(data)); err == nil {
+				fr.luma = meanLuma(img)
+			}
+			return fr, nil
 		}
 		rgba, err := h.t.ffmpeg.FrameWith(ctx, input, stdin, o)
-		if err == nil {
-			img = rgba
+		if err != nil {
+			return videoFrame{}, err
 		}
-		return err
+		return videoFrame{img: rgba, luma: meanLuma(rgba)}, nil
 	}
 
 	f, err := h.fsys.Open(name)
@@ -854,18 +977,20 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 		return nil, nil, err
 	}
 	info, statErr := f.Stat()
-	osf, local := f.(*os.File)
+	localPath, local := localFilePath(f, info)
 	if err := f.Close(); err != nil {
 		slog.Error("failed to close video after thumbnailing", "path", name, "error", err)
 	}
 	if local {
-		err := h.ffmpegFrames(ctx, osf.Name(), "", grab)
-		return img, whole, err
+		fr, err := h.ffmpegFrames(ctx, localPath, "", grab)
+		return fr.img, fr.whole, err
 	}
 
-	err = h.ffmpegFrames(ctx, "pipe:0", name, grab)
-	if err == nil || ctx.Err() != nil {
-		return img, whole, err
+	fr, err := h.ffmpegFrames(ctx, "pipe:0", name, grab)
+	if err == nil || ctx.Err() != nil || errors.Is(err, errFFmpegUnavailable) || errors.Is(err, context.DeadlineExceeded) {
+		// A copy can't help an ffmpeg that won't start, or one that ran
+		// out of time.
+		return fr.img, fr.whole, err
 	}
 	if statErr != nil || info.Size() > thumbnailMaxVideoCopy {
 		return nil, nil, errThumbnailUnsupported
@@ -879,8 +1004,32 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 			slog.Error("failed to remove temporary video copy", "path", tmp, "error", err)
 		}
 	}()
-	err = h.ffmpegFrames(ctx, tmp, "", grab)
-	return img, whole, err
+	fr, err = h.ffmpegFrames(ctx, tmp, "", grab)
+	return fr.img, fr.whole, err
+}
+
+// localFilePath is the path on local disk of f, whose FileInfo is info,
+// when it's a file there: an *os.File, or one a file system has wrapped
+// that still has its Name and Fd (ufs wraps them on Windows). The name
+// has to be absolute and the same file, so a wrapper with a name of its
+// own isn't taken for one.
+func localFilePath(f fs.File, info fs.FileInfo) (string, bool) {
+	osf, ok := f.(interface {
+		Name() string
+		Fd() uintptr
+	})
+	if !ok || info == nil {
+		return "", false
+	}
+	name := osf.Name()
+	if !filepath.IsAbs(name) {
+		return "", false
+	}
+	onDisk, err := os.Stat(name)
+	if err != nil || !os.SameFile(info, onDisk) {
+		return "", false
+	}
+	return name, true
 }
 
 // copyToTemp copies the file name to a new temporary file and returns its
@@ -916,43 +1065,86 @@ func (h *thumbnailHandler) copyToTemp(ctx context.Context, name string) (string,
 // frame at at, which for most is the one run of ffmpeg. Only when there
 // is none is the video's length asked for: one no longer than that gives
 // the first keyframe from 10% of the way through, and any other its first
-// frame, as does a clip too short for ffmpeg to seek in. When pipe is
-// set, input is "pipe:0" and the file pipe (in h.fsys) is opened afresh
-// for each run of ffmpeg and fed to its stdin.
-func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string, grab func(ctx context.Context, input string, stdin io.Reader, at time.Duration) error) error {
-	frame := func(at time.Duration) error {
+// frame, as does a clip too short for ffmpeg to seek in. A frame too dark
+// to show anything (thumbnailDarkLuma) is from an intro or a fade, so up
+// to thumbnailLaterFrames later points are tried (half a minute and a
+// minute in, a quarter and half way through) and the first bright one is
+// used, or else the brightest. When pipe is set, input is "pipe:0" and the
+// file pipe (in h.fsys) is opened afresh for each run of ffmpeg and fed to
+// its stdin.
+//
+// An ffmpeg that can't be started at all fails every video the same way,
+// so that ends it at once with errFFmpegUnavailable, and video thumbnails
+// are off for a while (see thumbnailer.videos). One that ran out of time
+// returns that, rather than calling the video unsupported, since it may
+// only have been busy.
+func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string, grab func(ctx context.Context, input string, stdin io.Reader, at time.Duration) (videoFrame, error)) (videoFrame, error) {
+	timedOut := false
+	frame := func(at time.Duration) (videoFrame, error) {
 		start := time.Now()
+		var fr videoFrame
 		err := h.withVideo(ctx, ffmpegFrame, pipe, func(ctx context.Context, stdin io.Reader) error {
 			trace.SpanFromContext(ctx).SetAttributes(attribute.Float64("at_seconds", at.Seconds()))
-			return grab(ctx, input, stdin, at)
+			var err error
+			fr, err = grab(ctx, input, stdin, at)
+			return err
 		})
 		diagEvent("server", "ffmpeg-frame", map[string]any{
 			"file": diagFile(input, pipe), "piped": pipe != "",
-			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err),
+			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err), "luma": int(fr.luma),
 		})
-		return err
+		if errors.Is(err, ffmpeg.ErrNotStarted) {
+			h.t.ffmpegFailed(err)
+			return fr, errFFmpegUnavailable
+		}
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+			timedOut = true
+		}
+		return fr, err
 	}
-	last := frame(thumbnailVideoFrameAt)
-	if last == nil {
-		return nil
+	// The video's length, asked for once, when it's needed.
+	var dur time.Duration
+	var durErr error
+	asked := false
+	length := func() (time.Duration, error) {
+		if asked {
+			return dur, durErr
+		}
+		asked = true
+		durErr = h.withVideo(ctx, ffmpegDuration, pipe, func(ctx context.Context, stdin io.Reader) (err error) {
+			dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
+			return err
+		})
+		diagEvent("server", "ffmpeg-duration", map[string]any{
+			"file": diagFile(input, pipe), "piped": pipe != "",
+			"dur_s": dur.Seconds(), "err": errCategory(durErr),
+		})
+		if errors.Is(durErr, ffmpeg.ErrNotStarted) {
+			h.t.ffmpegFailed(durErr)
+			durErr = errFFmpegUnavailable
+		}
+		return dur, durErr
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
+
+	fr, last := frame(thumbnailVideoFrameAt)
+	switch {
+	case last == nil && fr.luma >= thumbnailDarkLuma:
+		return fr, nil
+	case last == nil:
+		return h.brighterFrame(ctx, fr, frame, length)
+	case ctx.Err() != nil:
+		return videoFrame{}, ctx.Err()
+	case errors.Is(last, errFFmpegUnavailable):
+		return videoFrame{}, last
 	}
 
 	var times []time.Duration
-	var dur time.Duration
-	err := h.withVideo(ctx, ffmpegDuration, pipe, func(ctx context.Context, stdin io.Reader) (err error) {
-		dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
-		return err
-	})
-	diagEvent("server", "ffmpeg-duration", map[string]any{
-		"file": diagFile(input, pipe), "piped": pipe != "",
-		"dur_s": dur.Seconds(), "err": errCategory(err),
-	})
+	dur, err := length()
 	switch {
 	case ctx.Err() != nil:
-		return ctx.Err()
+		return videoFrame{}, ctx.Err()
+	case errors.Is(err, errFFmpegUnavailable):
+		return videoFrame{}, err
 	case err == nil && dur <= thumbnailVideoFrameAt:
 		times = []time.Duration{dur / 10, 0}
 	case err == nil:
@@ -965,17 +1157,83 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		times = []time.Duration{time.Second, 0}
 	}
 	for _, at := range times {
-		err := frame(at)
+		fr, err := frame(at)
 		if err == nil {
-			return nil
+			return fr, nil
 		}
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return videoFrame{}, ctx.Err()
+		}
+		if errors.Is(err, errFFmpegUnavailable) {
+			return videoFrame{}, err
 		}
 		last = err
 	}
 	slog.Debug("ffmpeg could not read a frame", "input", input, "error", last)
-	return errThumbnailUnsupported
+	if timedOut {
+		return videoFrame{}, fmt.Errorf("thumbnail: ffmpeg ran out of time: %w", context.DeadlineExceeded)
+	}
+	return videoFrame{}, errThumbnailUnsupported
+}
+
+// brighterFrame looks for a frame brighter than dark, the one
+// thumbnailVideoFrameAt into the video, at later points (see
+// ffmpegFrames), and returns the first that isn't too dark, or else the
+// brightest it saw, dark included.
+func (h *thumbnailHandler) brighterFrame(ctx context.Context, dark videoFrame, frame func(time.Duration) (videoFrame, error), length func() (time.Duration, error)) (videoFrame, error) {
+	best := dark
+	later := []time.Duration{30 * time.Second, time.Minute}
+	if dur, err := length(); err == nil {
+		later = append(later, dur/4, dur/2)
+		// Past the end there's no frame, and in the last second there may
+		// be no keyframe.
+		later = slices.DeleteFunc(later, func(at time.Duration) bool { return at >= dur-time.Second })
+	} else if errors.Is(err, errFFmpegUnavailable) {
+		return best, nil
+	}
+	later = slices.DeleteFunc(later, func(at time.Duration) bool { return at <= thumbnailVideoFrameAt })
+	slices.Sort(later)
+	later = slices.Compact(later)
+	if len(later) > thumbnailLaterFrames {
+		later = later[:thumbnailLaterFrames]
+	}
+	for _, at := range later {
+		if ctx.Err() != nil {
+			return videoFrame{}, ctx.Err()
+		}
+		fr, err := frame(at)
+		if err != nil {
+			if errors.Is(err, errFFmpegUnavailable) {
+				break
+			}
+			continue
+		}
+		if fr.luma >= thumbnailDarkLuma {
+			return fr, nil
+		}
+		if fr.luma > best.luma {
+			best = fr
+		}
+	}
+	return best, nil
+}
+
+// meanLuma is img's average brightness, 0 to 255, from a grid of samples:
+// enough to tell a black frame from one with something in it.
+func meanLuma(img image.Image) float64 {
+	b := img.Bounds()
+	if b.Empty() {
+		return 0
+	}
+	const n = 32
+	var sum float64
+	for y := 0; y < n; y++ {
+		for x := 0; x < n; x++ {
+			r, g, bl, _ := img.At(b.Min.X+x*b.Dx()/n, b.Min.Y+y*b.Dy()/n).RGBA()
+			sum += 0.299*float64(r>>8) + 0.587*float64(g>>8) + 0.114*float64(bl>>8)
+		}
+	}
+	return sum / (n * n)
 }
 
 // withVideo runs one ffmpeg call, fn, as withFFmpeg does, with the file

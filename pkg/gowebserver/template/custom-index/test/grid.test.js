@@ -207,10 +207,11 @@ test('a fling keeps the rows it has, and their pictures', async () => {
 test('a video tile is the server\'s thumbnail; the video comes on hover', async () => {
   const g = setup(folder(0, 9));
   await g.pg.settle();
-  // Thumbnails, through the same queue as the photos', and no videos.
+  // Thumbnails, through the same queue as the photos', and no videos;
+  // half the four slots, the share video thumbnails get.
   assert.equal(g.el.querySelectorAll('video').length, 0);
   assert.deepEqual(g.pg.requests.map((r) => r.url),
-    [0, 1, 2, 3].map((i) => 'v' + i + '.mp4?width=512&height=288&fit=outside'));
+    [0, 1].map((i) => 'v' + i + '.mp4?width=512&height=288&fit=outside'));
   const tile = g.el.querySelector('.tile.vid');
   // Nothing to preview until there's a picture to fade from.
   tile.fire('pointerover');
@@ -270,6 +271,9 @@ test('a pointer crossing video tiles on its way elsewhere makes no videos', asyn
 
 test('only the last two previews are kept once the pointer leaves', async () => {
   const g = setup(folder(0, 9));
+  // Two batches: video thumbnails get two of the four slots at a time.
+  await g.pg.settle();
+  g.arrive();
   await g.pg.settle();
   g.arrive();
   const tiles = g.el.querySelectorAll('.tile.vid').slice(0, 3);

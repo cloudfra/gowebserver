@@ -4071,9 +4071,27 @@
         addEventListener('pagehide', flush);
         
         
+        
+        
+        var base = (function () {
+          try { throw new Error(); } catch (e) { return stackLine(e.stack); }
+        })();
+        function stackLine(stack) {
+          var m = /:(\d+):\d+\)?\s*$/m.exec(String(stack || '').split('\n').filter(function (l) { return /:\d+:\d+/.test(l); })[0] || '');
+          return m ? +m[1] : 0;
+        }
+        function stackNames(stack) {
+          return String(stack || '').split('\n').map(function (l) {
+            var m = /^\s*at (?:new )?([A-Za-z_$][\w$.]*) /.exec(l) || /^([A-Za-z_$][\w$.]*)@/.exec(l);
+            return m ? m[1] : (/^\s*at /.test(l) || /@/.test(l) ? 'anonymous' : '');
+          }).filter(Boolean).slice(0, 8).join('<');
+        }
         addEventListener('error', function (e) {
           if (!e.error && !e.lineno) return;
-          buf.push({ ev: 'js-error', name: e.error && e.error.name, line: e.lineno, col: e.colno, pt: Math.round(performance.now() - t0) });
+          buf.push({
+            ev: 'js-error', name: e.error && e.error.name, line: base ? e.lineno - base : e.lineno, col: e.colno,
+            stack: e.error ? stackNames(e.error.stack) : '', pt: Math.round(performance.now() - t0)
+          });
         });
         doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'hidden') flush(); });
         return function (ev, o) {
@@ -4115,21 +4133,30 @@
       
       
       
+      
+      
+      
+      
       var thumbLoader = (function () {
-        var queue = [], arrived = [], loading = 0, limit = 4, timer = 0, pumping = false;
+        var queue = [], arrived = [], loading = 0, heavy = 0, limit = 4, timer = 0, pumping = false;
         var BATCH_WAIT = 1500;
         try {
           var nav = performance.getEntriesByType('navigation')[0];
           if (nav && /^h[23]/.test(nav.nextHopProtocol)) limit = 12;
         } catch (e) { }
+        var heavyLimit = Math.max(1, Math.floor(limit / 2));
 
         
         
         function pump() {
           pumping = false;
-          if (!queue.length || loading >= limit) return;
-          queue.splice(0, limit - loading).forEach(start);
-          if (!timer) timer = setTimeout(close, BATCH_WAIT);
+          var started = false;
+          for (var i = 0; i < queue.length && loading < limit;) {
+            if (queue[i]._thumbHeavy && heavy >= heavyLimit) { i++; continue; }
+            start(queue.splice(i, 1)[0]);
+            started = true;
+          }
+          if (started && !timer) timer = setTimeout(close, BATCH_WAIT);
         }
 
         
@@ -4142,6 +4169,7 @@
 
         function start(img) {
           loading++;
+          if (img._thumbHeavy) heavy++;
           img._thumb = 'loading';
           img._diagT = performance.now();
           img._thumbEnd = function (e) { arrive(img, e.type === 'load'); };
@@ -4156,6 +4184,7 @@
           img.removeEventListener('error', img._thumbEnd);
           img._thumbEnd = null;
           loading--;
+          if (img._thumbHeavy) heavy--;
         }
 
         function arrive(img, ok) {
@@ -4212,8 +4241,10 @@
           
           
           
-          load: function (img, url, done, front) {
+          
+          load: function (img, url, done, front, heavy) {
             img._thumbURL = url;
+            img._thumbHeavy = !!heavy;
             img._thumbDone = done;
             img._thumb = 'queued';
             if (front) queue.unshift(img); else queue.push(img);
@@ -4713,7 +4744,7 @@
             a._plain = true;
             a._loading = false;
             schedule();
-          });
+          }, false, it.video);
         }
 
         
@@ -5623,7 +5654,7 @@
                 b._img = b.lastChild;
                 b._img._diagKind = 'strip';
                 
-                thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true);
+                thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true, list[k].video);
               }
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;

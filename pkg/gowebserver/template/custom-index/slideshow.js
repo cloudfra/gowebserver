@@ -407,7 +407,7 @@ var slideshow = (function () {
           b._img = b.lastChild;
           b._img._diagKind = 'strip';
           // Ahead of the grid's, which the slideshow covers.
-          thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true);
+          thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true, list[k].video);
         }
       }
       if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
