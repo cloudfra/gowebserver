@@ -63,7 +63,7 @@ var (
 
 	// FFmpeg Flags
 	ffmpegAcceptLicenseFlag   = flag.Bool("ffmpeg.acceptlicense", false, "Accept ffmpeg's license (downloadable builds are GPL). Required before ffmpeg is downloaded.")
-	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg binary to use. Empty uses the installed ffmpeg, if any.")
+	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg program to use, or the folder it's in (also searched: its bin folder). Empty uses the installed ffmpeg, if any. When set, the server won't start unless ffmpeg is there and runs.")
 	ffmpegInstallOnDemandFlag = flag.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
 	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
 
@@ -135,8 +135,10 @@ type FFmpeg struct {
 	// AcceptLicense accepts ffmpeg's license; the downloadable builds are
 	// GPL. ffmpeg is never downloaded without it.
 	AcceptLicense bool `yaml:"acceptLicense"`
-	// Path is the ffmpeg binary to use. Empty uses the installed ffmpeg,
-	// if there is one.
+	// Path is the ffmpeg program to use, or the folder it's in (it's
+	// looked for there and in the folder's bin folder). Empty uses the
+	// installed ffmpeg, if there is one. When set, the server won't start
+	// unless it finds ffmpeg there and it runs.
 	Path string `yaml:"path"`
 	// InstallOnDemand downloads ffmpeg the first time it's needed when
 	// none is installed. Requires AcceptLicense.

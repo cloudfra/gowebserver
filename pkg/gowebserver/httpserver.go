@@ -314,6 +314,10 @@ func New(conf *Config) (WebServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
 	}
+	ff, err := newFFmpeg(conf.FFmpeg)
+	if err != nil {
+		return nil, err
+	}
 	requestMetrics, err := newRequestMetrics(monitoringCtx)
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup request metrics, %w", err)
@@ -334,7 +338,7 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,
 		verbose:             conf.Verbose,
-		ffmpeg:              newFFmpeg(conf.FFmpeg),
+		ffmpeg:              ff,
 	}
 
 	return ws, nil

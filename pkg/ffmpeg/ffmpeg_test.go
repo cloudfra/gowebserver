@@ -83,6 +83,30 @@ func TestFindExplicit(t *testing.T) {
 	}
 }
 
+func TestResolve(t *testing.T) {
+	bin, _ := script(t, "true")
+	dir := filepath.Dir(bin)
+	nested := filepath.Join(t.TempDir(), "ffmpeg-release")
+	if err := os.MkdirAll(filepath.Join(nested, "bin"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nestedBin := filepath.Join(nested, "bin", "ffmpeg")
+	if err := os.Link(bin, nestedBin); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{bin: bin, dir: bin, nested: nestedBin} {
+		got, err := Resolve(path)
+		if err != nil || got != want {
+			t.Errorf("Resolve(%q) = %q, %v; want %q", path, got, err, want)
+		}
+	}
+	for _, path := range []string{filepath.Join(dir, "missing"), t.TempDir()} {
+		if got, err := Resolve(path); !errors.Is(err, ErrNotFound) {
+			t.Errorf("Resolve(%q) = %q, %v; want ErrNotFound", path, got, err)
+		}
+	}
+}
+
 func TestRun(t *testing.T) {
 	bin, argsFile := script(t, "cat; echo out")
 	f, err := Find(bin)

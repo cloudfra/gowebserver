@@ -50,7 +50,7 @@ sc.exe start gowebserver
 
 Some features use [ffmpeg](https://ffmpeg.org). gowebserver doesn't ship it. It uses, in order:
 
-1. The binary set with `ffmpeg.path` (`-ffmpeg.path`).
+1. The program set with `ffmpeg.path` (`-ffmpeg.path`), or the folder it's in: gowebserver looks for `ffmpeg` (`ffmpeg.exe` on Windows) there and in the folder's `bin` folder. When `ffmpeg.path` is set, the server won't start unless it finds ffmpeg there and ffmpeg runs, and the error says why.
 2. The `ffmpeg` installed on `PATH`.
 3. A copy downloaded the first time it's needed, only when both `ffmpeg.installOnDemand` and `ffmpeg.acceptLicense` are set.
 
