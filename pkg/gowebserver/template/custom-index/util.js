@@ -93,12 +93,18 @@ var diag = (function () {
     var body = buf.map(function (o) { return JSON.stringify(o); }).join('\n');
     buf = [];
     try {
-      if (!navigator.sendBeacon('/__diag', new Blob([body], { type: 'text/plain' }))) {
-        fetch('/__diag', { method: 'POST', body: body, keepalive: true });
+      if (!navigator.sendBeacon(CFG.diag, new Blob([body], { type: 'text/plain' }))) {
+        fetch(CFG.diag, { method: 'POST', body: body, keepalive: true });
       }
     } catch (e) { }
   }
   addEventListener('pagehide', flush);
+  // A script error's kind and where, never its message, which can quote
+  // a name.
+  addEventListener('error', function (e) {
+    if (!e.error && !e.lineno) return;
+    buf.push({ ev: 'js-error', name: e.error && e.error.name, line: e.lineno, col: e.colno, pt: Math.round(performance.now() - t0) });
+  });
   doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'hidden') flush(); });
   return function (ev, o) {
     o = o || {};

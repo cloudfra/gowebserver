@@ -924,7 +924,7 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			trace.SpanFromContext(ctx).SetAttributes(attribute.Float64("at_seconds", at.Seconds()))
 			return grab(ctx, input, stdin, at)
 		})
-		diagEvent("server", "ffmpeg-frame", map[string]any{"file": anon(path.Base(diagName(input, pipe))), "piped": pipe != "",
+		diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile(input, pipe), "piped": pipe != "",
 			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err)})
 		return err
 	}
@@ -942,7 +942,7 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
 		return err
 	})
-	diagEvent("server", "ffmpeg-duration", map[string]any{"file": anon(path.Base(diagName(input, pipe))), "piped": pipe != "",
+	diagEvent("server", "ffmpeg-duration", map[string]any{"file": diagFile(input, pipe), "piped": pipe != "",
 		"dur_s": dur.Seconds(), "err": errCategory(err)})
 	switch {
 	case ctx.Err() != nil:
