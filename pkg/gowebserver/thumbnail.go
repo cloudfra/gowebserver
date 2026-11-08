@@ -493,8 +493,10 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		span.SetAttributes(attribute.String("result", result))
 		h.t.metrics.request(ctx, kind, result, start)
-		diagEvent("server", "thumbnail", map[string]any{"file": anon(path.Base(name)), "dir": anonPath(path.Dir(name)), "spec": spec.key(), "kind": kind,
-			"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(diagErr)})
+		diagEvent("server", "thumbnail", map[string]any{
+			"file": anon(path.Base(name)), "dir": anonPath(path.Dir(name)), "spec": spec.key(), "kind": kind,
+			"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(diagErr),
+		})
 	}()
 
 	key := path.Join(h.source, thumbnailPath(name, info, spec, video))
@@ -924,8 +926,10 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			trace.SpanFromContext(ctx).SetAttributes(attribute.Float64("at_seconds", at.Seconds()))
 			return grab(ctx, input, stdin, at)
 		})
-		diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile(input, pipe), "piped": pipe != "",
-			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err)})
+		diagEvent("server", "ffmpeg-frame", map[string]any{
+			"file": diagFile(input, pipe), "piped": pipe != "",
+			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err),
+		})
 		return err
 	}
 	last := frame(thumbnailVideoFrameAt)
@@ -942,8 +946,10 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
 		return err
 	})
-	diagEvent("server", "ffmpeg-duration", map[string]any{"file": diagFile(input, pipe), "piped": pipe != "",
-		"dur_s": dur.Seconds(), "err": errCategory(err)})
+	diagEvent("server", "ffmpeg-duration", map[string]any{
+		"file": diagFile(input, pipe), "piped": pipe != "",
+		"dur_s": dur.Seconds(), "err": errCategory(err),
+	})
 	switch {
 	case ctx.Err() != nil:
 		return ctx.Err()

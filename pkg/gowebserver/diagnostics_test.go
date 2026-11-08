@@ -59,8 +59,10 @@ func TestDiagnosticsNeverWriteNames(t *testing.T) {
 	h, read := withDiagnostics(t)
 
 	// The server's own events.
-	diagEvent("server", "thumbnail", map[string]any{"file": anon("Alice beach 1.jpg"), "dir": anonPath("Secret Vacation/2024"),
-		"err": errCategory(fmt.Errorf("ffmpeg: exit status 1: /home/users/Secret Vacation/Bob birthday.mp4: Invalid data found"))})
+	diagEvent("server", "thumbnail", map[string]any{
+		"file": anon("Alice beach 1.jpg"), "dir": anonPath("Secret Vacation/2024"),
+		"err": errCategory(fmt.Errorf("ffmpeg: exit status 1: /home/users/Secret Vacation/Bob birthday.mp4: Invalid data found")),
+	})
 	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("/home/users/Secret Vacation/Bob birthday.mp4", "")})
 	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("pipe:0", "Secret Vacation/Bob birthday.mp4")})
 	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("/tmp/gowebserver-video-123.mp4", "")})

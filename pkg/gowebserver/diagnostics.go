@@ -72,9 +72,10 @@ var defaultDiagnosticsLog = ""
 const diagEndpoint = "__diag"
 
 type diagLog struct {
-	mu  sync.Mutex
-	f   *os.File
-	key []byte
+	mu     sync.Mutex
+	f      *os.File
+	key    []byte
+	failed bool // a write has failed, and been reported
 }
 
 // diag is nil unless diagnostics are on.
@@ -93,8 +94,11 @@ func startDiagnostics(file string) (http.Handler, func() error, error) {
 	}
 	diag = &diagLog{f: f, key: key}
 	slog.Warn("Diagnostics on: writing anonymized events", "file", file)
-	_, _ = fmt.Fprintf(f, "# gowebserver diagnostics, started %s. Names are tokens (truncated HMAC-SHA256 under a key\n"+
-		"# that is not stored), so they match only within this run, up to the next \"start\" line.\n", time.Now().UTC().Format(time.RFC3339))
+	if _, err := fmt.Fprintf(f, "# gowebserver diagnostics, started %s. Names are tokens (truncated HMAC-SHA256 under a key\n"+
+		"# that is not stored), so they match only within this run, up to the next \"start\" line.\n", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		diag = nil
+		return nil, nil, errors.Join(err, f.Close())
+	}
 	diagEvent("server", "start", nil)
 	return http.HandlerFunc(diagHandler), func() error {
 		diag.mu.Lock()
@@ -137,7 +141,11 @@ func diagEvent(source, event string, fields map[string]any) {
 	b.WriteString("\n")
 	diag.mu.Lock()
 	defer diag.mu.Unlock()
-	_, _ = diag.f.WriteString(b.String())
+	if _, err := diag.f.WriteString(b.String()); err != nil && !diag.failed {
+		// Once: a full disk would otherwise say so for every event.
+		diag.failed = true
+		slog.Error("cannot write diagnostics", "error", err)
+	}
 }
 
 // diagValue formats v for the log, quoted when it has a space; false for
@@ -299,8 +307,12 @@ func diagBrowser(ua string) string {
 	}
 	name := "other"
 	for _, b := range []struct{ token, name string }{
-		{"Edg/", "edge"}, {"CriOS/", "chrome"}, {"FxiOS/", "firefox"}, {"Firefox/", "firefox"},
-		{"Chrome/", "chrome"}, {"Version/", "safari"},
+		{"Edg/", "edge"},
+		{"CriOS/", "chrome"},
+		{"FxiOS/", "firefox"},
+		{"Firefox/", "firefox"},
+		{"Chrome/", "chrome"},
+		{"Version/", "safari"},
 	} {
 		if i := strings.Index(ua, b.token); i >= 0 {
 			name = b.name
@@ -442,7 +454,10 @@ func diagVideoFrame(name string, src image.Image, whole []byte, err error) {
 	}
 	fields := map[string]any{"file": anon(path.Base(name)), "err": errCategory(err)}
 	if src == nil && whole != nil {
-		src, _ = webp.Decode(bytes.NewReader(whole))
+		var derr error
+		if src, derr = webp.Decode(bytes.NewReader(whole)); derr != nil {
+			fields["why"] = "cannot decode webp"
+		}
 	}
 	if src != nil {
 		fields["luma"] = int(meanLuma(src))
