@@ -434,6 +434,7 @@
       // frames (videoThumbs); see thumbnail.go.
       thumbs: {{.Thumbnails}},
       videoThumbs: {{.VideoThumbnails}},
+      diag: {{.Diagnostics}},
       // [isVideo, url, name, size, unix mtime]
       media: [
         {{- range $.DirEntries}}{{if isImage .Name}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if isVideo .Name}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}

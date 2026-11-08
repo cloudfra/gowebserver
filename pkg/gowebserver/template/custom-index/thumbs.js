@@ -1,3 +1,6 @@
+// TEMPORARY diagnostics, stubbed when util.js is not loaded (tests).
+var diag = typeof diag === 'function' ? diag : function () { };
+var diagResource = typeof diagResource === 'function' ? diagResource : function () { return {}; };
 // ===== Thumbnail loading =====
 // A browser opens at most six HTTP/1.1 connections to a server, and a
 // thumbnail the server still has to make holds one until it's made.
@@ -41,6 +44,7 @@ var thumbLoader = (function () {
   function start(img) {
     loading++;
     img._thumb = 'loading';
+    img._diagT = performance.now();
     img._thumbEnd = function (e) { arrive(img, e.type === 'load'); };
     img.addEventListener('load', img._thumbEnd);
     img.addEventListener('error', img._thumbEnd);
@@ -56,6 +60,9 @@ var thumbLoader = (function () {
   }
 
   function arrive(img, ok) {
+    var r = diagResource(img._thumbURL);
+    diag('thumb', { url: img._thumbURL, ok: ok, kind: img._diagKind || 'grid', ms: Math.round(performance.now() - img._diagT),
+      nw: img.naturalWidth, nh: img.naturalHeight, status: r.status, bytes: r.bytes, cache: r.cache, timing: r.timing });
     stop(img);
     img._thumb = 'arrived';
     img._thumbOK = ok;
@@ -75,6 +82,7 @@ var thumbLoader = (function () {
   // a row scrolled away cancels its tiles one by one, and starting the
   // next batch in the middle would fetch tiles about to be canceled.
   function close() {
+    if (loading) diag('batch-timeout', { loading: loading, queued: queue.length });
     clearTimeout(timer);
     timer = 0;
     if (arrived.length) {
@@ -113,6 +121,7 @@ var thumbLoader = (function () {
       pumpSoon();
     },
     unqueue: unqueue,
+    stats: function () { return { loading: loading, queued: queue.length, ready: arrived.length }; },
     // Stops img loading, whether it's waiting or under way; done
     // isn't called.
     cancel: function (img) {
@@ -120,7 +129,10 @@ var thumbLoader = (function () {
       var was = img._thumb;
       img._thumb = '';
       img.removeAttribute('src');
-      if (was === 'loading') { stop(img); settle(); }
+      if (was === 'loading') {
+        diag('thumb-cancel', { url: img._thumbURL, kind: img._diagKind || 'grid', ms: Math.round(performance.now() - img._diagT) });
+        stop(img); settle();
+      }
     }
   };
 })();

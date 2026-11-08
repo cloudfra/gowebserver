@@ -164,6 +164,7 @@ type customIndexReport struct {
 	// VideoThumbnails when it can request video frames too.
 	Thumbnails            bool
 	VideoThumbnails       bool
+	Diagnostics           bool // TEMPORARY: see diagnostics.go
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -333,6 +334,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		UseTimestamp:          strings.Contains(sortBy, "date"),
 		Thumbnails:            c.thumbs != nil,
 		VideoThumbnails:       c.thumbs.videos(),
+		Diagnostics:           diag != nil,
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}

@@ -78,3 +78,45 @@ function previewURL(item) {
   if (!hasThumb(item)) return item.url;
   return item.url + '?width=' + PREVIEW_PX + '&height=' + PREVIEW_PX + '&fit=inside';
 }
+
+// TEMPORARY diagnostics (see diagnostics.go): with the server's -debug,
+// events go to it in batches. The server anonymizes every URL and keeps
+// only known fields.
+var diag = (function () {
+  if (!CFG.diag) return function () { };
+  try { performance.setResourceTimingBufferSize(20000); } catch (e) { }
+  var buf = [], t0 = performance.now(), timer = 0;
+  function flush() {
+    clearTimeout(timer);
+    timer = 0;
+    if (!buf.length) return;
+    var body = buf.map(function (o) { return JSON.stringify(o); }).join('\n');
+    buf = [];
+    try {
+      if (!navigator.sendBeacon('/__diag', new Blob([body], { type: 'text/plain' }))) {
+        fetch('/__diag', { method: 'POST', body: body, keepalive: true });
+      }
+    } catch (e) { }
+  }
+  addEventListener('pagehide', flush);
+  doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'hidden') flush(); });
+  return function (ev, o) {
+    o = o || {};
+    o.ev = ev;
+    o.pt = Math.round(performance.now() - t0);
+    buf.push(o);
+    if (buf.length > 300) flush(); else if (!timer) timer = setTimeout(flush, 2000);
+  };
+})();
+// What the browser knows of a fetched URL: status, size, server timing.
+function diagResource(url) {
+  try {
+    var es = performance.getEntriesByName(new URL(url, location.href).href);
+    var e = es[es.length - 1];
+    if (!e) return {};
+    return {
+      status: e.responseStatus, bytes: e.encodedBodySize, cache: e.transferSize === 0 ? 'hit' : 'net',
+      timing: (e.serverTiming || []).map(function (s) { return s.name + ':' + Math.round(s.duration); }).join(',')
+    };
+  } catch (e) { return {}; }
+}

@@ -489,9 +489,12 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	span.SetAttributes(attribute.String("path", name), attribute.String("spec", spec.key()), attribute.String("kind", kind))
 	result := thumbnailCached
+	var diagErr error
 	defer func() {
 		span.SetAttributes(attribute.String("result", result))
 		h.t.metrics.request(ctx, kind, result, start)
+		diagEvent("server", "thumbnail", map[string]any{"file": anon(path.Base(name)), "dir": anonPath(path.Dir(name)), "spec": spec.key(), "kind": kind,
+			"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(diagErr)})
 	}()
 
 	key := path.Join(h.source, thumbnailPath(name, info, spec, video))
@@ -507,6 +510,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		th, err = h.t.shared(ctx, key, func(ctx context.Context) (*thumbnail, error) {
 			return h.make(ctx, name, video, spec)
 		})
+		diagErr = err
 		switch {
 		case err == nil:
 			result = thumbnailMade
@@ -599,6 +603,7 @@ func (h *thumbnailHandler) make(ctx context.Context, name string, video bool, sp
 	dctx, span, decoded := m.stage(ctx, kind, thumbnailStageDecode, &timing)
 	if video {
 		src, whole, err = h.videoFrame(dctx, name, spec)
+		diagVideoFrame(name, src, whole, err)
 	} else {
 		src, orientation, whole, err = h.decodeImage(dctx, name, spec)
 	}
@@ -914,10 +919,14 @@ func (h *thumbnailHandler) copyToTemp(ctx context.Context, name string) (string,
 // for each run of ffmpeg and fed to its stdin.
 func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string, grab func(ctx context.Context, input string, stdin io.Reader, at time.Duration) error) error {
 	frame := func(at time.Duration) error {
-		return h.withVideo(ctx, ffmpegFrame, pipe, func(ctx context.Context, stdin io.Reader) error {
+		start := time.Now()
+		err := h.withVideo(ctx, ffmpegFrame, pipe, func(ctx context.Context, stdin io.Reader) error {
 			trace.SpanFromContext(ctx).SetAttributes(attribute.Float64("at_seconds", at.Seconds()))
 			return grab(ctx, input, stdin, at)
 		})
+		diagEvent("server", "ffmpeg-frame", map[string]any{"file": anon(path.Base(diagName(input, pipe))), "piped": pipe != "",
+			"at_s": at.Seconds(), "ms": time.Since(start).Milliseconds(), "err": errCategory(err)})
+		return err
 	}
 	last := frame(thumbnailVideoFrameAt)
 	if last == nil {
@@ -933,6 +942,8 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
 		return err
 	})
+	diagEvent("server", "ffmpeg-duration", map[string]any{"file": anon(path.Base(diagName(input, pipe))), "piped": pipe != "",
+		"dur_s": dur.Seconds(), "err": errCategory(err)})
 	switch {
 	case ctx.Err() != nil:
 		return ctx.Err()

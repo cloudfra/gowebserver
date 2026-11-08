@@ -246,6 +246,13 @@ func (ws *webServerImpl) Serve(wait func()) error {
 			}
 		}
 
+		diagHandler, closeDiag, err := startDiagnostics()
+		if err != nil {
+			return err
+		}
+		allCleanups = append(allCleanups, closeDiag)
+		serverMux.Handle("/__diag", diagHandler)
+
 		slog.Info("Endpoint", "http", "/diediedie")
 		ws.addHandler(serverMux, "/diediedie", &killHTTPServerHandler{killFunc: killFunc}, handlerDebug)
 	}
