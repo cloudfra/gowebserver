@@ -256,7 +256,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 	}()
 
-	httpHandler := cors.Default().Handler(serverMux)
+	httpHandler := cors.Default().Handler(gzipHandler(serverMux))
 
 	httpPort, err := getPort(httpSocket)
 	if err != nil {
