@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"compress/gzip"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strconv"
@@ -28,10 +29,7 @@ import (
 // compressing: below it gzip's header and the work cost more than they save.
 const gzipMinSize = 1024
 
-var gzipWriters = sync.Pool{New: func() any {
-	gz, _ := gzip.NewWriterLevel(io.Discard, gzip.DefaultCompression)
-	return gz
-}}
+var gzipWriters = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) }}
 
 // gzipHandler compresses next's responses with gzip for a client that
 // accepts it. Only text-like content is compressed (pages, scripts,
@@ -227,7 +225,10 @@ func (w *gzipResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 func (w *gzipResponseWriter) Flush() {
 	w.sendPending()
 	if w.gz != nil {
-		_ = w.gz.Flush()
+		if err := w.gz.Flush(); err != nil {
+			// Usually the client has gone; the next write says so too.
+			slog.Debug("gzip flush failed", "error", err)
+		}
 	}
 	if f, ok := w.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
@@ -245,7 +246,9 @@ func (w *gzipResponseWriter) close() {
 	if w.gz == nil {
 		return
 	}
-	_ = w.gz.Close()
+	if err := w.gz.Close(); err != nil {
+		slog.Debug("gzip close failed", "error", err)
+	}
 	w.gz.Reset(io.Discard)
 	gzipWriters.Put(w.gz)
 	w.gz = nil

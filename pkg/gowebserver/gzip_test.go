@@ -99,7 +99,10 @@ func gzipGet(h http.Handler, header http.Header) *httptest.ResponseRecorder {
 func TestGzipHandler(t *testing.T) {
 	page := strings.Repeat("<p>hello, world</p>\n", 200)
 	html := gzipHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, page) // Content-Type left to sniffing
+		// Content-Type left to sniffing.
+		if _, err := io.WriteString(w, page); err != nil {
+			t.Error(err)
+		}
 	}))
 	gz := http.Header{"Accept-Encoding": {"gzip, deflate"}}
 
@@ -135,7 +138,9 @@ func TestGzipHandler(t *testing.T) {
 	t.Run("leaves images alone", func(t *testing.T) {
 		img := gzipHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "image/jpeg")
-			_, _ = w.Write(bytes.Repeat([]byte{0xff}, 4096))
+			if _, err := w.Write(bytes.Repeat([]byte{0xff}, 4096)); err != nil {
+				t.Error(err)
+			}
 		}))
 		rec := gzipGet(img, gz)
 		if got := rec.Header().Get("Content-Encoding"); got != "" {
@@ -150,7 +155,9 @@ func TestGzipHandler(t *testing.T) {
 		enc := gzipHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/plain")
 			w.Header().Set("Content-Encoding", "br")
-			_, _ = io.WriteString(w, page)
+			if _, err := io.WriteString(w, page); err != nil {
+				t.Error(err)
+			}
 		}))
 		rec := gzipGet(enc, gz)
 		if got := rec.Header().Get("Content-Encoding"); got != "br" || rec.Body.String() != page {
@@ -162,7 +169,9 @@ func TestGzipHandler(t *testing.T) {
 		small := gzipHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/plain")
 			w.Header().Set("Content-Length", "2")
-			_, _ = io.WriteString(w, "hi")
+			if _, err := io.WriteString(w, "hi"); err != nil {
+				t.Error(err)
+			}
 		}))
 		rec := gzipGet(small, gz)
 		if got := rec.Header().Get("Content-Encoding"); got != "" || rec.Body.String() != "hi" {
