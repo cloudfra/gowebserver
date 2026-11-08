@@ -2837,7 +2837,10 @@ main {
   opacity: 1;
 }
 
-/* In full screen the strip stays out of the way, even while the other
+/* Outside full screen the strip stays when the other controls fade: on
+   a touch screen they fade a few seconds after every swipe, and only a
+   tap brings them back, so a strip that went with them was hardly ever
+   seen. In full screen it stays out of the way, even while the other
    controls show, until the pointer or a finger comes near the bottom
    edge (strip-on) or keyboard focus reaches it. */
 .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) {
@@ -2850,7 +2853,6 @@ main {
   transform: none;
 }
 
-.ss.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
 .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
   pointer-events: none;
 }
@@ -2861,7 +2863,7 @@ main {
 
 .ss.chrome-off .ss-top,
 .ss.chrome-off .ss-nav,
-.ss.chrome-off .ss-bottom {
+.ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
   opacity: 0;
   pointer-events: none;
 }
@@ -2870,7 +2872,7 @@ main {
   transform: translateY(-8px);
 }
 
-.ss.chrome-off .ss-bottom {
+.ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
   transform: translateY(8px);
 }
 
