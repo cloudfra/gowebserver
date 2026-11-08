@@ -57,6 +57,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
@@ -217,6 +218,9 @@ var diagClientText = map[string]func(string) bool{
 	"proto":   diagEnum("h2", "h3", "http/1.1", "http/1.0", ""),
 	"name":    diagEnum("Error", "TypeError", "RangeError", "ReferenceError", "SyntaxError", "EvalError", "URIError", "AbortError", "NotSupportedError", "NotAllowedError", "SecurityError", "InvalidStateError", "DOMException"),
 	"display": diagCSS.MatchString,
+	// Function names from a script error's stack: identifiers in this
+	// page's own scripts, and "anonymous".
+	"stack":   regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$.]{0,40}(<[A-Za-z_$][A-Za-z0-9_$.]{0,40}){0,7}$`).MatchString,
 	"opacity": regexp.MustCompile(`^[0-9.]{1,6}(,[0-9.]{1,6}){0,3}$`).MatchString,
 	// Server-Timing, as the thumbnail handler writes it.
 	"timing": regexp.MustCompile(`^((wait|decode|scale|encode|store|cache):[0-9]{1,7})?(,(wait|decode|scale|encode|store|cache):[0-9]{1,7}){0,6}$`).MatchString,
@@ -229,7 +233,7 @@ var diagClientFields = map[string]bool{
 	"thumbs": true, "videoThumbs": true, "vw": true, "vh": true, "dpr": true, "proto": true, "loading": true,
 	"queued": true, "rect": true, "display": true, "opacity": true, "children": true, "ready": true,
 	"err": true, "plain": true, "tiles": true, "why": true, "size": true, "bytes": true, "cache": true,
-	"timing": true, "line": true, "col": true, "name": true,
+	"timing": true, "line": true, "col": true, "name": true, "stack": true,
 }
 
 // diagClean is field k's value v when it's safe to write: a number, a
@@ -326,23 +330,6 @@ func diagBrowser(ua string) string {
 	return device + "," + name
 }
 
-// meanLuma is img's average brightness, 0 to 255, from a grid of samples.
-func meanLuma(img image.Image) float64 {
-	b := img.Bounds()
-	if b.Empty() {
-		return -1
-	}
-	const n = 32
-	var sum float64
-	for y := 0; y < n; y++ {
-		for x := 0; x < n; x++ {
-			r, g, bl, _ := img.At(b.Min.X+x*b.Dx()/n, b.Min.Y+y*b.Dy()/n).RGBA()
-			sum += 0.299*float64(r>>8) + 0.587*float64(g>>8) + 0.114*float64(bl>>8)
-		}
-	}
-	return sum / (n * n)
-}
-
 // anon is a token for the name, keeping only its extension.
 func anon(name string) string {
 	if diag == nil || name == "" || name == "." || name == "/" {
@@ -357,13 +344,38 @@ func anon(name string) string {
 	return tok
 }
 
-// anonPath anonymizes each segment of a slash-separated path.
+// anonPath anonymizes each segment of the slash-separated path of a
+// file, or of a folder when it ends in a slash. Only the file's own name
+// keeps its extension: a folder's "extension" ("Holiday.2024") is part of
+// its name.
 func anonPath(p string) string {
 	segs := strings.Split(p, "/")
 	for i, s := range segs {
-		segs[i] = anon(s)
+		if i == len(segs)-1 {
+			segs[i] = anon(s)
+		} else {
+			segs[i] = anonFolder(s)
+		}
 	}
 	return strings.Join(segs, "/")
+}
+
+// anonDir anonymizes a folder's slash-separated path.
+func anonDir(p string) string {
+	segs := strings.Split(p, "/")
+	for i, s := range segs {
+		segs[i] = anonFolder(s)
+	}
+	return strings.Join(segs, "/")
+}
+
+// anonFolder is anon without the extension.
+func anonFolder(name string) string {
+	tok := anon(name)
+	if i := strings.IndexByte(tok, '.'); i > 0 && tok != name {
+		tok = tok[:i]
+	}
+	return tok
 }
 
 // anonURL anonymizes a URL's path and keeps only the thumbnail query
@@ -419,6 +431,10 @@ func errCategory(err error) string {
 		return "unsupported"
 	case errors.Is(err, ffmpeg.ErrNotFound):
 		return "ffmpeg-not-found"
+	case errors.Is(err, ffmpeg.ErrNotStarted):
+		return "ffmpeg-not-started:" + startFailure(err)
+	case errors.Is(err, errFFmpegUnavailable):
+		return "ffmpeg-unavailable"
 	case errors.Is(err, ffmpeg.ErrNoFrame):
 		return "no-frame"
 	case errors.Is(err, ffmpeg.ErrNoDuration):
@@ -476,4 +492,23 @@ func diagPageEndpoint(requestURI string) string {
 	}
 	p, _, _ := strings.Cut(requestURI, "?")
 	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0)) + diagEndpoint
+}
+
+// startFailure is why ffmpeg couldn't be started, from a fixed list, or
+// the operating system's error number, which names nothing.
+func startFailure(err error) string {
+	var errno syscall.Errno
+	switch {
+	case errors.Is(err, exec.ErrDot):
+		return "found-in-working-folder"
+	case errors.Is(err, exec.ErrNotFound):
+		return "not-found"
+	case errors.Is(err, fs.ErrNotExist):
+		return "missing"
+	case errors.Is(err, fs.ErrPermission):
+		return "permission-denied"
+	case errors.As(err, &errno):
+		return "errno-" + strconv.Itoa(int(errno))
+	}
+	return "other"
 }

@@ -100,10 +100,28 @@ var diag = (function () {
   }
   addEventListener('pagehide', flush);
   // A script error's kind and where, never its message, which can quote
-  // a name.
+  // a name: its line counted from this one, which is the same in every
+  // page whatever the folder holds above the scripts, and the names of
+  // the functions on its stack, which are the scripts' own.
+  var base = (function () {
+    try { throw new Error(); } catch (e) { return stackLine(e.stack); }
+  })();
+  function stackLine(stack) {
+    var m = /:(\d+):\d+\)?\s*$/m.exec(String(stack || '').split('\n').filter(function (l) { return /:\d+:\d+/.test(l); })[0] || '');
+    return m ? +m[1] : 0;
+  }
+  function stackNames(stack) {
+    return String(stack || '').split('\n').map(function (l) {
+      var m = /^\s*at (?:new )?([A-Za-z_$][\w$.]*) /.exec(l) || /^([A-Za-z_$][\w$.]*)@/.exec(l);
+      return m ? m[1] : (/^\s*at /.test(l) || /@/.test(l) ? 'anonymous' : '');
+    }).filter(Boolean).slice(0, 8).join('<');
+  }
   addEventListener('error', function (e) {
     if (!e.error && !e.lineno) return;
-    buf.push({ ev: 'js-error', name: e.error && e.error.name, line: e.lineno, col: e.colno, pt: Math.round(performance.now() - t0) });
+    buf.push({
+      ev: 'js-error', name: e.error && e.error.name, line: base ? e.lineno - base : e.lineno, col: e.colno,
+      stack: e.error ? stackNames(e.error.stack) : '', pt: Math.round(performance.now() - t0)
+    });
   });
   doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'hidden') flush(); });
   return function (ev, o) {

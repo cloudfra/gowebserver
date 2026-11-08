@@ -19,13 +19,18 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
+
+	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 )
 
 // withDiagnostics turns diagnostics on for the test, into a file whose
@@ -179,5 +184,45 @@ func TestDiagVideoFrame(t *testing.T) {
 	}
 	if m := secret.FindString(log); m != "" {
 		t.Errorf("the log has %q in it", m)
+	}
+}
+
+// A folder named like a file keeps no "extension": it's part of its name.
+func TestDiagnosticsFolderNames(t *testing.T) {
+	h, read := withDiagnostics(t)
+	diagEvent("server", "thumbnail", map[string]any{"file": anon("clip.mp4"), "dir": anonDir("Vacation.com/Beach.2024")})
+	body := `{"ev":"page","page":"https://host/e/Vacation.com/Beach.2024/"}` + "\n" +
+		`{"ev":"thumb","url":"https://host/e/Vacation.com/clip.mp4?width=256"}` + "\n" +
+		`{"ev":"js-error","name":"TypeError","line":12,"col":19,"stack":"loadTile<render<tick"}` + "\n" +
+		`{"ev":"js-error","name":"TypeError","stack":"Alice beach<x"}`
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/__diag", strings.NewReader(body)))
+	log := read()
+	t.Log("\n" + log)
+	if strings.Contains(log, ".com") || strings.Contains(log, ".2024") {
+		t.Error("a folder's extension is in the log")
+	}
+	if !strings.Contains(log, anon("clip.mp4")) || !strings.HasSuffix(anon("clip.mp4"), ".mp4") {
+		t.Error("a file lost its extension")
+	}
+	if !strings.Contains(log, "stack=loadTile<render<tick") {
+		t.Error("a stack of function names was dropped")
+	}
+	if strings.Contains(log, "Alice") {
+		t.Error("a stack with a space in it got through")
+	}
+}
+
+func TestErrCategoryNotStarted(t *testing.T) {
+	notStarted := func(err error) error { return fmt.Errorf("%w: %w", ffmpeg.ErrNotStarted, err) }
+	for err, want := range map[error]string{
+		notStarted(&fs.PathError{Op: "fork/exec", Path: "/Secret/ffmpeg", Err: syscall.EACCES}):     "ffmpeg-not-started:permission-denied",
+		notStarted(&exec.Error{Name: "ffmpeg", Err: exec.ErrDot}):                                   "ffmpeg-not-started:found-in-working-folder",
+		notStarted(&fs.PathError{Op: "fork/exec", Path: "/Secret/ffmpeg", Err: syscall.Errno(193)}): "ffmpeg-not-started:errno-193",
+		errFFmpegUnavailable: "ffmpeg-unavailable",
+	} {
+		if got := errCategory(err); got != want {
+			t.Errorf("errCategory(%v) = %q, want %q", err, got, want)
+		}
 	}
 }
