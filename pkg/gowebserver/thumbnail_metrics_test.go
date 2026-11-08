@@ -161,16 +161,13 @@ func TestThumbnailMetrics(t *testing.T) {
 			"kind=photo,stage=scale":  1,
 			"kind=photo,stage=encode": 1,
 			"kind=photo,stage=store":  1,
-			"kind=video,stage=wait":   1,
-			"kind=video,stage=decode": 1,
+			// Without ffmpeg the video is answered without a render.
 		},
 		"thumbnail_source_megapixels": {"kind=photo": 1},
 		// Nothing is being made any more.
 		"thumbnail_renders": {
 			"kind=photo,state=waiting": 0,
 			"kind=photo,state=running": 0,
-			"kind=video,state=waiting": 0,
-			"kind=video,state=running": 0,
 		},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {

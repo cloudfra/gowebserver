@@ -55,6 +55,10 @@ var (
 	// ErrNoDuration means ffmpeg couldn't tell how long the input is, as
 	// with some streams read through a pipe.
 	ErrNoDuration = errors.New("ffmpeg: duration unknown")
+	// ErrNotStarted is a run of ffmpeg that never started: the binary
+	// can't be run, or couldn't be downloaded. Unlike ffmpeg failing on its
+	// input, it fails the same way whatever the input.
+	ErrNotStarted = errors.New("ffmpeg: could not start")
 )
 
 // retryAfter is how long a failed download is remembered before the next
@@ -232,6 +236,9 @@ func (f *FFmpeg) Run(ctx context.Context, stdin io.Reader, args ...string) ([]by
 func (f *FFmpeg) run(ctx context.Context, stdin io.Reader, args ...string) (stdout, stderr []byte, err error) {
 	cmd, err := f.Command(ctx, args...)
 	if err != nil {
+		if ctx.Err() == nil {
+			err = fmt.Errorf("%w: %w", ErrNotStarted, err)
+		}
 		return nil, nil, err
 	}
 	if stdin != nil {
@@ -241,6 +248,11 @@ func (f *FFmpeg) run(ctx context.Context, stdin io.Reader, args ...string) (stdo
 	cmd.Stdout = &out
 	cmd.Stderr = &errOut
 	err = cmd.Run()
+	var exit *exec.ExitError
+	if err != nil && !errors.As(err, &exit) && ctx.Err() == nil {
+		// Not an exit: it never ran.
+		err = fmt.Errorf("%w: %w", ErrNotStarted, err)
+	}
 	return out.Bytes(), errOut.Bytes(), err
 }
 

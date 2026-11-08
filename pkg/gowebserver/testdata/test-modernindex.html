@@ -3320,7 +3320,6 @@
       transform: none;
     }
 
-    .ss.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
     .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
       pointer-events: none;
     }
@@ -3331,7 +3330,7 @@
 
     .ss.chrome-off .ss-top,
     .ss.chrome-off .ss-nav,
-    .ss.chrome-off .ss-bottom {
+    .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
       opacity: 0;
       pointer-events: none;
     }
@@ -3340,7 +3339,7 @@
       transform: translateY(-8px);
     }
 
-    .ss.chrome-off .ss-bottom {
+    .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
       transform: translateY(8px);
     }
 
@@ -4062,21 +4061,30 @@
       
       
       
+      
+      
+      
+      
       var thumbLoader = (function () {
-        var queue = [], arrived = [], loading = 0, limit = 4, timer = 0, pumping = false;
+        var queue = [], arrived = [], loading = 0, heavy = 0, limit = 4, timer = 0, pumping = false;
         var BATCH_WAIT = 1500;
         try {
           var nav = performance.getEntriesByType('navigation')[0];
           if (nav && /^h[23]/.test(nav.nextHopProtocol)) limit = 12;
         } catch (e) { }
+        var heavyLimit = Math.max(1, Math.floor(limit / 2));
 
         
         
         function pump() {
           pumping = false;
-          if (!queue.length || loading >= limit) return;
-          queue.splice(0, limit - loading).forEach(start);
-          if (!timer) timer = setTimeout(close, BATCH_WAIT);
+          var started = false;
+          for (var i = 0; i < queue.length && loading < limit;) {
+            if (queue[i]._thumbHeavy && heavy >= heavyLimit) { i++; continue; }
+            start(queue.splice(i, 1)[0]);
+            started = true;
+          }
+          if (started && !timer) timer = setTimeout(close, BATCH_WAIT);
         }
 
         
@@ -4089,6 +4097,7 @@
 
         function start(img) {
           loading++;
+          if (img._thumbHeavy) heavy++;
           img._thumb = 'loading';
           img._thumbEnd = function (e) { arrive(img, e.type === 'load'); };
           img.addEventListener('load', img._thumbEnd);
@@ -4102,6 +4111,7 @@
           img.removeEventListener('error', img._thumbEnd);
           img._thumbEnd = null;
           loading--;
+          if (img._thumbHeavy) heavy--;
         }
 
         function arrive(img, ok) {
@@ -4154,8 +4164,10 @@
           
           
           
-          load: function (img, url, done, front) {
+          
+          load: function (img, url, done, front, heavy) {
             img._thumbURL = url;
+            img._thumbHeavy = !!heavy;
             img._thumbDone = done;
             img._thumb = 'queued';
             if (front) queue.unshift(img); else queue.push(img);
@@ -4647,7 +4659,7 @@
             a._plain = true;
             a._loading = false;
             schedule();
-          });
+          }, false, it.video);
         }
 
         
@@ -5540,7 +5552,7 @@
                 b.innerHTML = (list[k].video ? svgUse('ui-play') : '') + '<img alt="" decoding="async" fetchpriority="low">';
                 b._img = b.lastChild;
                 
-                thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true);
+                thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true, list[k].video);
               }
             }
             if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
