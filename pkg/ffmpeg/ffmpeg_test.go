@@ -107,6 +107,22 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+// A run that never starts says so, unlike one that fails on its input.
+func TestRunNotStarted(t *testing.T) {
+	dir := t.TempDir()
+	f := &FFmpeg{path: dir} // a folder can't be run
+	if _, err := f.Run(t.Context(), nil, "-version"); !errors.Is(err, ErrNotStarted) {
+		t.Errorf("running a folder: %v, want ErrNotStarted", err)
+	}
+	if _, err := f.Duration(t.Context(), "x.mp4", nil); !errors.Is(err, ErrNotStarted) {
+		t.Errorf("Duration with a folder: %v, want ErrNotStarted", err)
+	}
+	bin, _ := script(t, "exit 1")
+	if _, err := (&FFmpeg{path: bin}).Run(t.Context(), nil, "-version"); err == nil || errors.Is(err, ErrNotStarted) {
+		t.Errorf("ffmpeg exiting 1: %v, want an error that isn't ErrNotStarted", err)
+	}
+}
+
 func TestRun(t *testing.T) {
 	bin, argsFile := script(t, "cat; echo out")
 	f, err := Find(bin)

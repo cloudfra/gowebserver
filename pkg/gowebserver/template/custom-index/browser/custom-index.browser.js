@@ -119,6 +119,31 @@ test('the slideshow opens on a tile and holds three slides however far it goes',
   assert.equal(await count('#ss-stage > *'), 0);
 });
 
+test('the filmstrip stays when the other controls fade, except in full screen', async () => {
+  await settled();
+  await b.page.locator('.tile[aria-label="photo-00003.png"]').click();
+  await b.page.waitForSelector('dialog#ss[open]');
+  await b.page.waitForFunction(() => document.querySelectorAll('#ss-strip > button').length > 1);
+  const opacity = (sel) => b.page.evaluate((s) => getComputedStyle(document.querySelector(s)).opacity, sel);
+  const settle = () => b.page.waitForTimeout(600); // past the fade
+  // As after a few seconds without a mouse moving, or a swipe on a
+  // touch screen.
+  await b.page.evaluate(() => document.getElementById('ss').classList.add('chrome-off'));
+  await settle();
+  assert.equal(await opacity('.ss-top'), '0', 'the other controls fade');
+  assert.equal(await opacity('.ss-bottom'), '1', 'the filmstrip stays');
+  // In full screen it keeps out of the way until asked for.
+  await b.page.evaluate(() => document.getElementById('ss').classList.add('is-fs'));
+  await settle();
+  assert.equal(await opacity('.ss-bottom'), '0');
+  await b.page.evaluate(() => document.getElementById('ss').classList.add('strip-on'));
+  await settle();
+  assert.equal(await opacity('.ss-bottom'), '1', 'near the bottom edge it shows');
+  await b.page.evaluate(() => document.getElementById('ss').classList.remove('is-fs', 'strip-on', 'chrome-off'));
+  await b.page.keyboard.press('Escape');
+  await b.page.waitForFunction(() => !document.getElementById('ss').open);
+});
+
 test('the theme button switches the page and remembers', async () => {
   await b.page.click('#theme');
   assert.equal(await b.page.evaluate(() => document.documentElement.dataset.theme), 'light');

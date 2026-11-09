@@ -190,3 +190,28 @@ test('the queue drains completely', async () => {
   assert.equal(t.shown.length, 25);
   assert.equal(t.fetched().length, 25, 'each fetched once');
 });
+
+test('video thumbnails get at most half the slots, so photos behind them still load', async () => {
+  const pg = page('', { protocol: 'h2' });
+  const { thumbLoader } = load(pg, ['custom-index/thumbs.js'], ['thumbLoader']);
+  const imgs = [];
+  const queue = (name, heavy) => {
+    const img = pg.document.createElement('img');
+    imgs.push(img);
+    thumbLoader.load(img, name, () => { }, false, heavy);
+  };
+  // A folder of videos, then its photos.
+  for (let i = 0; i < 20; i++) queue('v' + i, true);
+  for (let i = 0; i < 10; i++) queue('p' + i, false);
+  await pg.settle();
+  const fetched = () => pg.requests.map((r) => r.url);
+  assert.deepEqual(fetched(), ['v0', 'v1', 'v2', 'v3', 'v4', 'v5', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5'],
+    'six of the twelve slots to videos, the rest to the photos queued after them');
+
+  // The next batch, once all of this one is in: the next six videos,
+  // and the photos that are left.
+  imgs.forEach((img) => { if (img._thumb === 'loading') img.fire('load'); });
+  pg.frame();
+  await pg.settle();
+  assert.deepEqual(fetched().slice(12), ['v6', 'v7', 'v8', 'v9', 'v10', 'v11', 'p6', 'p7', 'p8', 'p9']);
+});
