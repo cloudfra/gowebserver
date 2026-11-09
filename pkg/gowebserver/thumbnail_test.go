@@ -845,8 +845,8 @@ func TestThumbnailVideo(t *testing.T) {
 			t.Errorf("frame runs %q: want one at 10s", runs)
 		}
 		// The video's length wasn't needed, so it wasn't asked for.
-		if all := strings.Split(strings.TrimSpace(string(args)), "\n"); len(all) != 1 {
-			t.Errorf("ffmpeg runs %q: want only the frame", all)
+		if n := ffmpegRuns(t, argsFile); n != 1 {
+			t.Errorf("ffmpeg ran %d times for the video (%q): want only the frame", n, args)
 		}
 	})
 

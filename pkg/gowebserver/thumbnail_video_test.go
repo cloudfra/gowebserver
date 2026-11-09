@@ -62,7 +62,8 @@ func framesAt(t *testing.T, bin string, frames map[string]image.Image) {
 	}
 }
 
-// ffmpegRuns is how many times the fake ffmpeg has run.
+// ffmpegRuns is how many times the fake ffmpeg has run for a video, not
+// counting the look at its encoders when the thumbnailer starts.
 func ffmpegRuns(t *testing.T, argsFile string) int {
 	t.Helper()
 	data, err := os.ReadFile(argsFile)
@@ -72,7 +73,13 @@ func ffmpegRuns(t *testing.T, argsFile string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return len(strings.Split(strings.TrimSpace(string(data)), "\n"))
+	n := 0
+	for _, run := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if run != "" && !strings.Contains(run, "-encoders") {
+			n++
+		}
+	}
+	return n
 }
 
 func TestThumbnailVideoDarkFrames(t *testing.T) {

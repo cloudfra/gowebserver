@@ -233,8 +233,11 @@ type thumbnailer struct {
 	toolsMu    sync.Mutex
 	tools      *photoTools
 	probing    bool
-	probeAgain time.Time // after a failed look
-	probed     chan struct{}
+	probeAgain time.Time     // after a failed look
+	probed     chan struct{} // closed once it's known
+	// Closed once the first look at ffmpeg has ended, however it went.
+	firstProbe     chan struct{}
+	firstProbeOnce sync.Once
 	// Finding out runs in the background until close.
 	probeCtx    context.Context
 	probeCancel context.CancelFunc
@@ -371,7 +374,7 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 		return nil, errors.Join(err, store.close())
 	}
 	probeCtx, probeCancel := context.WithCancel(context.Background())
-	return &thumbnailer{
+	t := &thumbnailer{
 		probeCtx:    probeCtx,
 		probeCancel: probeCancel,
 		store:       store,
@@ -381,8 +384,20 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 		metrics:     metrics,
 		renders:     map[string]*render{},
 		probed:      make(chan struct{}),
-	}, nil
+		firstProbe:  make(chan struct{}),
+	}
+	// Find out what ffmpeg does now, so the first thumbnails are already
+	// WebP (see chooseWebP), rather than JPEGs stored beside the WebP
+	// images made once it's known.
+	t.photoTools()
+	return t, nil
 }
+
+// thumbnailProbeWait is how long a thumbnail waits for the first look at
+// ffmpeg to end before it's made without knowing (see chooseWebP). That
+// look runs "ffmpeg -encoders", well under a second, unless ffmpeg is
+// being downloaded.
+const thumbnailProbeWait = 5 * time.Second
 
 // thumbnailProbeRetry is how long after failing to run ffmpeg photos are
 // made without it before it's tried again.
@@ -412,6 +427,7 @@ func (t *thumbnailer) photoTools() photoTools {
 func (t *thumbnailer) probe() {
 	defer t.probes.Done()
 	encoders, err := t.ffmpeg.Encoders(t.probeCtx)
+	defer t.firstProbeOnce.Do(func() { close(t.firstProbe) })
 	t.toolsMu.Lock()
 	defer t.toolsMu.Unlock()
 	t.probing = false
@@ -647,10 +663,31 @@ func (t *thumbnailer) chooseWebP(spec *thumbnailSpec, accept string) *thumbnailS
 	}
 	s := *spec
 	s.format = ""
+	if spec.format == "webp" || strings.Contains(accept, "image/webp") {
+		t.awaitFirstProbe()
+	}
 	if (spec.format == "webp" || strings.Contains(accept, "image/webp")) && t.photoTools().webp {
 		s.format = "webp"
 	}
 	return &s
+}
+
+// awaitFirstProbe waits, up to thumbnailProbeWait, for the first look at
+// what ffmpeg does to end, when there is an ffmpeg to look at.
+func (t *thumbnailer) awaitFirstProbe() {
+	t.toolsMu.Lock()
+	known := t.tools != nil
+	t.toolsMu.Unlock()
+	if t.ffmpeg == nil || known || t.firstProbe == nil {
+		return
+	}
+	timer := time.NewTimer(thumbnailProbeWait)
+	defer timer.Stop()
+	select {
+	case <-t.firstProbe:
+	case <-t.probeCtx.Done():
+	case <-timer.C:
+	}
 }
 
 // thumbnailPath is where the thumbnail of the file name (with info) for
@@ -1678,7 +1715,11 @@ func (s *thumbnailStore) get(name string) (*thumbnail, bool) {
 }
 
 // put stores th at name, a path from thumbnailPath, and removes the
-// thumbnails of the same size made from older versions of the file.
+// thumbnails of the same size made from older versions of the file. A
+// WebP thumbnail also replaces the JPEG or PNG of the same size, one
+// made with the format left to the server (as before ffmpeg was known to
+// write WebP), so the store keeps one of them; a browser without WebP,
+// which is rare, has it made again.
 func (s *thumbnailStore) put(name string, th *thumbnail) error {
 	dir, base := path.Dir(name), path.Base(name)
 	if err := s.fsys.MkdirAll(dir, 0o755); err != nil {
@@ -1695,12 +1736,15 @@ func (s *thumbnailStore) put(name string, th *thumbnail) error {
 		return err
 	}
 	spec, _, _ := strings.Cut(base, "@")
+	// The same spec without its format (see thumbnailSpec.key).
+	formatless := strings.Replace(spec, "-webp", "", 1)
 	entries, err := fs.ReadDir(s.fsys, dir)
 	if err != nil {
 		return err
 	}
 	for _, e := range entries {
-		if n := e.Name(); n != base && strings.HasPrefix(n, spec+"@") {
+		n := e.Name()
+		if n != base && (strings.HasPrefix(n, spec+"@") || (formatless != spec && strings.HasPrefix(n, formatless+"@"))) {
 			if err := s.fsys.Remove(path.Join(dir, n)); err != nil {
 				return err
 			}
