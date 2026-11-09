@@ -39,7 +39,7 @@ var (
 )
 
 func TestServeAndDie(t *testing.T) {
-	baseURL, closer := serveAsync(t, &Config{Debug: true})
+	baseURL, closer := serveAsync(t, &Config{Debug: Debug{Shutdown: true}})
 	defer closer()
 
 	if resp, err := http.Get(baseURL + "/diediedie"); err == nil || resp != nil {

@@ -14,8 +14,8 @@
 
 package gowebserver
 
-// Diagnostics: with -diagnostics=FILE (diagnostics in the YAML
-// configuration), the server and the file browser page write what
+// Diagnostics: with -debug.diagnostics=FILE (debug: diagnostics: in the
+// YAML configuration), the server and the file browser page write what
 // happened while someone browses to FILE, one event a line, as plain
 // text, to find out where browsing is slow or goes wrong:
 //
@@ -416,11 +416,11 @@ func anonFolder(name string) string {
 func anonURL(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "unparseable"
+		return "unparsable"
 	}
 	p, err := url.PathUnescape(u.EscapedPath())
 	if err != nil {
-		return "unparseable"
+		return "unparsable"
 	}
 	out := anonPath(p)
 	q := url.Values{}

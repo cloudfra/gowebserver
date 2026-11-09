@@ -16,7 +16,9 @@ package gowebserver
 
 import (
 	_ "embed"
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,7 +47,6 @@ func TestPopulatedConfig(t *testing.T) {
 	conf := &Config{
 		Verbose:      true,
 		EnhancedList: true,
-		Debug:        true,
 		Serve: []Serve{{
 			Source:   "/home/folder",
 			Endpoint: "/serving",
@@ -66,7 +67,6 @@ func TestPopulatedConfig(t *testing.T) {
 			},
 		},
 		Monitoring: Monitoring{
-			DebugEndpoint: "/debugging",
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/prometheus",
@@ -89,6 +89,7 @@ func TestPopulatedConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
+		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -119,7 +120,7 @@ func TestNoDefaultConfig(t *testing.T) {
 			},
 		},
 		ConfigurationFile: "",
-		Debug:             true,
+		Debug:             Debug{Endpoint: "/zdebug", Shutdown: true, Diagnostics: "diag.log"},
 		HTTP: HTTP{
 			Port: 1,
 		},
@@ -136,7 +137,6 @@ func TestNoDefaultConfig(t *testing.T) {
 			},
 		},
 		Monitoring: Monitoring{
-			DebugEndpoint: "/zdebug",
 			Metrics: Metrics{
 				Enabled: false,
 				Path:    "/metrics",
@@ -171,7 +171,6 @@ func TestPopulatedYamlConfig(t *testing.T) {
 	want := &Config{
 		Verbose:      true,
 		EnhancedList: true,
-		Debug:        true,
 		Serve: []Serve{
 			{
 				Source:   "/home/folder",
@@ -195,7 +194,6 @@ func TestPopulatedYamlConfig(t *testing.T) {
 			},
 		},
 		Monitoring: Monitoring{
-			DebugEndpoint: "/debugging",
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/prometheus",
@@ -219,6 +217,7 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
+		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -261,7 +260,6 @@ func TestDefaultConfiguration(t *testing.T) {
 			},
 		},
 		Monitoring: Monitoring{
-			DebugEndpoint: "",
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/metrics",
@@ -282,5 +280,50 @@ func TestDefaultConfiguration(t *testing.T) {
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// A configuration file with a setting where it used to be is an error that
+// says where it is now, rather than a server started without it.
+func TestMovedSettings(t *testing.T) {
+	for name, tc := range map[string]struct {
+		yaml string
+		want []string
+	}{
+		"debug: true": {
+			yaml: "debug: true\n",
+			want: []string{`"debug: true" is now "debug:" with "shutdown: true" under it`},
+		},
+		"monitoring.debugEndpoint": {
+			yaml: "monitoring:\n  debugEndpoint: /debug\n  metrics:\n    enabled: true\n",
+			want: []string{`"monitoring: debugEndpoint:" is now "debug:" with "endpoint: /debug" under it`},
+		},
+		"both": {
+			yaml: "debug: false\nmonitoring:\n  debugEndpoint: /x\n",
+			want: []string{`"debug: false"`, `"endpoint: /x"`},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			filename := filepath.Join(t.TempDir(), "config.yaml")
+			gowsTesting.MustFile(t, filename, []byte(tc.yaml))
+			err := loadWithConfigFile(filename, &Config{})
+			if !errors.Is(err, errSettingMoved) {
+				t.Fatalf("loading %q: %v, want errSettingMoved", tc.yaml, err)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(err.Error(), w) {
+					t.Errorf("error %q: missing %q", err, w)
+				}
+			}
+		})
+	}
+
+	// The new block, and a file without either, load.
+	for _, ok := range []string{"debug:\n  endpoint: /debug\n  shutdown: true\n", "verbose: true\n", ""} {
+		filename := filepath.Join(t.TempDir(), "config.yaml")
+		gowsTesting.MustFile(t, filename, []byte(ok))
+		if err := loadWithConfigFile(filename, &Config{}); err != nil {
+			t.Errorf("loading %q: %v", ok, err)
+		}
 	}
 }

@@ -84,9 +84,22 @@ With ffmpeg, thumbnails are cheaper and smaller. It decodes JPEG photos several 
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, covering square photo tiles or 16:9 video tiles (`fit=outside`, so the thumbnail keeps the file's shape and the tile crops it), chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
+## Debugging
+
+Settings only for debugging and diagnosing the server are in one block, all off unless set:
+
+```yaml
+debug:
+  endpoint: /debug    # pprof and OpenTelemetry tracez under this path (-debug.endpoint)
+  shutdown: false     # /diediedie shuts the server down, for tests (-debug.shutdown)
+  diagnostics: ""     # anonymized browsing diagnostics to this file; see below (-debug.diagnostics)
+```
+
+They used to be `monitoring.debugEndpoint` (`-monitoring.debugendpoint`) and a top-level `debug: true` (`-debug`). A configuration file that still uses those stops the server at startup with an error saying where each one is now.
+
 ## Diagnostics
 
-To find out where browsing is slow or goes wrong, `-diagnostics=FILE` (`diagnostics: FILE` in the configuration file) has the server and the file browser write what happened to `FILE`, one event a line, as plain text you can read before passing it on. It's off by default.
+To find out where browsing is slow or goes wrong, `-debug.diagnostics=FILE` (`diagnostics: FILE` under `debug:` in the configuration file) has the server and the file browser write what happened to `FILE`, one event a line, as plain text you can read before passing it on. It's off by default.
 
 ```text
 2026-11-08T21:32:36.042Z server thumbnail file=6e02f171a3.mp4 dir=50408608b6/bb950beaf7 kind=video result=made ms=400 spec=512x288-outside

@@ -1,7 +1,6 @@
 verbose: false
 serve: []
 enhancedList: false
-debug: false
 http:
   port: 0
 https:
@@ -14,7 +13,6 @@ https:
     hosts: ""
     duration: 0s
 monitoring:
-  debugEndpoint: ""
   metrics:
     enabled: false
     path: ""
@@ -32,3 +30,7 @@ ffmpeg:
 thumbnails:
   enabled: false
   cachePath: ""
+debug:
+  endpoint: ""
+  shutdown: false
+  diagnostics: ""

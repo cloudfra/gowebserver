@@ -320,7 +320,7 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath = dir
 	}
 
-	monitoringCtx, err := setupMonitoring(conf.Monitoring)
+	monitoringCtx, err := setupMonitoring(conf.Monitoring, conf.Debug.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
 	}
@@ -343,8 +343,8 @@ func New(conf *Config) (WebServer, error) {
 		certificateFilePath: conf.HTTPS.Certificate.CertificateFilePath,
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
-		enableDebugMethods:  conf.Debug,
-		diagnosticsPath:     conf.Diagnostics,
+		enableDebugMethods:  conf.Debug.Shutdown,
+		diagnosticsPath:     conf.Debug.Diagnostics,
 		thumbnails:          conf.Thumbnails,
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,

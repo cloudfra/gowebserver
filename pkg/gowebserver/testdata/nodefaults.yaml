@@ -3,7 +3,6 @@ serve:
 - source: "/home/example"
   endpoint: "/serving"
 enhancedList: true
-debug: true
 configurationfile: "/something.yaml"
 http:
   port: 1
@@ -18,7 +17,6 @@ https:
     duration: 1m0s
     forceoverwrite: false
 monitoring:
-  debugEndpoint: /zdebug
   metrics:
     enabled: false
     path: /metrics
@@ -28,3 +26,7 @@ monitoring:
 upload:
   source: "dropsite"
   endpoint: "/upload.jspx"
+debug:
+  endpoint: /zdebug
+  shutdown: true
+  diagnostics: diag.log

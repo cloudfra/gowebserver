@@ -80,7 +80,7 @@ func TestSetupMonitoring(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := setupMonitoring(tc.m); err != nil {
+			if _, err := setupMonitoring(tc.m, ""); err != nil {
 				t.Error(err)
 			}
 		})
