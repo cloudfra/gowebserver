@@ -84,6 +84,20 @@ With ffmpeg, thumbnails are cheaper and smaller. It decodes JPEG photos several 
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, covering square photo tiles or 16:9 video tiles (`fit=outside`, so the thumbnail keeps the file's shape and the tile crops it), chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
+## Diagnostics
+
+To find out where browsing is slow or goes wrong, `-diagnostics=FILE` (`diagnostics: FILE` in the configuration file) has the server and the file browser write what happened to `FILE`, one event a line, as plain text you can read before passing it on. It's off by default.
+
+```text
+2026-11-08T21:32:36.042Z server thumbnail file=6e02f171a3.mp4 dir=50408608b6/bb950beaf7 kind=video result=made ms=400 spec=512x288-outside
+2026-11-08T21:32:36.064Z server ffmpeg-frame file=6e02f171a3.mp4 at_s=10 luma=141 ms=240 piped=false
+2026-11-08T21:32:37.425Z client thumb url="6e02f171a3.mp4?fit=outside&height=288&width=512" kind=strip ok=true ms=380 cache=net
+```
+
+What's recorded: each thumbnail request (result, time, error kind), each run of ffmpeg for a video (where in the video, how long, how bright the frame was), and from the browser, the page (how many photos and videos, screen size, protocol), each thumbnail it loaded or gave up on, video tiles, the slideshow's filmstrip, how many tiles on screen are still waiting (every few seconds), and script errors (kind, line and function names).
+
+What isn't: no file or folder name. Each is replaced by a token, the first 10 hex digits of an HMAC-SHA256 under a random key that is made when the server starts and never written, so a file can be followed through one run's log but its name can't be recovered, and tokens don't match between runs. Files keep their extension (`.mp4`); folders keep nothing. Errors are written as a category such as `timeout` or `ffmpeg-invalid-data`, never their message, which can contain paths or a video's title. The server checks what the browser sends: only known fields are kept, URLs are anonymized, and text is kept only where a field has a fixed set of values. The browser's user agent is reduced to a device and browser name (`ipad,safari-18`). The file stops growing at 256 MB, since anyone who can reach the server can send the browser's events while diagnostics are on.
+
 ## Downloads
 
 |   OS    | Arch  | Link

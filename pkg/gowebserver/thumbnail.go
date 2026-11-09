@@ -574,9 +574,16 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	span.SetAttributes(attribute.String("path", name), attribute.String("spec", spec.key()), attribute.String("kind", kind))
 	result := thumbnailCached
+	var renderErr error
 	defer func() {
 		span.SetAttributes(attribute.String("result", result))
 		h.t.metrics.request(ctx, kind, result, start)
+		if diagEnabled() {
+			diagEvent("server", "thumbnail", map[string]any{
+				"file": anon(path.Base(name)), "dir": anonDir(path.Dir(name)), "spec": spec.key(), "kind": kind,
+				"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(renderErr),
+			})
+		}
 	}()
 
 	key := path.Join(h.source, thumbnailPath(name, info, spec, video))
@@ -602,6 +609,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		th, err = h.t.shared(ctx, key, func(ctx context.Context) (*thumbnail, error) {
 			return h.make(ctx, name, video, spec)
 		})
+		renderErr = err
 		switch {
 		case err == nil:
 			result = thumbnailMade
@@ -1112,6 +1120,7 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 	timedOut := false
 	frame := func(at time.Duration) (videoFrame, error) {
 		var fr videoFrame
+		started := time.Now()
 		err := h.withVideo(ctx, ffmpegFrame, pipe, func(ctx context.Context, stdin io.Reader) error {
 			span := trace.SpanFromContext(ctx)
 			span.SetAttributes(attribute.Float64("at_seconds", at.Seconds()))
@@ -1122,6 +1131,12 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			}
 			return err
 		})
+		if diagEnabled() {
+			diagEvent("server", "ffmpeg-frame", map[string]any{
+				"file": diagFile(input, pipe), "piped": pipe != "", "at_s": at.Seconds(),
+				"ms": time.Since(started).Milliseconds(), "err": errCategory(err), "luma": int(fr.luma),
+			})
+		}
 		if errors.Is(err, ffmpeg.ErrNotStarted) {
 			h.t.ffmpegFailed(err)
 			return fr, errFFmpegUnavailable
@@ -1144,6 +1159,11 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
 			return err
 		})
+		if diagEnabled() {
+			diagEvent("server", "ffmpeg-duration", map[string]any{
+				"file": diagFile(input, pipe), "piped": pipe != "", "dur_s": dur.Seconds(), "err": errCategory(durErr),
+			})
+		}
 		if errors.Is(durErr, ffmpeg.ErrNotStarted) {
 			h.t.ffmpegFailed(durErr)
 			durErr = errFFmpegUnavailable

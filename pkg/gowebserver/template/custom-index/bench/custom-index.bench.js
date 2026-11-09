@@ -20,7 +20,7 @@
 const { page, load, bench, markup } = require('../../harness.js');
 
 const N = 50000;
-const FILES = ['custom-index/util.js', 'custom-index/thumbs.js', 'custom-index/data.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js'];
 
 function media(n) {
   const out = [];
@@ -83,7 +83,7 @@ const stubs = () => ({
 // scrolled away before any of it loads.
 (function () {
   const pg = page('');
-  const { thumbLoader } = load(pg, ['custom-index/thumbs.js'], ['thumbLoader']);
+  const { thumbLoader } = load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js'], ['thumbLoader']);
   const imgs = [];
   for (let i = 0; i < 200; i++) imgs.push(pg.document.createElement('img'));
   const done = () => { };

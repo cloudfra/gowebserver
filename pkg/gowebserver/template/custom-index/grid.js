@@ -142,6 +142,7 @@ function createGrid(el) {
       if (ok || !it.video) { showTile(a, ok ? 'ready' : 'err'); return; }
       // The server couldn't grab a frame of this video: the tile is
       // the video itself, as when the server makes no thumbnails.
+      diag('tile-plain', { url: it.url });
       img.remove();
       a._plain = true;
       a._loading = false;
@@ -460,9 +461,21 @@ function mountVideo(a) {
   };
   a._release = release;
   v.preload = 'metadata';
-  v.addEventListener('loadedmetadata', function () { showTile(a, 'ready'); release(); }, { once: true });
-  v.addEventListener('error', function () { showTile(a, 'err'); release(); }, { once: true });
-  setTimeout(release, 10000);
+  var t0 = performance.now();
+  v.addEventListener('loadedmetadata', function () {
+    diag('video-tile', { url: a._item.url, ok: true, phase: 'metadata', ms: Math.round(performance.now() - t0), nw: v.videoWidth, nh: v.videoHeight });
+    showTile(a, 'ready');
+    release();
+  }, { once: true });
+  v.addEventListener('error', function () {
+    diag('video-tile', { url: a._item.url, ok: false, status: v.error && v.error.code, ms: Math.round(performance.now() - t0) });
+    showTile(a, 'err');
+    release();
+  }, { once: true });
+  setTimeout(function () {
+    if (!done) diag('video-tile', { url: a._item.url, ok: false, why: 'no metadata in 10s', status: v.readyState });
+    release();
+  }, 10000);
   v.src = a._item.url + '#t=0.5';
   a.insertBefore(v, a.firstChild);
 }

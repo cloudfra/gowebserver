@@ -51,6 +51,7 @@ var thumbLoader = (function () {
     loading++;
     if (img._thumbHeavy) heavy++;
     img._thumb = 'loading';
+    img._thumbStart = performance.now();
     img._thumbEnd = function (e) { arrive(img, e.type === 'load'); };
     img.addEventListener('load', img._thumbEnd);
     img.addEventListener('error', img._thumbEnd);
@@ -67,6 +68,13 @@ var thumbLoader = (function () {
   }
 
   function arrive(img, ok) {
+    if (CFG.diag) {
+      var r = diagResource(img._thumbURL);
+      diag('thumb', {
+        url: img._thumbURL, ok: ok, kind: img._diagKind || 'grid', ms: Math.round(performance.now() - img._thumbStart),
+        nw: img.naturalWidth, nh: img.naturalHeight, status: r.status, bytes: r.bytes, cache: r.cache, timing: r.timing
+      });
+    }
     stop(img);
     img._thumb = 'arrived';
     img._thumbOK = ok;
@@ -86,6 +94,7 @@ var thumbLoader = (function () {
   // a row scrolled away cancels its tiles one by one, and starting the
   // next batch in the middle would fetch tiles about to be canceled.
   function close() {
+    if (loading) diag('batch-timeout', { loading: loading, queued: queue.length });
     clearTimeout(timer);
     timer = 0;
     if (arrived.length) {
@@ -126,6 +135,8 @@ var thumbLoader = (function () {
       pumpSoon();
     },
     unqueue: unqueue,
+    // What's loading and waiting now, for diagnostics.
+    stats: function () { return { loading: loading, queued: queue.length }; },
     // Stops img loading, whether it's waiting or under way; done
     // isn't called.
     cancel: function (img) {
@@ -133,7 +144,11 @@ var thumbLoader = (function () {
       var was = img._thumb;
       img._thumb = '';
       img.removeAttribute('src');
-      if (was === 'loading') { stop(img); settle(); }
+      if (was === 'loading') {
+        diag('thumb-cancel', { url: img._thumbURL, kind: img._diagKind || 'grid', ms: Math.round(performance.now() - img._thumbStart) });
+        stop(img);
+        settle();
+      }
     }
   };
 })();

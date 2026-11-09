@@ -71,6 +71,7 @@ var (
 	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
 	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
 	debugFlag               = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
+	diagnosticsFlag         = flag.String("diagnostics", "", "Write anonymized diagnostics of browsing (thumbnails, ffmpeg, what the file browser loads and shows) to this file, one event a line. Names are replaced by tokens. Empty turns them off.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -121,6 +122,9 @@ type Config struct {
 	ConfigurationFile string  `yaml:"-"`
 	EnhancedList      bool    `yaml:"enhancedList"`
 	Debug             bool    `yaml:"debug"`
+	// Diagnostics is a file to write anonymized diagnostics of browsing to
+	// (see diagnostics.go). Empty, the default, turns them off.
+	Diagnostics string `yaml:"diagnostics,omitempty"`
 
 	HTTP       HTTP       `yaml:"http"`
 	HTTPS      HTTPS      `yaml:"https"`
@@ -247,6 +251,7 @@ func loadFromFlags() (*Config, error) {
 		ConfigurationFile: *configFileFlag,
 		EnhancedList:      *enhancedListFlag,
 		Debug:             *debugFlag,
+		Diagnostics:       *diagnosticsFlag,
 		HTTP: HTTP{
 			Port: *httpPortFlag,
 		},

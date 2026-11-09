@@ -162,8 +162,11 @@ type customIndexReport struct {
 	HasVideo         bool
 	// Thumbnails is set when the grid can request resized images, and
 	// VideoThumbnails when it can request video frames too.
-	Thumbnails            bool
-	VideoThumbnails       bool
+	Thumbnails      bool
+	VideoThumbnails bool
+	// Diagnostics is where the page sends its diagnostics events, or ""
+	// when they're off (see diagnostics.go).
+	Diagnostics           string
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -333,6 +336,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		UseTimestamp:          strings.Contains(sortBy, "date"),
 		Thumbnails:            c.thumbs != nil,
 		VideoThumbnails:       c.thumbs.videos(),
+		Diagnostics:           diagPageEndpoint(r.RequestURI),
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}
