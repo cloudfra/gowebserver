@@ -35,11 +35,14 @@ var slideshow = (function () {
     if (isFullscreen()) (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
   }
 
-  // Starting autoplay goes fullscreen unless the viewer turned that
-  // off. Only the fullscreen button (or F) during autoplay changes the
-  // preference: leaving with Esc doesn't, since people press Esc on
-  // the way to closing the slideshow.
+  // Autoplay goes fullscreen, and on a phone opening the gallery does
+  // too, unless the viewer turned that off. Only the fullscreen button
+  // (or F) changes the preference: leaving with Esc doesn't, since
+  // people press Esc on the way to closing the slideshow. autoFs says
+  // whether the full screen now on screen was entered by the page
+  // itself, which is the one refusing it switches off for next time.
   var FULLSCREEN_KEY = 'gows-slideshow-fullscreen';
+  var autoFs = false;
   function wantsFullscreen() {
     return store(FULLSCREEN_KEY) !== 'off';
   }
@@ -64,7 +67,8 @@ var slideshow = (function () {
     if (!isFullscreen()) {
       fitMode = FIT_MODES[0];
       enterFullscreen();
-      if (auto) store(FULLSCREEN_KEY, null);
+      store(FULLSCREEN_KEY, null);
+      autoFs = false;
       return;
     }
     var next = FIT_MODES.indexOf(fitMode) + 1;
@@ -75,7 +79,8 @@ var slideshow = (function () {
       return;
     }
     exitFullscreen();
-    if (auto) store(FULLSCREEN_KEY, 'off');
+    if (autoFs) store(FULLSCREEN_KEY, 'off');
+    autoFs = false;
   }
 
   var shownFull = null;
@@ -102,10 +107,24 @@ var slideshow = (function () {
     H = stage.clientHeight;
   }
 
+  // A stage too small to show a picture beside its controls: phones in
+  // either orientation, and any window that short. The first two numbers
+  // are the widest a phone gets, the last the shortest.
+  function tinyStage() {
+    return W < 700 || H < 500;
+  }
+
+  // A phone: a touch screen, and a stage too small for the windowed
+  // view. Its gallery opens full screen, where a windowed one is barely
+  // bigger than the thumbnail it opened from.
+  function isPhone() {
+    return !finePointer.matches && tinyStage();
+  }
+
   // Space reserved around a slide for the controls; phones go edge to edge.
   function insets() {
     // In full screen the controls float over the media instead.
-    if (W < 700 || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
+    if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
     return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
   }
 
@@ -717,7 +736,10 @@ var slideshow = (function () {
   function setAuto(on) {
     var starting = on && !auto;
     auto = on;
-    if (starting && wantsFullscreen()) enterFullscreen();
+    if (starting && wantsFullscreen()) {
+      autoFs = true;
+      enterFullscreen();
+    }
     btnAuto.setAttribute('aria-pressed', String(on));
     btnAuto.setAttribute('aria-label', on ? 'Pause slideshow' : 'Play slideshow');
     btnAuto.innerHTML = on
@@ -827,12 +849,19 @@ var slideshow = (function () {
     if (grid) grid.dropPreviews();
     dlg.showModal();
     measure();
+    // A phone's windowed slide is barely bigger than the tile it opened
+    // from, so its gallery opens full screen unless the viewer turned
+    // that off.
+    autoFs = fullscreenEnabled && !autoplay && isPhone() && wantsFullscreen();
+    if (autoFs) enterFullscreen();
     mountWindow();
     position(0);
     updateInfo();
     try { history.pushState({ gowsSlideshow: true }, ''); } catch (e) { }
     requestAnimationFrame(function () { dlg.classList.add('open'); });
-    flyIn(tile);
+    // The fly image is drawn by the dialog, outside the full-screen
+    // element, so a gallery that opens full screen skips the flight.
+    if (!autoFs) flyIn(tile);
     showChrome();
     setAuto(!!autoplay);
     playCurrentVideo();

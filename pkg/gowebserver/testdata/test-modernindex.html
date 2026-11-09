@@ -3373,7 +3373,8 @@
         backdrop-filter: none;
       }
 
-      .ss-btn.opt {
+       
+      .ss-btn.opt:not(#ss-full) {
         display: none;
       }
     }
@@ -5326,7 +5327,10 @@
         
         
         
+        
+        
         var FULLSCREEN_KEY = 'gows-slideshow-fullscreen';
+        var autoFs = false;
         function wantsFullscreen() {
           return store(FULLSCREEN_KEY) !== 'off';
         }
@@ -5351,7 +5355,8 @@
           if (!isFullscreen()) {
             fitMode = FIT_MODES[0];
             enterFullscreen();
-            if (auto) store(FULLSCREEN_KEY, null);
+            store(FULLSCREEN_KEY, null);
+            autoFs = false;
             return;
           }
           var next = FIT_MODES.indexOf(fitMode) + 1;
@@ -5362,7 +5367,8 @@
             return;
           }
           exitFullscreen();
-          if (auto) store(FULLSCREEN_KEY, 'off');
+          if (autoFs) store(FULLSCREEN_KEY, 'off');
+          autoFs = false;
         }
 
         var shownFull = null;
@@ -5390,9 +5396,23 @@
         }
 
         
+        
+        
+        function tinyStage() {
+          return W < 700 || H < 500;
+        }
+
+        
+        
+        
+        function isPhone() {
+          return !finePointer.matches && tinyStage();
+        }
+
+        
         function insets() {
           
-          if (W < 700 || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
+          if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
           return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
         }
 
@@ -6004,7 +6024,10 @@
         function setAuto(on) {
           var starting = on && !auto;
           auto = on;
-          if (starting && wantsFullscreen()) enterFullscreen();
+          if (starting && wantsFullscreen()) {
+            autoFs = true;
+            enterFullscreen();
+          }
           btnAuto.setAttribute('aria-pressed', String(on));
           btnAuto.setAttribute('aria-label', on ? 'Pause slideshow' : 'Play slideshow');
           btnAuto.innerHTML = on
@@ -6114,12 +6137,19 @@
           if (grid) grid.dropPreviews();
           dlg.showModal();
           measure();
+          
+          
+          
+          autoFs = fullscreenEnabled && !autoplay && isPhone() && wantsFullscreen();
+          if (autoFs) enterFullscreen();
           mountWindow();
           position(0);
           updateInfo();
           try { history.pushState({ gowsSlideshow: true }, ''); } catch (e) { }
           requestAnimationFrame(function () { dlg.classList.add('open'); });
-          flyIn(tile);
+          
+          
+          if (!autoFs) flyIn(tile);
           showChrome();
           setAuto(!!autoplay);
           playCurrentVideo();

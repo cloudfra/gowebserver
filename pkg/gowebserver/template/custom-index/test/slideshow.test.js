@@ -20,6 +20,29 @@ const { page, load, markup } = require('../../harness.js');
 
 const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/slideshow.js'];
 
+// util.js's question about the input device, spelled as it asks it.
+const FINE_POINTER = '(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)';
+const FULLSCREEN_KEY = 'gows-slideshow-fullscreen';
+
+// The stand-in has no full screen, so a test that wants one asks for it
+// before the page's scripts run: requestFullscreen and exitFullscreen
+// set what the document reports and fire the change event the page
+// listens for.
+function fullScreen(pg, $) {
+  const doc = pg.document;
+  doc.fullscreenEnabled = true;
+  doc.fullscreenElement = null;
+  const show = (el) => {
+    doc.fullscreenElement = el;
+    doc.fire('fullscreenchange');
+  };
+  $('ss-frame').requestFullscreen = function () {
+    show(this);
+    return Promise.resolve();
+  };
+  doc.exitFullscreen = function () { show(null); };
+}
+
 // The slideshow over a folder of n photos (every tenth item a video
 // when videos is set), on the template's own dialog markup.
 function setup(n, opts) {
@@ -32,6 +55,9 @@ function setup(n, opts) {
   const ambient = { show() { }, reset() { }, clear() { } };
   const pg = page('<p id="summary"></p><p id="no-match"></p>' + markup('custom-index/custom-index.html', '<dialog class="ss"', '</dialog>'), {
     innerWidth: opts.width || 1600,
+    stored: opts.stored,
+    // Only a desktop test says a mouse is in use.
+    media: opts.mouse ? { [FINE_POINTER]: true } : undefined,
     globals: {
       GOWS: { sort: 'name', thumbs: opts.thumbs !== false, videoThumbs: true, media },
       grid: null,
@@ -41,8 +67,12 @@ function setup(n, opts) {
     },
   });
   const $ = (id) => pg.document.getElementById(id);
-  $('ss-stage').clientWidth = 1280;
-  $('ss-stage').clientHeight = 800;
+  // The stage is the room the slideshow draws in; a phone test gives it
+  // a phone's, portrait or landscape.
+  const stage = opts.stage || [1280, 800];
+  $('ss-stage').clientWidth = stage[0];
+  $('ss-stage').clientHeight = stage[1];
+  if (opts.fullscreen) fullScreen(pg, $);
   const s = load(pg, FILES, ['slideshow', 'all']);
   return {
     pg, $, all: s.all, slideshow: s.slideshow,
@@ -50,6 +80,7 @@ function setup(n, opts) {
     slides: () => $('ss-stage').children,
     strip: () => $('ss-strip').children,
     key: (k) => $('ss').fire('keydown', { key: k }),
+    full: () => pg.document.fullscreenElement || null,
   };
 }
 
@@ -179,4 +210,70 @@ test('closing takes everything back out of the page', async () => {
   // And it opens again.
   t.slideshow.open(t.all, 50, null, false);
   assert.equal(t.slides().length, 3);
+});
+
+test('a phone opens the gallery full screen', () => {
+  const t = setup(30, { stage: [390, 844], fullscreen: true });
+  t.slideshow.open(t.all, 5, null, false);
+  assert.equal(t.full(), t.$('ss-frame'), 'the frame, never the dialog');
+  assert.equal(t.dlg.classList.contains('is-fs'), true);
+  assert.equal(t.slides()[0].style.padding, '0px 0px 0px 0px', 'the slide has the whole stage');
+});
+
+test('a landscape phone opens full screen too', () => {
+  const t = setup(30, { stage: [844, 390], fullscreen: true });
+  t.slideshow.open(t.all, 5, null, false);
+  assert.equal(t.full(), t.$('ss-frame'));
+});
+
+test('a phone with no full screen still gets the whole stage', () => {
+  // iOS Safari: there is no full screen to ask for, so the windowed
+  // slide has to fill the phone by itself.
+  const t = setup(30, { stage: [844, 390] });
+  t.slideshow.open(t.all, 5, null, false);
+  assert.equal(t.full(), null);
+  assert.equal(t.slides()[0].style.padding, '0px 0px 0px 0px');
+});
+
+test('a desktop or a tablet opens the gallery in a window', () => {
+  const desktop = setup(30, { stage: [1280, 800], fullscreen: true, mouse: true });
+  desktop.slideshow.open(desktop.all, 5, null, false);
+  assert.equal(desktop.full(), null);
+  assert.equal(desktop.slides()[0].style.padding, '76px 96px 104px 96px', 'room for the controls');
+
+  const tablet = setup(30, { stage: [1024, 768], fullscreen: true });
+  tablet.slideshow.open(tablet.all, 5, null, false);
+  assert.equal(tablet.full(), null);
+});
+
+test('autoplay on a desktop still goes full screen', () => {
+  const t = setup(30, { stage: [1280, 800], fullscreen: true, mouse: true });
+  t.slideshow.open(t.all, 5, null, true);
+  assert.equal(t.full(), t.$('ss-frame'));
+});
+
+test('a phone shown full screen once stays windowed after it declines', () => {
+  const t = setup(30, { stage: [390, 844], fullscreen: true });
+  t.slideshow.open(t.all, 5, null, false);
+  assert.equal(t.full(), t.$('ss-frame'));
+  // One press fills the screen, the next leaves full screen: the way to
+  // say no, which is remembered.
+  t.$('ss-full').click();
+  assert.equal(t.full(), t.$('ss-frame'), 'still full screen, filling it');
+  t.$('ss-full').click();
+  assert.equal(t.full(), null);
+  assert.equal(t.pg.stored[FULLSCREEN_KEY], 'off');
+
+  const next = setup(30, { stage: [390, 844], fullscreen: true, stored: { [FULLSCREEN_KEY]: 'off' } });
+  next.slideshow.open(next.all, 5, null, false);
+  assert.equal(next.full(), null, 'the next gallery opens the way it was left');
+});
+
+test('asking for full screen forgets a phone declining it', () => {
+  const t = setup(30, { stage: [1280, 800], fullscreen: true, mouse: true, stored: { [FULLSCREEN_KEY]: 'off' } });
+  t.slideshow.open(t.all, 5, null, false);
+  assert.equal(t.full(), null);
+  t.$('ss-full').click();
+  assert.equal(t.full(), t.$('ss-frame'));
+  assert.equal(FULLSCREEN_KEY in t.pg.stored, false);
 });
