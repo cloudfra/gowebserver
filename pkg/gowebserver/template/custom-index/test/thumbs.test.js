@@ -22,7 +22,7 @@ const { page, load } = require('../../harness.js');
 // images handed back, as 'N+' (loaded) or 'N-' (failed).
 function setup(n, opts) {
   const pg = page('', opts);
-  const { thumbLoader } = load(pg, ['custom-index/thumbs.js'], ['thumbLoader']);
+  const { thumbLoader } = load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js'], ['thumbLoader']);
   const shown = [];
   const imgs = [];
   const queue = (front) => {
@@ -193,7 +193,7 @@ test('the queue drains completely', async () => {
 
 test('video thumbnails get at most half the slots, so photos behind them still load', async () => {
   const pg = page('', { protocol: 'h2' });
-  const { thumbLoader } = load(pg, ['custom-index/thumbs.js'], ['thumbLoader']);
+  const { thumbLoader } = load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js'], ['thumbLoader']);
   const imgs = [];
   const queue = (name, heavy) => {
     const img = pg.document.createElement('img');

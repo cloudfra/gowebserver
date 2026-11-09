@@ -30,7 +30,6 @@ https:
     hosts: gowebserver
     duration: 24h0m0s
 monitoring:
-  debugEndpoint: /debug
   metrics:
     enabled: true
     path: /metrics
@@ -40,3 +39,5 @@ monitoring:
 upload:
   source: /gowebserver/upload
   endpoint: /upload
+debug:
+  endpoint: /debug

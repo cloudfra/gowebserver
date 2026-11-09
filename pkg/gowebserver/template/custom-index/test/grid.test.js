@@ -49,7 +49,7 @@ function setup(media, opts) {
   const el = pg.document.getElementById('media');
   el.clientWidth = opts.width;
   el.getBoundingClientRect = () => ({ top: 100 - pg.scrollY });
-  const g = load(pg, ['custom-index/util.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/grid.js'],
+  const g = load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/grid.js'],
     ['grid', 'applyFilter', 'all', 'fmtDuration']);
   g.applyFilter('');
   const tiles = () => el.querySelectorAll('.tile');

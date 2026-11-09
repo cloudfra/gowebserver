@@ -121,7 +121,7 @@ func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
 
 // TestSetupMonitoring_WithTrace exercises the full setupMonitoring path with an
 // OTLP trace endpoint. It verifies:
-//  1. The /tracez debug handler is registered when DebugEndpoint is set.
+//  1. The /tracez debug handler is registered when the debug endpoint is set.
 //  2. The zpages SpanProcessor is wired into the tracer provider so that spans
 //     created through that provider appear on the /tracez page.
 func TestSetupMonitoring_WithTrace(t *testing.T) {
@@ -129,14 +129,13 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 	srv, _ := fakeOTLPServer(t)
 
 	m := Monitoring{
-		DebugEndpoint: "/debug",
 		Trace: Trace{
 			Enabled: true,
 			URI:     srv.URL,
 		},
 	}
 
-	mc, err := setupMonitoring(m)
+	mc, err := setupMonitoring(m, "/debug")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +166,7 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 }
 
 // TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint ensures that when
-// DebugEndpoint is empty, newTraceProvider is called with a nil SpanProcessor
+// debug endpoint is empty, newTraceProvider is called with a nil SpanProcessor
 // and still produces a working provider.
 func TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint(t *testing.T) {
 	ctx := t.Context()
@@ -180,14 +179,14 @@ func TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint(t *testing.T) {
 		},
 	}
 
-	mc, err := setupMonitoring(m)
+	mc, err := setupMonitoring(m, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mc.shutdown()
 
 	if _, ok := mc.handlers["/debug/tracez"]; ok {
-		t.Error("did not expect /debug/tracez handler when DebugEndpoint is empty")
+		t.Error("did not expect /debug/tracez handler when the debug endpoint is empty")
 	}
 
 	if mc.getTraceProvider() == nil {

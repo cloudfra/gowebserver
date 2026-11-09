@@ -61,10 +61,10 @@ $(FFMPEG):
 	status=$$?; rm -f "$@.$$$$.tmp"; exit $$status
 
 run: clean assets lint
-	$(GO) run cmd/gowebserver/gowebserver.go -http.port 8181 -path=. -verbose -debug -enhancedindex=true
+	$(GO) run cmd/gowebserver/gowebserver.go -http.port 8181 -path=. -verbose -debug.shutdown -enhancedindex=true
 
 multirun: clean assets lint
-	$(GO) run cmd/gowebserver/gowebserver.go -path=./cmd/,./pkg/,. -verbose=true -servepath=mains,code,root -http.port 8181 -enhancedindex=true -debug
+	$(GO) run cmd/gowebserver/gowebserver.go -path=./cmd/,./pkg/,. -verbose=true -servepath=mains,code,root -http.port 8181 -enhancedindex=true -debug.shutdown
 
 run-wasm: clean assets lint build/bin/js/wasm/gowebserver build/bin/js/wasm/gowebserver.html
 	$(GO) run cmd/gowebserver/gowebserver.go -http.port 8181 -path=$(REPOSITORY_ROOT)/build/bin/js/wasm/ -verbose

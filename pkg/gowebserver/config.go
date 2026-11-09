@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -55,9 +56,13 @@ var (
 	forceOverwriteCertFlag      = flag.Bool("https.certificate.forceoverwrite", false, "Force overwrite existing certificates if they already exist.")
 
 	// Monitoring Flags
-	monitoringDebugEndpointFlag = flag.String("monitoring.debugendpoint", "", "URL path prefix for pprof and OpenTelemetry tracez debug endpoints. Leave empty to disable these endpoints.")
-	monitoringTraceURIFlag      = flag.String("monitoring.trace.uri", "", "OTLP HTTP endpoint URL for tracing (e.g. http://host:4318).")
-	monitoringMetricsPath       = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
+	monitoringTraceURIFlag = flag.String("monitoring.trace.uri", "", "OTLP HTTP endpoint URL for tracing (e.g. http://host:4318).")
+	monitoringMetricsPath  = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
+
+	// Debug Flags
+	debugEndpointFlag    = flag.String("debug.endpoint", "", "URL path prefix for the pprof and OpenTelemetry tracez debug endpoints. Empty turns them off.")
+	debugShutdownFlag    = flag.Bool("debug.shutdown", false, "Expose the /diediedie endpoint, which shuts the server down; for testing.")
+	debugDiagnosticsFlag = flag.String("debug.diagnostics", "", "Write anonymized diagnostics of browsing (thumbnails, ffmpeg, what the file browser loads and shows) to this file, one event a line. Names are replaced by tokens. Empty turns them off.")
 
 	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
 
@@ -70,7 +75,6 @@ var (
 	// Thumbnail Flags
 	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
 	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
-	debugFlag               = flag.Bool("debug", false, "Expose the /diediedie shutdown endpoint for testing.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -97,9 +101,21 @@ type Certificate struct {
 
 // Monitoring holds the monitoring configuration.
 type Monitoring struct {
-	DebugEndpoint string  `yaml:"debugEndpoint"`
-	Metrics       Metrics `yaml:"metrics"`
-	Trace         Trace   `yaml:"trace"`
+	Metrics Metrics `yaml:"metrics"`
+	Trace   Trace   `yaml:"trace"`
+}
+
+// Debug holds what's only for debugging and diagnosing the server; all of
+// it is off unless set.
+type Debug struct {
+	// Endpoint is the URL path prefix for the pprof and OpenTelemetry
+	// tracez endpoints. Empty turns them off.
+	Endpoint string `yaml:"endpoint"`
+	// Shutdown exposes /diediedie, which shuts the server down, for tests.
+	Shutdown bool `yaml:"shutdown"`
+	// Diagnostics is a file to write anonymized diagnostics of browsing to
+	// (see diagnostics.go). Empty turns them off.
+	Diagnostics string `yaml:"diagnostics"`
 }
 
 // Trace holds the trace configuration.
@@ -120,7 +136,6 @@ type Config struct {
 	Serve             []Serve `yaml:"serve"`
 	ConfigurationFile string  `yaml:"-"`
 	EnhancedList      bool    `yaml:"enhancedList"`
-	Debug             bool    `yaml:"debug"`
 
 	HTTP       HTTP       `yaml:"http"`
 	HTTPS      HTTPS      `yaml:"https"`
@@ -128,6 +143,7 @@ type Config struct {
 	Upload     Serve      `yaml:"upload"`
 	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
 	Thumbnails Thumbnails `yaml:"thumbnails"`
+	Debug      Debug      `yaml:"debug"`
 }
 
 // FFmpeg configures the ffmpeg binary used for video features.
@@ -192,6 +208,11 @@ func Load() (*Config, error) {
 	}
 	if *configFileFlag != "" {
 		err := loadWithConfigFile(*configFileFlag, conf)
+		if errors.Is(err, errSettingMoved) {
+			// The rest of the file would load, and the server start without
+			// what was asked for.
+			return nil, fmt.Errorf("configuration file %s: %w", *configFileFlag, err)
+		}
 		if err != nil {
 			slog.Warn("Error Loading File", "error", err, "configFile", *configFileFlag)
 		}
@@ -204,6 +225,9 @@ func loadWithConfigFile(filePath string, conf *Config) error {
 	if err != nil {
 		return err
 	}
+	if err := movedSettings(contents); err != nil {
+		return err
+	}
 	err = yaml.Unmarshal(contents, &conf)
 	// Config file should always be the flag value.
 	conf.ConfigurationFile = *configFileFlag
@@ -211,6 +235,32 @@ func loadWithConfigFile(filePath string, conf *Config) error {
 		return err
 	}
 	return nil
+}
+
+// errSettingMoved is a configuration file that uses a setting where it
+// used to be.
+var errSettingMoved = errors.New("a setting has moved")
+
+// movedSettings is an error naming each setting in the configuration file
+// contents that has moved, and where to, or nil.
+func movedSettings(contents []byte) error {
+	var old struct {
+		Debug      yaml.Node `yaml:"debug"`
+		Monitoring struct {
+			DebugEndpoint *string `yaml:"debugEndpoint"`
+		} `yaml:"monitoring"`
+	}
+	if err := yaml.Unmarshal(contents, &old); err != nil {
+		return nil // loading the file says what's wrong with it
+	}
+	var errs []error
+	if old.Debug.Kind == yaml.ScalarNode {
+		errs = append(errs, fmt.Errorf("%w: \"debug: %s\" is now \"debug:\" with \"shutdown: %s\" under it", errSettingMoved, old.Debug.Value, old.Debug.Value))
+	}
+	if old.Monitoring.DebugEndpoint != nil {
+		errs = append(errs, fmt.Errorf("%w: \"monitoring: debugEndpoint:\" is now \"debug:\" with \"endpoint: %s\" under it", errSettingMoved, *old.Monitoring.DebugEndpoint))
+	}
+	return errors.Join(errs...)
 }
 
 func init() {
@@ -246,7 +296,6 @@ func loadFromFlags() (*Config, error) {
 		Serve:             sl,
 		ConfigurationFile: *configFileFlag,
 		EnhancedList:      *enhancedListFlag,
-		Debug:             *debugFlag,
 		HTTP: HTTP{
 			Port: *httpPortFlag,
 		},
@@ -262,8 +311,12 @@ func loadFromFlags() (*Config, error) {
 				ForceOverwrite:           *forceOverwriteCertFlag,
 			},
 		},
+		Debug: Debug{
+			Endpoint:    *debugEndpointFlag,
+			Shutdown:    *debugShutdownFlag,
+			Diagnostics: *debugDiagnosticsFlag,
+		},
 		Monitoring: Monitoring{
-			DebugEndpoint: *monitoringDebugEndpointFlag,
 			Metrics: Metrics{
 				Enabled: *monitoringMetricsPath != "",
 				Path:    *monitoringMetricsPath,

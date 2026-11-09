@@ -37,17 +37,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func setupMonitoring(m Monitoring) (*monitoringContext, error) {
+func setupMonitoring(m Monitoring, debugEndpoint string) (*monitoringContext, error) {
 	mc := &monitoringContext{
 		handlers: map[string]http.Handler{},
 	}
 
-	if len(m.DebugEndpoint) > 0 {
-		mc.handlers[m.DebugEndpoint+"/pprof/"] = http.HandlerFunc(pprof.Index)
-		mc.handlers[m.DebugEndpoint+"/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
-		mc.handlers[m.DebugEndpoint+"/pprof/profile"] = http.HandlerFunc(pprof.Profile)
-		mc.handlers[m.DebugEndpoint+"/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
-		mc.handlers[m.DebugEndpoint+"/pprof/trace"] = http.HandlerFunc(pprof.Trace)
+	if len(debugEndpoint) > 0 {
+		mc.handlers[debugEndpoint+"/pprof/"] = http.HandlerFunc(pprof.Index)
+		mc.handlers[debugEndpoint+"/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
+		mc.handlers[debugEndpoint+"/pprof/profile"] = http.HandlerFunc(pprof.Profile)
+		mc.handlers[debugEndpoint+"/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
+		mc.handlers[debugEndpoint+"/pprof/trace"] = http.HandlerFunc(pprof.Trace)
 	}
 
 	r, err := resource.Merge(
@@ -64,7 +64,7 @@ func setupMonitoring(m Monitoring) (*monitoringContext, error) {
 	}
 
 	var zsp *zpages.SpanProcessor
-	if len(m.DebugEndpoint) > 0 {
+	if len(debugEndpoint) > 0 {
 		zsp = zpages.NewSpanProcessor()
 	}
 
@@ -84,7 +84,7 @@ func setupMonitoring(m Monitoring) (*monitoringContext, error) {
 	if tp != nil {
 		mc.tp = tp
 		if zsp != nil {
-			mc.handlers[m.DebugEndpoint+"/tracez"] = zpages.NewTracezHandler(zsp)
+			mc.handlers[debugEndpoint+"/tracez"] = zpages.NewTracezHandler(zsp)
 		}
 	}
 

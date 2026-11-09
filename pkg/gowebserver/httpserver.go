@@ -50,6 +50,7 @@ type webServerImpl struct {
 	uploadHTTPPath      string
 	enhancedListMode    bool
 	enableDebugMethods  bool
+	diagnosticsPath     string
 	thumbnails          Thumbnails
 	monitoringCtx       *monitoringContext
 	requestMetrics      *requestMetrics
@@ -216,6 +217,15 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, ws.uploadHTTPPath, uploadHandler, handlerUpload)
 	}
 
+	if ws.diagnosticsPath != "" {
+		diagHandler, closeDiag, err := startDiagnostics(ws.diagnosticsPath)
+		if err != nil {
+			return fmt.Errorf("diagnostics: %w", err)
+		}
+		allCleanups = append(allCleanups, closeDiag)
+		serverMux.Handle("/"+diagEndpoint, diagHandler)
+	}
+
 	httpSocket, err := net.Listen("tcp", ws.httpAddr)
 	if err != nil {
 		return err
@@ -310,7 +320,7 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath = dir
 	}
 
-	monitoringCtx, err := setupMonitoring(conf.Monitoring)
+	monitoringCtx, err := setupMonitoring(conf.Monitoring, conf.Debug.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
 	}
@@ -333,7 +343,8 @@ func New(conf *Config) (WebServer, error) {
 		certificateFilePath: conf.HTTPS.Certificate.CertificateFilePath,
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
-		enableDebugMethods:  conf.Debug,
+		enableDebugMethods:  conf.Debug.Shutdown,
+		diagnosticsPath:     conf.Debug.Diagnostics,
 		thumbnails:          conf.Thumbnails,
 		uploadPath:          uploadPath,
 		uploadHTTPPath:      conf.Upload.Endpoint,

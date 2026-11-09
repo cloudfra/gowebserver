@@ -18,7 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, markup } = require('../../harness.js');
 
-const FILES = ['custom-index/util.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/slideshow.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/slideshow.js'];
 
 // The slideshow over a folder of n photos (every tenth item a video
 // when videos is set), on the template's own dialog markup.

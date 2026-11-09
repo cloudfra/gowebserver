@@ -402,6 +402,7 @@ var slideshow = (function () {
         } else {
           b.innerHTML = (list[k].video ? svgUse('ui-play') : '') + '<img alt="" decoding="async" fetchpriority="low">';
           b._img = b.lastChild;
+          b._img._diagKind = 'strip';
           // Ahead of the grid's, which the slideshow covers.
           thumbLoader.load(b._img, tileThumbURL(list[k], 0), stripThumbDone(b), true, list[k].video);
         }
@@ -409,7 +410,26 @@ var slideshow = (function () {
       if (b !== before) strip.insertBefore(b, before); else before = before.nextSibling;
       if (k === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
     }
+    diagStrip('strip');
   }
+
+  // For diagnostics: what the filmstrip looks like now.
+  function diagStrip(ev) {
+    if (!CFG.diag) return;
+    var r = strip.getBoundingClientRect(), bottom = strip.parentNode;
+    var cs = getComputedStyle(strip), bcs = getComputedStyle(bottom);
+    var loading = 0;
+    strip.querySelectorAll('img').forEach(function (im) { if (im._thumb) loading++; });
+    diag(ev, {
+      idx: idx, count: list.length, radius: STRIP_RADIUS, children: strip.children.length,
+      ready: strip.querySelectorAll('.ready').length, err: strip.querySelectorAll('.err').length, loading: loading,
+      hidden: strip.hidden, fs: isFullscreen(), stripOn: dlg.classList.contains('strip-on'),
+      rect: [Math.round(r.top), Math.round(r.height), Math.round(r.width), innerHeight],
+      display: cs.display + ',' + bcs.display + ',' + cs.visibility + ',' + bcs.visibility,
+      opacity: cs.opacity + ',' + bcs.opacity, vw: innerWidth, vh: innerHeight
+    });
+  }
+  if (CFG.diag) setInterval(function () { if (isOpen) diagStrip('strip-state'); }, 5000);
 
   strip.addEventListener('click', function (e) {
     var b = e.target.closest('button');

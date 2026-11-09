@@ -242,11 +242,9 @@ func TestWebServerFull(t *testing.T) {
 			{Source: backback, Endpoint: "/root"},
 		},
 		EnhancedList: true,
-		Debug:        true,
 		HTTP:         HTTP{Port: 8082},
 		HTTPS:        HTTPS{Port: 0},
 		Monitoring: Monitoring{
-			DebugEndpoint: "/debug",
 			Metrics: Metrics{
 				Enabled: true,
 				Path:    "/metrics",
@@ -260,6 +258,7 @@ func TestWebServerFull(t *testing.T) {
 			Source:   "/tmp/upload",
 			Endpoint: "/upload",
 		},
+		Debug: Debug{Endpoint: "/debug", Shutdown: true},
 	}
 
 	syncFunc := configLogger(conf.Verbose)
