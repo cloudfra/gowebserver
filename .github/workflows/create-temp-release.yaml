@@ -1,0 +1,77 @@
+# Copyright 2026 Cloudfra
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Builds and publishes a release when a v* tag is pushed: the release
+# binaries and package on the GitHub release, and the container images on
+# Docker Hub and GitHub Container Registry. The commit was already linted and
+# fully tested by deploy.yaml on its way to main, so this runs the tests once
+# rather than the whole lint, deflake and coverage pass.
+name: Create Temporary Release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A release half-published to the registries is worse than a slow one.
+  cancel-in-progress: false
+
+env:
+  MAKEFLAGS: 'NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64 WINDOWS_PLATFORMS=windows/amd64'
+
+jobs:
+  build-release:
+    name: "Build Release"
+    runs-on: ["self-hosted", "linux", "large"]
+    timeout-minutes: 20
+    steps:
+      - name: Fix mod cache permissions
+        run: |
+          chmod -R u+w "$GITHUB_WORKSPACE/build/toolchain" 2>/dev/null || true
+      - name: Checkout code
+        # https://github.com/actions/checkout
+        uses: actions/checkout@v7
+      - name: Configure Toolchain Cache
+        # The same runner tool directory as deploy.yaml, so the release
+        # reuses the toolchain CI already installed. See TOOLCHAIN_CACHE in
+        # Makefile_core.mk.
+        run: |
+          echo "TOOLCHAIN_CACHE=$RUNNER_TOOL_CACHE/toolchain" \
+            >> "$GITHUB_ENV"
+      - name: Setup Go
+        # https://github.com/actions/setup-go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+      - name: Prepare CI
+        run: ./scripts/prepare-ci.sh
+      - name: System Information
+        run: make system-info
+      - name: Install Signing Dependencies
+        run: ./scripts/template-go/install-codesign.sh
+      - name: Clean
+        run: make clean
+      - name: Download Dependencies
+        run: make deps
+      - name: Build Binaries
+        run: make all -j"$(nproc)"
+      - name: Release Package
+        run: make build/packages/release.tar.gz
+      - name: 'Upload Build Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release.tar.gz
+          path: build/packages/release.tar.gz
+          retention-days: 1
