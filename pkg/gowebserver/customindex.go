@@ -178,6 +178,7 @@ type customIndexHandler struct {
 	thumbs       *thumbnailer
 	metrics      *listingMetrics
 	tmpl         *template.Template
+	previews     folderPreviews
 }
 
 func canonicalizeSortBy(v string) string {
@@ -286,6 +287,11 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	}
 	if !strings.HasSuffix(urlPath, "/") && path != "." {
 		return false
+	}
+	if r.URL.Query().Has("preview") {
+		setRequestHandler(r, handlerListing)
+		c.serveFolderPreview(w, r, path)
+		return true
 	}
 
 	// One span per stage, never per entry: a folder can hold tens of

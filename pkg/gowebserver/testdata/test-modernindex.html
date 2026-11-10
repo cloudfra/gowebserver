@@ -916,6 +916,74 @@
       white-space: nowrap;
     }
 
+     
+    .row.has-strip .name {
+      flex: 0 1 auto;
+    }
+
+     
+    .row-strip {
+       
+      flex: 1 1 0;
+      min-width: 0;
+      height: 40px;
+       
+      margin: -8px 0;
+      display: flex;
+      flex-direction: row-reverse;
+      align-items: center;
+      gap: 4px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .row-strip.fade {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+      mask-image: linear-gradient(to right, transparent, #000 44px);
+    }
+
+    .row-strip img {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 7px;
+      object-fit: cover;
+      background: var(--hover);
+      opacity: 0;
+      transition: opacity 0.35s var(--ease-out);
+    }
+
+    .row-strip img.ready {
+      opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .row-strip img {
+        transition: none;
+      }
+    }
+
+     
+    @media (max-width: 640px) {
+      .row.has-strip .row-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
+        column-gap: 12px;
+        align-items: center;
+      }
+
+      .row.has-strip .name,
+      .row.has-strip .meta {
+        grid-column: 1;
+      }
+
+      .row.has-strip .row-strip {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        margin: 0;
+      }
+    }
+
     .row .meta {
       display: flex;
       gap: 16px;
@@ -4368,6 +4436,92 @@
         summarize(folders, files);
         if (grid) grid.relayout(false);
       }
+
+      
+      
+      
+      
+      
+      
+      
+      
+      var folderPreviews = (function () {
+        if (!CFG.thumbs || !window.IntersectionObserver || !window.fetch) return null;
+        var LIMIT = 2, waiting = [], asking = 0;
+        
+        
+        var THUMB = 40, GAP = 4;
+
+        
+        function folderURL(row) {
+          var a = row.querySelector('.row-icon');
+          var href = a && a.getAttribute('href');
+          return href && href.charAt(href.length - 1) === '/' ? href : '';
+        }
+
+        function next() {
+          while (asking < LIMIT && waiting.length) ask(waiting.shift());
+        }
+
+        function ask(row) {
+          asking++;
+          var url = folderURL(row);
+          fetch(url + '?preview', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (p) { if (p) show(row, url, p); })
+            .catch(function () { })
+            .then(function () { asking--; next(); });
+        }
+
+        function show(row, url, p) {
+          
+          var items = (p.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
+          var main = row.querySelector('.row-main'), meta = row.querySelector('.meta');
+          if (!items.length || !main || !meta) return;
+          var strip = doc.createElement('span');
+          strip.className = 'row-strip';
+          strip.setAttribute('aria-hidden', 'true');
+          
+          
+          
+          row.classList.add('has-strip');
+          main.insertBefore(strip, meta);
+          var room = strip.clientWidth;
+          if (room < THUMB) {
+            
+            strip.remove();
+            row.classList.remove('has-strip');
+            return;
+          }
+          items = items.slice(0, Math.floor((room + GAP) / (THUMB + GAP)) + 1);
+          
+          if (items.length >= 3) strip.classList.add('fade');
+          items.forEach(function (it) {
+            var item = { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+            var img = doc.createElement('img');
+            img.alt = '';
+            img.decoding = 'async';
+            img.draggable = false;
+            strip.appendChild(img);
+            thumbLoader.load(img, tileThumbURL(item, THUMB), function (ok) {
+              if (ok) img.classList.add('ready'); else img.remove();
+            }, false, true);
+          });
+        }
+
+        var seen = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (!e.isIntersecting) return;
+            seen.unobserve(e.target);
+            waiting.push(e.target);
+          });
+          next();
+        }, { rootMargin: '300px 0px' });
+        for (var i = 0; i < rowEls.length; i++) {
+          if (rowDir[i] && folderURL(rowEls[i])) seen.observe(rowEls[i]);
+        }
+        return {};
+      })();
 
       
       
