@@ -372,6 +372,17 @@ main {
   flex: 0 1 auto;
 }
 
+/* A folder whose strip has a vivid color (folders.js) takes it for its
+   icon, and as a faint wash from the left of its row. Lightness stays
+   the theme's (--accent-l), so any hue reads in both themes. */
+.row.row-accent .chip {
+  --c: oklch(var(--accent-l) var(--row-c) var(--row-h));
+}
+
+.row.row-accent:not(:hover) {
+  background-image: linear-gradient(to right, oklch(var(--accent-l) var(--row-c) var(--row-h) / 0.09), transparent 45%);
+}
+
 /* A folder's strip of its photos and videos (folders.js), between its
    name and its size, filling the room between them. It runs right to left, so the folder's first
    photos sit by the size and are the ones kept when not all fit, and a
