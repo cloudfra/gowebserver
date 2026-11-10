@@ -33,7 +33,12 @@ env:
   # variable, which overrides the assignment in the Makefile; a plain
   # NICHE_PLATFORMS environment variable would not. Spaces inside a value must
   # be escaped with a backslash or make splits the list into separate words.
-  MAKEFLAGS: ${{ github.event_name == 'pull_request' && 'GO_TEST_COUNT=3 NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64\ linux/arm64 WINDOWS_PLATFORMS=windows/amd64\ windows/arm64' || '' }}
+  MAKEFLAGS: >-
+    ${{ github.event_name == 'pull_request'
+    && 'GO_TEST_COUNT=3 NICHE_PLATFORMS=
+    LINUX_PLATFORMS=linux/amd64\ linux/arm64
+    WINDOWS_PLATFORMS=windows/amd64\ windows/arm64'
+    || '' }}
 
 jobs:
   build-linux:
@@ -108,7 +113,9 @@ jobs:
         # https://github.com/actions/upload-code-coverage
         # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage#step-2-upload-the-coverage-report
         # Requires: code-quality: write
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: >-
+          github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
         uses: actions/upload-code-coverage@v1
         with:
@@ -171,7 +178,9 @@ jobs:
       - name: Test
         run: make test
       - name: Test (Deflake)
-        run: make GO_TEST_COUNT=${{ github.event_name == 'pull_request' && '3' || '5' }} test-deflake
+        run: >-
+          make GO_TEST_COUNT=${{ github.event_name == 'pull_request'
+          && '3' || '5' }} test-deflake
       - name: Coverage
         run: make coverage.txt coverage.xml
       - name: Benchmark

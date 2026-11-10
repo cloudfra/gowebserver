@@ -226,8 +226,10 @@ lint-shell: $(SHELLCHECK)
 # RUMDL_IGNORE is an optional comma-separated list of extra globs to exclude.
 RUMDL_EXCLUDE = third_party/**,build/**$(if $(RUMDL_IGNORE),$(COMMA)$(RUMDL_IGNORE))
 
+# --fix rewrites what rumdl can fix mechanically (e.g. table alignment), like
+# lint-go does with gofumpt, and still fails on anything it can't fix.
 lint-markdown: $(RUMDL)
-	$(IGNORE_LINT_CHECK)"$(RUMDL)" check --exclude "$(RUMDL_EXCLUDE)" .
+	$(IGNORE_LINT_CHECK)"$(RUMDL)" check --fix --exclude "$(RUMDL_EXCLUDE)" .
 
 lint-vuln: $(GOVULNCHECK)
 	$(IGNORE_LINT_CHECK)"$(GOVULNCHECK)" ./...
