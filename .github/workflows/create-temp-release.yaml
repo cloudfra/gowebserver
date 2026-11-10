@@ -17,6 +17,8 @@ name: Create Temporary Release
 
 on:
   workflow_dispatch:
+  issue_comment:
+    types: [created]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +30,10 @@ env:
 
 jobs:
   build-temp-release:
+    # Only run if the comment is on a PR and matches our command keyword
+    if: >-
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/create-temp-release')) ||
+      (github.event_name == 'workflow_dispatch')
     name: "Build Temporary Release"
     runs-on: ["self-hosted", "linux"]
     timeout-minutes: 30
