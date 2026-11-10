@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAKEFLAGS: 'NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64 WINDOWS_PLATFORMS=windows/amd64'
+  MAKEFLAGS: 'NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64 WINDOWS_PLATFORMS=windows/amd64 RELEASE_PLATFORMS=linux/amd64\ windows/amd64'
 
 jobs:
   build-temp-release:
