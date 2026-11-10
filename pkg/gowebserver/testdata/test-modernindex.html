@@ -874,32 +874,6 @@
       background: color-mix(in srgb, var(--c, var(--ink-2)) 22%, transparent);
     }
 
-     
-    .chip img.cover {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border-radius: inherit;
-      object-fit: cover;
-      opacity: 0;
-      transition: opacity 0.3s var(--ease-out);
-    }
-
-    .chip.has-cover img.cover {
-      opacity: 1;
-    }
-
-    .chip.has-cover {
-      box-shadow: inset 0 0 0 1px var(--line);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .chip img.cover {
-        transition: none;
-      }
-    }
-
     .row-icon:active .chip {
       transform: scale(0.92);
     }
@@ -940,6 +914,55 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+     
+    .row-strip {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 50%;
+      height: 40px;
+       
+      margin: -8px 0;
+      display: flex;
+      flex-direction: row-reverse;
+      align-items: center;
+      gap: 4px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .row-strip.fade {
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+      mask-image: linear-gradient(to right, transparent, #000 44px);
+    }
+
+    .row-strip img {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 7px;
+      object-fit: cover;
+      background: var(--hover);
+      opacity: 0;
+      transition: opacity 0.35s var(--ease-out);
+    }
+
+    .row-strip img.ready {
+      opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .row-strip img {
+        transition: none;
+      }
+    }
+
+     
+    @media (max-width: 640px) {
+      .row-strip {
+        display: none;
+      }
     }
 
     .row .meta {
@@ -4404,9 +4427,12 @@
       
       
       
-      var folderCovers = (function () {
+      var folderPreviews = (function () {
         if (!CFG.thumbs || !window.IntersectionObserver || !window.fetch) return null;
         var LIMIT = 2, waiting = [], asking = 0;
+        
+        
+        var THUMB = 40;
 
         
         function folderURL(row) {
@@ -4422,45 +4448,53 @@
         function ask(row) {
           asking++;
           var url = folderURL(row);
-          fetch(url + '?cover', { credentials: 'same-origin' })
+          fetch(url + '?preview', { credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (c) { if (c) show(row, url, c); })
+            .then(function (p) { if (p) show(row, url, p); })
             .catch(function () { })
             .then(function () { asking--; next(); });
         }
 
         
         
-        function describe(c) {
+        function describe(p) {
           var full = [];
-          if (c.photos) full.push(plural(c.photos, 'photo', 'photos'));
-          if (c.videos) full.push(plural(c.videos, 'video', 'videos'));
-          if (c.folders) full.push(plural(c.folders, 'folder', 'folders'));
-          var media = c.photos + c.videos;
-          var short = !media ? (c.folders ? plural(c.folders, 'folder', 'folders') : 'Empty') :
-            !c.videos ? plural(c.photos, 'photo', 'photos') :
-              !c.photos ? plural(c.videos, 'video', 'videos') :
+          if (p.photos) full.push(plural(p.photos, 'photo', 'photos'));
+          if (p.videos) full.push(plural(p.videos, 'video', 'videos'));
+          if (p.folders) full.push(plural(p.folders, 'folder', 'folders'));
+          var media = p.photos + p.videos;
+          var short = !media ? (p.folders ? plural(p.folders, 'folder', 'folders') : 'Empty') :
+            !p.videos ? plural(p.photos, 'photo', 'photos') :
+              !p.photos ? plural(p.videos, 'video', 'videos') :
                 plural(media, 'item', 'items');
           return { short: short, full: full.join(', ') || 'Empty' };
         }
 
-        function show(row, url, c) {
-          var d = describe(c);
+        function show(row, url, p) {
+          var d = describe(p);
           var size = row.querySelector('.size');
           if (size) { size.textContent = d.short; size.title = d.full; }
-          if (!c.file || (c.video && !CFG.videoThumbs)) return;
-          var chip = row.querySelector('.chip');
-          if (!chip) return;
-          var item = { url: url + c.file.split('/').map(encodeURIComponent).join('/'), video: !!c.video };
-          var img = doc.createElement('img');
-          img.alt = '';
-          img.decoding = 'async';
-          img.className = 'cover';
-          chip.appendChild(img);
           
-          thumbLoader.load(img, tileThumbURL(item, chip.offsetWidth || 38), function (ok) {
-            if (ok) chip.classList.add('has-cover'); else img.remove();
-          }, false, true);
+          var items = (p.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
+          var main = row.querySelector('.row-main'), meta = row.querySelector('.meta');
+          if (!items.length || !main || !meta) return;
+          var strip = doc.createElement('span');
+          strip.className = 'row-strip';
+          strip.setAttribute('aria-hidden', 'true');
+          
+          if (items.length >= 3) strip.classList.add('fade');
+          items.forEach(function (it) {
+            var item = { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+            var img = doc.createElement('img');
+            img.alt = '';
+            img.decoding = 'async';
+            img.draggable = false;
+            strip.appendChild(img);
+            thumbLoader.load(img, tileThumbURL(item, THUMB), function (ok) {
+              if (ok) img.classList.add('ready'); else img.remove();
+            }, false, true);
+          });
+          main.insertBefore(strip, meta);
         }
 
         var seen = new IntersectionObserver(function (entries) {

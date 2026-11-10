@@ -324,33 +324,6 @@ main {
   background: color-mix(in srgb, var(--c, var(--ink-2)) 22%, transparent);
 }
 
-/* A folder's cover (folders.js) fills its chip, over the icon, once
-   it has loaded. */
-.chip img.cover {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.3s var(--ease-out);
-}
-
-.chip.has-cover img.cover {
-  opacity: 1;
-}
-
-.chip.has-cover {
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chip img.cover {
-    transition: none;
-  }
-}
-
 .row-icon:active .chip {
   transform: scale(0.92);
 }
@@ -391,6 +364,59 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A folder's strip of its photos and videos (folders.js), between its
+   name and its size. It runs right to left, so the folder's first
+   photos sit by the size and are the ones kept when not all fit, and a
+   strip of three or more fades out toward the name, as a filmstrip
+   would (.fade). Each thumbnail fades in as it arrives. */
+.row-strip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  height: 40px;
+  /* Taller than the line, without making the row taller. */
+  margin: -8px 0;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.row-strip.fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+  mask-image: linear-gradient(to right, transparent, #000 44px);
+}
+
+.row-strip img {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--hover);
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.row-strip img.ready {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-strip img {
+    transition: none;
+  }
+}
+
+/* No room beside the name on a phone. */
+@media (max-width: 640px) {
+  .row-strip {
+    display: none;
+  }
 }
 
 .row .meta {

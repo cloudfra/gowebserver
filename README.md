@@ -43,7 +43,7 @@ sc.exe start gowebserver
   * RAR
   * Git repository (HTTPS, SSH)
 * Thumbnails: add `width` and/or `height` to an image or video URL to get a resized copy (see [Thumbnails](#thumbnails)).
-* Folder covers: in the enhanced file browser, a folder shows a photo or video from it (or from a folder below it, up to three levels down) in place of its icon, and how many photos, videos and folders it holds. A folder's URL with `?cover` answers with that as JSON.
+* Folder previews: in the enhanced file browser, a folder's row shows a strip of its first photos and videos beside its name (or, when it has none, from the nearest folders below it, up to three levels down), fading in as they load, and how many photos, videos and folders it holds. A folder's URL with `?preview` answers with that as JSON.
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
 

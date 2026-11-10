@@ -1,15 +1,18 @@
-// ===== Folder covers =====
-// A folder in the list shows a photo or video from it in place of its
-// icon, and what it holds in place of "Folder", so a library kept in
-// many nested folders can be browsed without opening each one. The
-// server picks the cover (the folder's URL with ?cover, see
-// foldercover.go); it's asked only for folders that come near the
-// screen, a couple at a time, and the cover's thumbnail goes through
-// the thumbnail queue as a heavy one, so covers never hold up the
-// folder's own photos. Archives listed as folders are left alone.
-var folderCovers = (function () {
+// ===== Folder previews =====
+// A folder in the list shows a strip of its photos and videos beside its
+// name, fading in toward the name, and what it holds in place of
+// "Folder", so a library kept in many nested folders can be browsed
+// without opening each one. The server picks them (the folder's URL with
+// ?preview, see folderpreview.go); it's asked only for folders that come
+// near the screen, a couple at a time, and the thumbnails go through the
+// thumbnail queue as heavy ones, so a strip never holds up a folder's own
+// photos. Archives listed as folders are left alone.
+var folderPreviews = (function () {
   if (!CFG.thumbs || !window.IntersectionObserver || !window.fetch) return null;
   var LIMIT = 2, waiting = [], asking = 0;
+  // The strip's thumbnails are this many CSS pixels square (.row-strip
+  // img in the stylesheet).
+  var THUMB = 40;
 
   // The folder a row opens, or '' for a row that isn't one.
   function folderURL(row) {
@@ -25,45 +28,53 @@ var folderCovers = (function () {
   function ask(row) {
     asking++;
     var url = folderURL(row);
-    fetch(url + '?cover', { credentials: 'same-origin' })
+    fetch(url + '?preview', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (c) { if (c) show(row, url, c); })
+      .then(function (p) { if (p) show(row, url, p); })
       .catch(function () { })
       .then(function () { asking--; next(); });
   }
 
   // What the folder holds, in the size column's few characters, and in
   // full for its tooltip.
-  function describe(c) {
+  function describe(p) {
     var full = [];
-    if (c.photos) full.push(plural(c.photos, 'photo', 'photos'));
-    if (c.videos) full.push(plural(c.videos, 'video', 'videos'));
-    if (c.folders) full.push(plural(c.folders, 'folder', 'folders'));
-    var media = c.photos + c.videos;
-    var short = !media ? (c.folders ? plural(c.folders, 'folder', 'folders') : 'Empty') :
-      !c.videos ? plural(c.photos, 'photo', 'photos') :
-        !c.photos ? plural(c.videos, 'video', 'videos') :
+    if (p.photos) full.push(plural(p.photos, 'photo', 'photos'));
+    if (p.videos) full.push(plural(p.videos, 'video', 'videos'));
+    if (p.folders) full.push(plural(p.folders, 'folder', 'folders'));
+    var media = p.photos + p.videos;
+    var short = !media ? (p.folders ? plural(p.folders, 'folder', 'folders') : 'Empty') :
+      !p.videos ? plural(p.photos, 'photo', 'photos') :
+        !p.photos ? plural(p.videos, 'video', 'videos') :
           plural(media, 'item', 'items');
     return { short: short, full: full.join(', ') || 'Empty' };
   }
 
-  function show(row, url, c) {
-    var d = describe(c);
+  function show(row, url, p) {
+    var d = describe(p);
     var size = row.querySelector('.size');
     if (size) { size.textContent = d.short; size.title = d.full; }
-    if (!c.file || (c.video && !CFG.videoThumbs)) return;
-    var chip = row.querySelector('.chip');
-    if (!chip) return;
-    var item = { url: url + c.file.split('/').map(encodeURIComponent).join('/'), video: !!c.video };
-    var img = doc.createElement('img');
-    img.alt = '';
-    img.decoding = 'async';
-    img.className = 'cover';
-    chip.appendChild(img);
-    // A tile as small as the chip asks for the smallest thumbnail.
-    thumbLoader.load(img, tileThumbURL(item, chip.offsetWidth || 38), function (ok) {
-      if (ok) chip.classList.add('has-cover'); else img.remove();
-    }, false, true);
+    // A video's thumbnail needs the server to grab frames.
+    var items = (p.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
+    var main = row.querySelector('.row-main'), meta = row.querySelector('.meta');
+    if (!items.length || !main || !meta) return;
+    var strip = doc.createElement('span');
+    strip.className = 'row-strip';
+    strip.setAttribute('aria-hidden', 'true');
+    // Long enough to read as a filmstrip: it fades out toward the name.
+    if (items.length >= 3) strip.classList.add('fade');
+    items.forEach(function (it) {
+      var item = { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+      var img = doc.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.draggable = false;
+      strip.appendChild(img);
+      thumbLoader.load(img, tileThumbURL(item, THUMB), function (ok) {
+        if (ok) img.classList.add('ready'); else img.remove();
+      }, false, true);
+    });
+    main.insertBefore(strip, meta);
   }
 
   var seen = new IntersectionObserver(function (entries) {

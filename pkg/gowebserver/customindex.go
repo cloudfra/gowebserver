@@ -178,7 +178,7 @@ type customIndexHandler struct {
 	thumbs       *thumbnailer
 	metrics      *listingMetrics
 	tmpl         *template.Template
-	covers       folderCovers
+	previews     folderPreviews
 }
 
 func canonicalizeSortBy(v string) string {
@@ -288,9 +288,9 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	if !strings.HasSuffix(urlPath, "/") && path != "." {
 		return false
 	}
-	if r.URL.Query().Has("cover") {
+	if r.URL.Query().Has("preview") {
 		setRequestHandler(r, handlerListing)
-		c.serveFolderCover(w, r, path)
+		c.serveFolderPreview(w, r, path)
 		return true
 	}
 

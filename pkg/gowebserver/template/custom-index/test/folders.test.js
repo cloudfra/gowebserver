@@ -26,7 +26,7 @@ function row(name, kind) {
     '<a class="row-main"><span class="name">' + name + '</span><span class="meta"><span class="size">Folder</span></span></a></div>';
 }
 
-// A page listing rows, whose server answers ?cover with covers[folder].
+// A page listing rows, whose server answers ?preview with previews[folder].
 // seen(i) brings the i-th observed row near the screen.
 function setup(rows, covers, opts) {
   opts = opts || {};
@@ -42,7 +42,7 @@ function setup(rows, covers, opts) {
       },
       fetch(url) {
         asked.push(url);
-        const name = decodeURIComponent(url.replace(/\/\?cover$/, ''));
+        const name = decodeURIComponent(url.replace(/\/\?preview$/, ''));
         const c = covers[name];
         return Promise.resolve({ ok: !!c, json: () => Promise.resolve(c) });
       },
@@ -58,13 +58,17 @@ function setup(rows, covers, opts) {
   };
 }
 
+const it = (file, video) => (video ? { file, video: true } : { file });
 const COVERS = {
-  'Trip': { file: 'a b.jpg', photos: 12, videos: 0, folders: 0 },
-  'Clips': { file: 'one.mp4', video: true, photos: 0, videos: 3, folders: 0 },
-  'Years': { file: '2024/x.jpg', photos: 0, videos: 0, folders: 2 },
-  'Mixed': { file: 'p.jpg', photos: 2, videos: 1, folders: 1 },
-  'Empty': { photos: 0, videos: 0, folders: 0 },
+  'Trip': { items: [it('a b.jpg'), it('c.jpg'), it('d.jpg')], photos: 12, videos: 0, folders: 0 },
+  'Clips': { items: [it('one.mp4', true), it('two.mp4', true)], photos: 0, videos: 3, folders: 0 },
+  'Years': { items: [it('2024/x.jpg')], photos: 0, videos: 0, folders: 2 },
+  'Mixed': { items: [it('p.jpg'), it('v.mp4', true)], photos: 2, videos: 1, folders: 1 },
+  'Empty': { items: [], photos: 0, videos: 0, folders: 0 },
 };
+
+const strip = (row) => row.querySelector('.row-strip');
+const stripImgs = (row) => (strip(row) ? strip(row).querySelectorAll('img') : []);
 
 test('only folders are watched: not files, not archives', () => {
   const t = setup([['Trip', 'folder'], ['notes.txt', 'file'], ['pics.zip', 'archive'], ['Clips', 'folder']], COVERS);
@@ -77,46 +81,56 @@ test('a folder is asked about once it comes near the screen, not before', async 
   assert.deepEqual(t.asked, []);
   t.seen([t.rows[0]]);
   await t.settle();
-  assert.deepEqual(t.asked, ['Trip/?cover']);
+  assert.deepEqual(t.asked, ['Trip/?preview']);
   assert.equal(t.observed().length, 1, 'and is no longer watched');
 });
 
-test('the cover loads through the thumbnail queue, and what the folder holds replaces "Folder"', async () => {
+test('a strip of the folder\'s photos goes beside its name, through the thumbnail queue, and its icon stays', async () => {
   const t = setup([['Trip', 'folder']], COVERS);
   t.seen([t.rows[0]]);
   await t.settle();
-  assert.deepEqual(t.pg.requests.map((r) => r.url), ['Trip/a%20b.jpg?width=128&height=128&fit=outside']);
-  const size = t.rows[0].querySelector('.size');
-  assert.equal(size.textContent, '12 photos');
-  const img = t.rows[0].querySelector('img.cover');
-  img.fire('load');
-  t.pg.frame();
-  assert.ok(t.rows[0].querySelector('.chip').classList.contains('has-cover'));
+  const row = t.rows[0];
+  const s = strip(row);
+  assert.ok(s, 'a strip');
+  assert.equal(s.getAttribute('aria-hidden'), 'true');
+  assert.equal(s.nextSibling, row.querySelector('.meta'), 'between the name and the size');
+  // Heavy thumbnails: two of HTTP/1.1's four slots at a time.
+  assert.deepEqual(t.pg.requests.map((r) => r.url), ['Trip/a%20b.jpg', 'Trip/c.jpg'].map((u) => u + '?width=128&height=128&fit=outside'));
+  assert.equal(stripImgs(row).length, 3, 'all three in the strip, the third waiting its turn');
+  assert.ok(row.querySelector('.chip svg'), 'the folder icon stays');
+  assert.equal(row.querySelector('.size').textContent, '12 photos');
 });
 
-test('a cover that fails leaves the icon', async () => {
+test('each thumbnail fades in once it has arrived; one that fails goes', async () => {
   const t = setup([['Trip', 'folder']], COVERS);
   t.seen([t.rows[0]]);
   await t.settle();
-  t.rows[0].querySelector('img.cover').fire('error');
+  const imgs = stripImgs(t.rows[0]);
+  assert.ok(imgs.every((img) => !img.classList.contains('ready')), 'hidden until loaded');
+  imgs[0].fire('load');
+  imgs[1].fire('error');
   t.pg.frame();
-  assert.equal(t.rows[0].querySelector('img.cover'), null);
-  assert.ok(!t.rows[0].querySelector('.chip').classList.contains('has-cover'));
+  await t.settle();
+  imgs[2].fire('load'); // the next batch
+  t.pg.frame();
+  assert.deepEqual(stripImgs(t.rows[0]).map((img) => img.classList.contains('ready')), [true, true]);
 });
 
-test('a video cover needs video thumbnails; the counts show either way', async () => {
-  const t = setup([['Clips', 'folder']], COVERS, { videoThumbs: false });
-  t.seen([t.rows[0]]);
+test('videos need video thumbnails; the counts show either way', async () => {
+  const t = setup([['Clips', 'folder'], ['Mixed', 'folder']], COVERS, { videoThumbs: false });
+  t.seen([...t.rows]);
   await t.settle();
-  assert.deepEqual(t.pg.requests, []);
+  assert.equal(strip(t.rows[0]), null, 'no strip of videos that can\'t be shown');
   assert.equal(t.rows[0].querySelector('.size').textContent, '3 videos');
+  assert.equal(stripImgs(t.rows[1]).length, 1, 'only the photo');
 });
 
-test('a cover from a folder below, and what a folder holds in a few words', async () => {
+test('a strip from a folder below, and what a folder holds in a few words', async () => {
   const t = setup([['Years', 'folder'], ['Mixed', 'folder'], ['Empty', 'folder']], COVERS);
   t.seen([...t.rows]);
   await t.settle();
   assert.equal(t.pg.requests[0].url, 'Years/2024/x.jpg?width=128&height=128&fit=outside');
+  assert.equal(strip(t.rows[2]), null, 'nothing to show, no strip');
   const sizes = t.rows.map((r) => r.querySelector('.size'));
   assert.deepEqual(sizes.map((s) => s.textContent), ['2 folders', '3 items', 'Empty']);
   assert.equal(sizes[1].title, '2 photos, 1 video, 1 folder');
