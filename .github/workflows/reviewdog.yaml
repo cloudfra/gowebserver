@@ -81,12 +81,12 @@ jobs:
       - name: Check out code.
         uses: actions/checkout@v7
       - name: codespell
-        uses: codespell-project/actions-codespell@v2.2
+        uses: codespell-project/actions-codespell@v2.4.3
         with:
           # third_party is vendored upstream proto sources we don't maintain;
           # codespell's dictionary is broad enough to flag real typos in it
           # that aren't ours to fix.
-          skip: "./.git,./go.sum,./go.mod,./third_party"
+          skip: "./.git,./go.sum,./go.mod,./third_party,package-lock.json"
           ignore_words_file: .codespellignore
 
   # https://github.com/marketplace/actions/run-yamllint-with-reviewdog
