@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Builds and publishes a release when a v* tag is pushed: the release
-# binaries and package on the GitHub release, and the container images on
-# Docker Hub and GitHub Container Registry. The commit was already linted and
-# fully tested by deploy.yaml on its way to main, so this runs the tests once
-# rather than the whole lint, deflake and coverage pass.
+# Builds and publishes a temporary 1 day retained release on demand.
 name: Create Temporary Release
 
 on:
@@ -31,10 +27,10 @@ env:
   MAKEFLAGS: 'NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64 WINDOWS_PLATFORMS=windows/amd64'
 
 jobs:
-  build-release:
-    name: "Build Release"
-    runs-on: ["self-hosted", "linux", "large"]
-    timeout-minutes: 20
+  build-temp-release:
+    name: "Build Temporary Release"
+    runs-on: ["self-hosted", "linux"]
+    timeout-minutes: 30
     steps:
       - name: Fix mod cache permissions
         run: |
@@ -75,3 +71,5 @@ jobs:
           name: release.tar.gz
           path: build/packages/release.tar.gz
           retention-days: 1
+          archive: false
+          if-no-files-found: error
