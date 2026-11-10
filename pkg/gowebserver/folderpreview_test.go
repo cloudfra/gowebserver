@@ -47,23 +47,20 @@ func TestFindFolderPreview(t *testing.T) {
 	}{
 		"its photos and videos, in natural order": {
 			fsys: fstest.MapFS{"f/img10.jpg": file, "f/img2.jpg": file, "f/clip.mp4": file, "f/notes.txt": file, "f/sub/a.jpg": file},
-			want: folderPreview{Items: items("clip.mp4", "img2.jpg", "img10.jpg"), Photos: 2, Videos: 1, Folders: 1},
+			want: folderPreview{Items: items("clip.mp4", "img2.jpg", "img10.jpg")},
 		},
-		"at most folderPreviewItems": {
-			fsys: fstest.MapFS{"f/1.jpg": file, "f/2.jpg": file, "f/3.jpg": file, "f/4.jpg": file, "f/5.jpg": file, "f/6.jpg": file, "f/7.jpg": file, "f/8.jpg": file},
-			want: folderPreview{Items: items("1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"), Photos: 8},
-		},
+
 		"from below when it has none of its own, nearest first": {
 			fsys: fstest.MapFS{"f/a/deep/x.jpg": file, "f/b/y.jpg": file, "f/b/z.mp4": file, "f/readme.txt": file},
-			want: folderPreview{Items: items("b/y.jpg", "b/z.mp4", "a/deep/x.jpg"), Folders: 2},
+			want: folderPreview{Items: items("b/y.jpg", "b/z.mp4", "a/deep/x.jpg")},
 		},
 		"hidden files and archive mounts aren't shown": {
 			fsys: fstest.MapFS{"f/.thumb.jpg": file, "f/pics.zip": file, "f/pics.zip.d/a.jpg": file, "f/z/c.jpg": file},
-			want: folderPreview{Items: items("z/c.jpg"), Folders: 1},
+			want: folderPreview{Items: items("z/c.jpg")},
 		},
 		"no deeper than folderPreviewDepth": {
 			fsys: fstest.MapFS{"f/1/2/3/4/x.jpg": file},
-			want: folderPreview{Items: items(), Folders: 1},
+			want: folderPreview{Items: items()},
 		},
 		"empty": {
 			fsys: fstest.MapFS{"f": dir},
@@ -79,6 +76,26 @@ func TestFindFolderPreview(t *testing.T) {
 				t.Errorf("preview (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+// A preview has at most folderPreviewItems, the first in name order.
+func TestFindFolderPreviewItems(t *testing.T) {
+	fsys := fstest.MapFS{}
+	var want []string
+	for i := 1; i <= folderPreviewItems+5; i++ {
+		name := fmt.Sprintf("%d.jpg", i)
+		fsys["f/"+name] = &fstest.MapFile{Data: []byte("x")}
+		if i <= folderPreviewItems {
+			want = append(want, name)
+		}
+	}
+	got, err := findFolderPreview(fsys, "f")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(items(want...), got.Items); diff != "" {
+		t.Errorf("items (-want +got):\n%s", diff)
 	}
 }
 
@@ -136,7 +153,7 @@ func TestFolderPreviewEndpoint(t *testing.T) {
 		}
 	})
 
-	if got := previewGet(t, h, "/Trip/?preview"); !cmp.Equal(got.Items, items("b.jpg", "clip.mp4")) || got.Photos != 1 || got.Videos != 1 {
+	if got := previewGet(t, h, "/Trip/?preview"); !cmp.Equal(got.Items, items("b.jpg", "clip.mp4")) {
 		t.Errorf("preview %+v", got)
 	}
 	// A new first photo changes the folder, so its preview is looked for
@@ -146,7 +163,7 @@ func TestFolderPreviewEndpoint(t *testing.T) {
 	if err := os.Chtimes(filepath.Join(root, "Trip"), later, later); err != nil {
 		t.Fatal(err)
 	}
-	if got := previewGet(t, h, "/Trip/?preview"); !cmp.Equal(got.Items, items("a.jpg", "b.jpg", "clip.mp4")) || got.Photos != 2 {
+	if got := previewGet(t, h, "/Trip/?preview"); !cmp.Equal(got.Items, items("a.jpg", "b.jpg", "clip.mp4")) {
 		t.Errorf("after a.jpg was added: %+v", got)
 	}
 	// Without ?preview it's the folder's page, as before.

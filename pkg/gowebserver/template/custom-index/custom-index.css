@@ -366,15 +366,21 @@ main {
   white-space: nowrap;
 }
 
+/* A row with a strip gives its name only the room it needs, so the
+   strip reaches toward it. */
+.row.has-strip .name {
+  flex: 0 1 auto;
+}
+
 /* A folder's strip of its photos and videos (folders.js), between its
-   name and its size. It runs right to left, so the folder's first
+   name and its size, filling the room between them. It runs right to left, so the folder's first
    photos sit by the size and are the ones kept when not all fit, and a
    strip of three or more fades out toward the name, as a filmstrip
    would (.fade). Each thumbnail fades in as it arrives. */
 .row-strip {
-  flex: 0 1 auto;
+  /* All the room the name leaves, up to the size. */
+  flex: 1 1 0;
   min-width: 0;
-  max-width: 50%;
   height: 40px;
   /* Taller than the line, without making the row taller. */
   margin: -8px 0;
@@ -412,10 +418,25 @@ main {
   }
 }
 
-/* No room beside the name on a phone. */
+/* On a phone a row stacks its name over its date, so the strip goes on
+   the right, beside both, with as many as fit in its share. */
 @media (max-width: 640px) {
-  .row-strip {
-    display: none;
+  .row.has-strip .row-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .row.has-strip .name,
+  .row.has-strip .meta {
+    grid-column: 1;
+  }
+
+  .row.has-strip .row-strip {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin: 0;
   }
 }
 

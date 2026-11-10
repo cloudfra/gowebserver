@@ -917,10 +917,15 @@
     }
 
      
-    .row-strip {
+    .row.has-strip .name {
       flex: 0 1 auto;
+    }
+
+     
+    .row-strip {
+       
+      flex: 1 1 0;
       min-width: 0;
-      max-width: 50%;
       height: 40px;
        
       margin: -8px 0;
@@ -960,8 +965,22 @@
 
      
     @media (max-width: 640px) {
-      .row-strip {
-        display: none;
+      .row.has-strip .row-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
+        column-gap: 12px;
+        align-items: center;
+      }
+
+      .row.has-strip .name,
+      .row.has-strip .meta {
+        grid-column: 1;
+      }
+
+      .row.has-strip .row-strip {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        margin: 0;
       }
     }
 
@@ -4426,13 +4445,12 @@
       
       
       
-      
       var folderPreviews = (function () {
         if (!CFG.thumbs || !window.IntersectionObserver || !window.fetch) return null;
         var LIMIT = 2, waiting = [], asking = 0;
         
         
-        var THUMB = 40;
+        var THUMB = 40, GAP = 4;
 
         
         function folderURL(row) {
@@ -4455,25 +4473,7 @@
             .then(function () { asking--; next(); });
         }
 
-        
-        
-        function describe(p) {
-          var full = [];
-          if (p.photos) full.push(plural(p.photos, 'photo', 'photos'));
-          if (p.videos) full.push(plural(p.videos, 'video', 'videos'));
-          if (p.folders) full.push(plural(p.folders, 'folder', 'folders'));
-          var media = p.photos + p.videos;
-          var short = !media ? (p.folders ? plural(p.folders, 'folder', 'folders') : 'Empty') :
-            !p.videos ? plural(p.photos, 'photo', 'photos') :
-              !p.photos ? plural(p.videos, 'video', 'videos') :
-                plural(media, 'item', 'items');
-          return { short: short, full: full.join(', ') || 'Empty' };
-        }
-
         function show(row, url, p) {
-          var d = describe(p);
-          var size = row.querySelector('.size');
-          if (size) { size.textContent = d.short; size.title = d.full; }
           
           var items = (p.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
           var main = row.querySelector('.row-main'), meta = row.querySelector('.meta');
@@ -4481,6 +4481,19 @@
           var strip = doc.createElement('span');
           strip.className = 'row-strip';
           strip.setAttribute('aria-hidden', 'true');
+          
+          
+          
+          row.classList.add('has-strip');
+          main.insertBefore(strip, meta);
+          var room = strip.clientWidth;
+          if (room < THUMB) {
+            
+            strip.remove();
+            row.classList.remove('has-strip');
+            return;
+          }
+          items = items.slice(0, Math.floor((room + GAP) / (THUMB + GAP)) + 1);
           
           if (items.length >= 3) strip.classList.add('fade');
           items.forEach(function (it) {
@@ -4494,7 +4507,6 @@
               if (ok) img.classList.add('ready'); else img.remove();
             }, false, true);
           });
-          main.insertBefore(strip, meta);
         }
 
         var seen = new IntersectionObserver(function (entries) {
@@ -4508,7 +4520,7 @@
         for (var i = 0; i < rowEls.length; i++) {
           if (rowDir[i] && folderURL(rowEls[i])) seen.observe(rowEls[i]);
         }
-        return { describe: describe };
+        return {};
       })();
 
       

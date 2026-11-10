@@ -31,17 +31,13 @@ import (
 )
 
 // folderPreview is what the file browser shows for a folder in its list:
-// a strip of its photos and videos, and what it holds. It's the answer to
-// a folder's URL with ?preview.
+// a strip of its photos and videos. It's the answer to a folder's URL
+// with ?preview.
 type folderPreview struct {
 	// Items are the first of the folder's photos and videos, in the order
 	// the list sorts them; when it has none of its own, ones from the
 	// nearest folders below it. At most folderPreviewItems.
 	Items []previewItem `json:"items"`
-	// What the folder itself holds, not counting its subfolders' files.
-	Photos  int `json:"photos"`
-	Videos  int `json:"videos"`
-	Folders int `json:"folders"`
 }
 
 // previewItem is a photo or video in a folder's preview.
@@ -54,8 +50,9 @@ type previewItem struct {
 
 const (
 	// folderPreviewItems is how many photos and videos a folder's preview
-	// has, at most.
-	folderPreviewItems = 6
+	// has, at most: enough to fill a wide row's strip; the page loads only
+	// as many as fit.
+	folderPreviewItems = 20
 	// folderPreviewDepth is how many folders down photos and videos are
 	// looked for when a folder has none of its own.
 	folderPreviewDepth = 3
@@ -145,14 +142,8 @@ func findFolderPreview(fsys fs.FS, dir string) (folderPreview, error) {
 	p := folderPreview{Items: []previewItem{}}
 	var subdirs []string
 	for _, e := range entries {
-		switch {
-		case e.dir:
-			p.Folders++
+		if e.dir {
 			subdirs = append(subdirs, e.name)
-		case e.photo:
-			p.Photos++
-		case e.video:
-			p.Videos++
 		}
 	}
 	if p.Items = addPreviewItems(p.Items, "", entries); len(p.Items) > 0 {

@@ -48,6 +48,14 @@ function setup(rows, covers, opts) {
       },
     },
   });
+  // The stand-in browser has no layout: a strip is as wide as the test
+  // says (opts.room, 400 px by default).
+  const create = pg.document.createElement.bind(pg.document);
+  pg.document.createElement = (tag) => {
+    const el = create(tag);
+    if (tag === 'span') el.clientWidth = opts.room === undefined ? 400 : opts.room;
+    return el;
+  };
   load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js'], []);
   const rowsEl = pg.document.querySelectorAll('.row');
   return {
@@ -59,12 +67,14 @@ function setup(rows, covers, opts) {
 }
 
 const it = (file, video) => (video ? { file, video: true } : { file });
+const many = (n) => Array.from({ length: n }, (_, i) => it('p' + (i + 1) + '.jpg'));
 const COVERS = {
-  'Trip': { items: [it('a b.jpg'), it('c.jpg'), it('d.jpg')], photos: 12, videos: 0, folders: 0 },
-  'Clips': { items: [it('one.mp4', true), it('two.mp4', true)], photos: 0, videos: 3, folders: 0 },
-  'Years': { items: [it('2024/x.jpg')], photos: 0, videos: 0, folders: 2 },
-  'Mixed': { items: [it('p.jpg'), it('v.mp4', true)], photos: 2, videos: 1, folders: 1 },
-  'Empty': { items: [], photos: 0, videos: 0, folders: 0 },
+  'Trip': { items: [it('a b.jpg'), it('c.jpg'), it('d.jpg')] },
+  'Clips': { items: [it('one.mp4', true), it('two.mp4', true)] },
+  'Years': { items: [it('2024/x.jpg')] },
+  'Mixed': { items: [it('p.jpg'), it('v.mp4', true)] },
+  'Empty': { items: [] },
+  'Big': { items: many(20) },
 };
 
 const strip = (row) => row.querySelector('.row-strip');
@@ -85,7 +95,7 @@ test('a folder is asked about once it comes near the screen, not before', async 
   assert.equal(t.observed().length, 1, 'and is no longer watched');
 });
 
-test('a strip of the folder\'s photos goes beside its name, through the thumbnail queue, and its icon stays', async () => {
+test('a strip of the folder\'s photos goes between its name and its size, through the thumbnail queue', async () => {
   const t = setup([['Trip', 'folder']], COVERS);
   t.seen([t.rows[0]]);
   await t.settle();
@@ -94,11 +104,29 @@ test('a strip of the folder\'s photos goes beside its name, through the thumbnai
   assert.ok(s, 'a strip');
   assert.equal(s.getAttribute('aria-hidden'), 'true');
   assert.equal(s.nextSibling, row.querySelector('.meta'), 'between the name and the size');
+  assert.ok(row.classList.contains('has-strip'));
   // Heavy thumbnails: two of HTTP/1.1's four slots at a time.
   assert.deepEqual(t.pg.requests.map((r) => r.url), ['Trip/a%20b.jpg', 'Trip/c.jpg'].map((u) => u + '?width=128&height=128&fit=outside'));
   assert.equal(stripImgs(row).length, 3, 'all three in the strip, the third waiting its turn');
   assert.ok(row.querySelector('.chip svg'), 'the folder icon stays');
-  assert.equal(row.querySelector('.size').textContent, '12 photos');
+  assert.equal(row.querySelector('.size').textContent, 'Folder', 'and so does "Folder"');
+});
+
+test('only as many as fit are loaded, and one more for the edge it fades out at', async () => {
+  const t = setup([['Big', 'folder']], COVERS, { room: 300 }); // 6 of 44 px, and a bit
+  t.seen([t.rows[0]]);
+  await t.settle();
+  assert.equal(stripImgs(t.rows[0]).length, 7);
+  assert.ok(strip(t.rows[0]).classList.contains('fade'));
+});
+
+test('a name too long to leave room gets no strip', async () => {
+  const t = setup([['Big', 'folder']], COVERS, { room: 0 });
+  t.seen([t.rows[0]]);
+  await t.settle();
+  assert.equal(strip(t.rows[0]), null);
+  assert.ok(!t.rows[0].classList.contains('has-strip'));
+  assert.deepEqual(t.pg.requests, []);
 });
 
 test('each thumbnail fades in once it has arrived; one that fails goes', async () => {
@@ -116,24 +144,20 @@ test('each thumbnail fades in once it has arrived; one that fails goes', async (
   assert.deepEqual(stripImgs(t.rows[0]).map((img) => img.classList.contains('ready')), [true, true]);
 });
 
-test('videos need video thumbnails; the counts show either way', async () => {
+test('videos need video thumbnails', async () => {
   const t = setup([['Clips', 'folder'], ['Mixed', 'folder']], COVERS, { videoThumbs: false });
   t.seen([...t.rows]);
   await t.settle();
   assert.equal(strip(t.rows[0]), null, 'no strip of videos that can\'t be shown');
-  assert.equal(t.rows[0].querySelector('.size').textContent, '3 videos');
   assert.equal(stripImgs(t.rows[1]).length, 1, 'only the photo');
 });
 
-test('a strip from a folder below, and what a folder holds in a few words', async () => {
-  const t = setup([['Years', 'folder'], ['Mixed', 'folder'], ['Empty', 'folder']], COVERS);
+test('a strip from a folder below; none for an empty folder', async () => {
+  const t = setup([['Years', 'folder'], ['Empty', 'folder']], COVERS);
   t.seen([...t.rows]);
   await t.settle();
   assert.equal(t.pg.requests[0].url, 'Years/2024/x.jpg?width=128&height=128&fit=outside');
-  assert.equal(strip(t.rows[2]), null, 'nothing to show, no strip');
-  const sizes = t.rows.map((r) => r.querySelector('.size'));
-  assert.deepEqual(sizes.map((s) => s.textContent), ['2 folders', '3 items', 'Empty']);
-  assert.equal(sizes[1].title, '2 photos, 1 video, 1 folder');
+  assert.equal(strip(t.rows[1]), null);
 });
 
 test('a couple of folders are asked about at a time', async () => {
