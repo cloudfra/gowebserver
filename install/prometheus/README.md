@@ -61,6 +61,9 @@ Metric | Labels | What it measures
 `richview_requests_total` | `result` | Text viewer requests.
 `richview_stage_duration_seconds` | `stage` (read, highlight, render) | Each stage of showing a file in the text viewer.
 `richview_source_bytes` | | Size of the files highlighted.
+`richview_follow_connections_total` | `result` (ended, gone, limit, refused, failed) | Streams that follow a log while it is written, by how each ended.
+`richview_follow_active` | | Logs being streamed to browsers right now.
+`richview_follow_lines_total` | | Lines of followed logs streamed to browsers.
 `upload_request_duration_seconds` | `result` (ok, rejected, failed) | Upload requests.
 `uploaded_bytes_total`, `uploaded_files_total` | | What was uploaded.
 `thumbnail_requests_total`, `thumbnail_request_duration_seconds` | `kind` (photo, video), `result` | Thumbnail requests.

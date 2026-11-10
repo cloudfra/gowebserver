@@ -57,6 +57,7 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
 - **richview.go**: Syntax-highlighted text viewer (`?view=rich`)
+- **richviewfollow.go**: Following a log in that viewer while it is written: server-sent events on `?view=rich&follow=1`, which files count as logs, where a stream picks the file up, and the `richview_follow_*` metrics
 - **thumbnail.go**: Resized images and video frames (`?width=`/`?height=`), made once and stored
 - **thumbnail_metrics.go**: Where thumbnail time goes: `thumbnail_*` Prometheus metrics, a span per stage (wait, decode, scale, encode, store), and a `Server-Timing` header on each thumbnail for the browser's network panel
 - **diagnostics.go**: `-debug.diagnostics=FILE` (`debug: diagnostics:` in YAML), off by default: the server's and the file browser's events (thumbnails, ffmpeg runs, what the page loads and shows) as one readable line each, with every file and folder name replaced by an HMAC token and errors by a category. Anything new written there must stay free of names: tokens via `anon`/`anonPath`/`anonDir`, errors via `errCategory`, and a page field only with a validator in `diagClientText`. Gather an event's fields only when `diagEnabled()`
