@@ -2223,14 +2223,12 @@ main {
 
 .ss-stage,
 .ss:not(.open) .ss-top,
-.ss:not(.open) .ss-bottom,
 .ss:not(.open) .ss-nav {
   transition: opacity 0.25s var(--ease-out);
 }
 
 .ss:not(.open) .ss-stage,
 .ss:not(.open) .ss-top,
-.ss:not(.open) .ss-bottom,
 .ss:not(.open) .ss-nav {
   opacity: 0;
 }
@@ -2277,22 +2275,28 @@ main {
   will-change: transform, clip-path;
 }
 
-.ss-top,
-.ss-bottom {
+/* The strip hangs under the bar at the top of the frame: the bottom of a
+   video belongs to the browser, which paints its own control panel -
+   scrubber included - over the picture there, so the filmstrip keeps
+   that edge clear. */
+.ss-top {
+  top: 0;
   position: absolute;
   left: 0;
   right: 0;
   z-index: 6;
+  display: flex;
+  flex-direction: column;
+  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left));
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
   transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
 }
 
-.ss-top {
-  top: 0;
+.ss-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 28px max(20px, env(safe-area-inset-left));
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+  transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
 }
 
 .ss-info {
@@ -2852,19 +2856,15 @@ main {
   pointer-events: none;
 }
 
-.ss-bottom {
-  bottom: 0;
-  padding: 28px max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
-  pointer-events: none;
-}
-
 .ss-strip {
   display: flex;
+  flex: none;
   justify-content: center;
   gap: 5px;
   height: 63px;
+  margin-top: 12px;
   pointer-events: auto;
+  transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
 }
 
 .ss-strip[hidden] {
@@ -2926,39 +2926,31 @@ main {
    a touch screen they fade a few seconds after every swipe, and only a
    tap brings them back, so a strip that went with them was hardly ever
    seen. In full screen it stays out of the way, even while the other
-   controls show, until the pointer or a finger comes near the bottom
-   edge (strip-on) or keyboard focus reaches it. */
-.ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) {
+   controls show, until the pointer or a finger comes near the top edge
+   (strip-on) or keyboard focus reaches it. */
+.ss.is-fs:not(.strip-on) .ss-strip:not(:focus-within) {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(-8px);
+  pointer-events: none;
 }
 
-.ss.is-fs.strip-on .ss-bottom {
+.ss.is-fs.strip-on .ss-strip {
   opacity: 1;
   transform: none;
-}
-
-.ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
-  pointer-events: none;
 }
 
 .ss.strip-on {
   cursor: auto;
 }
 
-.ss.chrome-off .ss-top,
-.ss.chrome-off .ss-nav,
-.ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
+.ss.chrome-off .ss-bar,
+.ss.chrome-off .ss-nav {
   opacity: 0;
   pointer-events: none;
 }
 
-.ss.chrome-off .ss-top {
+.ss.chrome-off .ss-bar {
   transform: translateY(-8px);
-}
-
-.ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
-  transform: translateY(8px);
 }
 
 .ss.chrome-off {
@@ -2979,8 +2971,11 @@ main {
 }
 
 @media (max-width: 480px) {
-  .ss-top {
+  .ss-bar {
     gap: 4px;
+  }
+
+  .ss-top {
     padding-left: max(16px, env(safe-area-inset-left));
   }
 

@@ -163,6 +163,53 @@ test('without server thumbnails there is no filmstrip', () => {
   assert.equal(t.slides().length, 3);
 });
 
+// The browser paints its own control panel, scrubber included, along the
+// bottom of a video, so the filmstrip hangs under the bar at the top of
+// the frame instead - which leaves a video's strip nothing to dodge.
+test('a video keeps its filmstrip, on a phone too', () => {
+  const phone = setup(30, { videos: true, stage: [844, 390], fullscreen: true });
+  phone.slideshow.open(phone.all, 8, null, false);
+  assert.equal(phone.$('ss-strip').hidden, false, 'a photo has its strip');
+  phone.key('ArrowRight');
+  assert.equal(phone.$('ss-strip').hidden, false, "and so does a video's");
+
+  const desk = setup(30, { videos: true, mouse: true });
+  desk.slideshow.open(desk.all, 9, null, false);
+  assert.equal(desk.$('ss-strip').hidden, false, 'where there is a mouse it stays');
+});
+
+// The strip used to sit at the bottom of the frame, where a video's
+// scrubber does too, so the area that summoned it was there.
+test('the area that summons the filmstrip is at the top', () => {
+  const t = setup(30, { videos: true, mouse: true, fullscreen: true, stage: [1280, 800] });
+  t.slideshow.open(t.all, 8, null, false);
+  t.$('ss-full').click();
+  t.$('ss-frame').rect = { top: 0, left: 0, width: 1280, height: 800 };
+  const on = () => t.dlg.classList.contains('strip-on');
+  // 200px up from the bottom edge, over where the strip used to sit.
+  t.dlg.fire('pointermove', { clientY: 600, pointerType: 'mouse' });
+  assert.equal(on(), false, 'that is no longer where it lives');
+  t.dlg.fire('pointermove', { clientY: 100, pointerType: 'mouse' });
+  assert.equal(on(), true, 'the top edge summons it');
+  // A full-screen frame on a notched phone starts below the window's top
+  // edge, and the band goes with it.
+  const notch = setup(30, { videos: true, mouse: true, fullscreen: true, stage: [1280, 800] });
+  notch.slideshow.open(notch.all, 9, null, false);
+  notch.$('ss-full').click();
+  notch.$('ss-frame').rect = { top: 40, left: 0, width: 1280, height: 760 };
+  notch.dlg.fire('pointermove', { clientY: 200, pointerType: 'mouse' });
+  assert.equal(notch.dlg.classList.contains('strip-on'), false, 'past the band, wherever it sits');
+  notch.dlg.fire('pointermove', { clientY: 180, pointerType: 'mouse' });
+  assert.equal(notch.dlg.classList.contains('strip-on'), true, 'the band moves with the frame');
+
+  // Windowed, the strip is part of the chrome and needs no summoning.
+  const win = setup(30, { videos: true, mouse: true, stage: [1280, 800] });
+  win.slideshow.open(win.all, 9, null, false);
+  win.dlg.fire('pointermove', { clientY: 700, pointerType: 'mouse' });
+  assert.equal(win.$('ss-strip').hidden, false);
+  assert.equal(win.dlg.classList.contains('strip-on'), false, 'nothing to summon');
+});
+
 test('a video slide loads before its neighbors\' videos', () => {
   const t = setup(100, { videos: true });
   // Only the videos (m9, m19, ...), from the fourth: m39, between m29
@@ -239,7 +286,7 @@ test('a desktop or a tablet opens the gallery in a window', () => {
   const desktop = setup(30, { stage: [1280, 800], fullscreen: true, mouse: true });
   desktop.slideshow.open(desktop.all, 5, null, false);
   assert.equal(desktop.full(), null);
-  assert.equal(desktop.slides()[0].style.padding, '76px 96px 104px 96px', 'room for the controls');
+  assert.equal(desktop.slides()[0].style.padding, '150px 96px 64px 96px', 'room for the bar and the filmstrip under it');
 
   const tablet = setup(30, { stage: [1024, 768], fullscreen: true });
   tablet.slideshow.open(tablet.all, 5, null, false);
