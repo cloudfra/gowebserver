@@ -50,13 +50,30 @@ function setup(rows, covers, opts) {
   });
   // The stand-in browser has no layout: a strip is as wide as the test
   // says (opts.room, 400 px by default).
+  // A canvas gives back, in every pixel, the color opts.colors has for
+  // the thumbnail drawn into it last (gray when it has none).
   const create = pg.document.createElement.bind(pg.document);
   pg.document.createElement = (tag) => {
+    if (tag === 'canvas') {
+      let last = null;
+      const node = { width: 0, height: 0 };
+      node.getContext = () => ({
+        clearRect() { last = null; },
+        drawImage(pic) { last = pic; },
+        getImageData() {
+          const rgb = (last && (opts.colors || {})[last.src]) || [128, 128, 128];
+          const data = new Uint8ClampedArray(node.width * node.height * 4);
+          for (let i = 0; i < data.length; i += 4) data.set(rgb.concat(255), i);
+          return { data };
+        },
+      });
+      return node;
+    }
     const el = create(tag);
     if (tag === 'span') el.clientWidth = opts.room === undefined ? 400 : opts.room;
     return el;
   };
-  load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js'], []);
+  load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js', 'custom-index/accent.js'], []);
   const rowsEl = pg.document.querySelectorAll('.row');
   return {
     pg, asked, rows: rowsEl,
@@ -171,4 +188,39 @@ test('a couple of folders are asked about at a time', async () => {
 test('without thumbnails nothing is asked', async () => {
   const t = setup([['Trip', 'folder']], COVERS, { thumbs: false });
   assert.deepEqual(t.observed(), []);
+});
+
+// Every thumbnail request so far arrives, a batch at a time.
+async function arriveAll(t) {
+  for (let i = 0; i < 4; i++) {
+    t.pg.requests.forEach((r) => { if (r.el._thumb === 'loading') r.el.fire('load'); });
+    t.pg.frame();
+    await t.settle();
+  }
+}
+
+const thumb = (folder, file) => folder + '/' + file + '?width=128&height=128&fit=outside';
+
+test('a folder of vivid photos tints its row with their color', async () => {
+  const t = setup([['Trip', 'folder']], COVERS, {
+    colors: { [thumb('Trip', 'a%20b.jpg')]: [255, 120, 0], [thumb('Trip', 'c.jpg')]: [255, 120, 0], [thumb('Trip', 'd.jpg')]: [128, 128, 128] },
+  });
+  t.seen([t.rows[0]]);
+  await t.settle();
+  assert.ok(!t.rows[0].classList.contains('row-accent'), 'not before the strip is in');
+  await arriveAll(t);
+  const row = t.rows[0];
+  assert.ok(row.classList.contains('row-accent'));
+  const h = parseFloat(row.style.getPropertyValue('--row-h'));
+  assert.ok(h > 30 && h < 80, 'an orange hue, got ' + h);
+  assert.ok(parseFloat(row.style.getPropertyValue('--row-c')) >= 0.14, 'never a muted one');
+});
+
+test('a folder of gray photos keeps the usual look', async () => {
+  const t = setup([['Trip', 'folder']], COVERS);
+  t.seen([t.rows[0]]);
+  await t.settle();
+  await arriveAll(t);
+  assert.ok(!t.rows[0].classList.contains('row-accent'));
+  assert.equal(t.rows[0].style.getPropertyValue('--row-h'), '');
 });
