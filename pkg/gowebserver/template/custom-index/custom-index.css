@@ -2907,7 +2907,9 @@ main {
     backdrop-filter: none;
   }
 
-  .ss-btn.opt {
+  /* A phone starts its gallery in full screen, so it keeps the button
+     that turns that off and gives up the one it can do without. */
+  .ss-btn.opt:not(#ss-full) {
     display: none;
   }
 }
