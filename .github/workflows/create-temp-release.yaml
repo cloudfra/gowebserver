@@ -40,17 +40,47 @@ env:
     RELEASE_PLATFORMS=linux/amd64\ windows/amd64
 
 jobs:
+  sign-windows:
+    # The same gate as build-temp-release below. SignPath signs the Windows
+    # binary when the repository is set up for it, with the signing policy
+    # in vars.SIGNPATH_TEMP_SIGNING_POLICY: test-signing by default, which
+    # needs no approval but is not trusted by Windows or browsers;
+    # release-signing gives a temporary build the trusted certificate, and
+    # an approver has to approve each one in SignPath.
+    if: >-
+      vars.SIGNPATH_ORGANIZATION_ID != ''
+      && (github.event_name == 'workflow_dispatch'
+      || (github.event.issue.pull_request
+      && contains(github.event.comment.body, '/create-temp-release')
+      && contains(fromJSON('["OWNER", "MEMBER"]'),
+      github.event.comment.author_association)))
+    uses: ./.github/workflows/sign-windows.yaml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      ref: >-
+        ${{ github.event_name == 'issue_comment'
+        && format('refs/pull/{0}/head', github.event.issue.number)
+        || github.ref }}
+      signing-policy: ${{ vars.SIGNPATH_TEMP_SIGNING_POLICY || 'test-signing' }}
+      platforms: windows/amd64
+    secrets:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+
   build-temp-release:
+    needs: sign-windows
     # A comment trigger has to be on a pull request, mention the command, and
     # come from someone in the organization that owns the repo: OWNER and
     # MEMBER are org roles, COLLABORATOR is an outside collaborator. The job
     # compiles that pull request's own code on a self-hosted runner.
     if: >-
-      github.event_name == 'workflow_dispatch'
+      !cancelled() && needs.sign-windows.result != 'failure'
+      && (github.event_name == 'workflow_dispatch'
       || (github.event.issue.pull_request
       && contains(github.event.comment.body, '/create-temp-release')
       && contains(fromJSON('["OWNER", "MEMBER"]'),
-      github.event.comment.author_association))
+      github.event.comment.author_association)))
     name: "Build Temporary Release"
     runs-on: ["self-hosted", "linux"]
     timeout-minutes: 30
@@ -90,6 +120,18 @@ jobs:
         run: ./scripts/template-go/install-codesign.sh
       - name: Clean
         run: make clean
+      - name: Download Signed Windows Binaries
+        # SignPath's copies, from sign-windows.yaml; the build takes them
+        # instead of signing its own (WINDOWS_SIGNED_DIR, Makefile_build.mk).
+        if: needs.sign-windows.result == 'success'
+        # https://github.com/actions/download-artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-signed
+          path: build/signed
+      - name: Use Signed Windows Binaries
+        if: needs.sign-windows.result == 'success'
+        run: echo "WINDOWS_SIGNED_DIR=build/signed" >> "$GITHUB_ENV"
       - name: Download Dependencies
         run: make deps
       - name: Build Binaries

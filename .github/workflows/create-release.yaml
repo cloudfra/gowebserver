@@ -29,8 +29,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  sign-windows:
+    # SignPath signs the Windows binaries when the repository is set up for
+    # it (see "Code signing" in README.md); otherwise they are self-signed by
+    # the build below.
+    if: vars.SIGNPATH_ORGANIZATION_ID != ''
+    uses: ./.github/workflows/sign-windows.yaml
+    permissions:
+      actions: read
+      contents: read
+    with:
+      ref: ${{ github.ref }}
+    secrets:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+
   build-release:
     name: "Build Release"
+    needs: sign-windows
+    # Skipped signing is fine; failed signing stops the release.
+    if: ${{ !cancelled() && needs.sign-windows.result != 'failure' }}
     runs-on: ["self-hosted", "linux", "large"]
     permissions:
       contents: write
@@ -64,6 +81,18 @@ jobs:
         run: ./scripts/template-go/install-codesign.sh
       - name: Clean
         run: make clean
+      - name: Download Signed Windows Binaries
+        # SignPath's copies, from sign-windows.yaml; the build takes them
+        # instead of signing its own (WINDOWS_SIGNED_DIR, Makefile_build.mk).
+        if: needs.sign-windows.result == 'success'
+        # https://github.com/actions/download-artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-signed
+          path: build/signed
+      - name: Use Signed Windows Binaries
+        if: needs.sign-windows.result == 'success'
+        run: echo "WINDOWS_SIGNED_DIR=build/signed" >> "$GITHUB_ENV"
       - name: Build Assets
         run: make assets testassets
       - name: Download Dependencies
@@ -83,6 +112,10 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          # SignPath Foundation asks for the policy on the download page.
+          body: >-
+            [Code signing policy](${{ github.server_url }}/${{
+            github.repository }}#code-signing-policy)
           draft: false
           prerelease: false
           files: |
