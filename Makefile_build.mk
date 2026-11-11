@@ -108,7 +108,23 @@ ALL_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(ALL_PLATFORMS),bui
 CODESIGN_CERT ?= build/certs/codesign.crt
 CODESIGN_KEY ?= build/certs/codesign.key
 
+# How the Windows release binaries are signed. Each is first given version
+# information (product name, version, original file name), which Windows
+# shows in the file's Details tab and SignPath's file metadata restrictions
+# check:
+#   self - Authenticode-signed here with CODESIGN_CERT/CODESIGN_KEY.
+#   none - left unsigned, for a signing service to sign; see
+#          .github/workflows/sign-windows.yaml (SignPath).
+# With WINDOWS_SIGNED_DIR set, each Windows release binary is instead copied
+# as it is from that directory, where the signing service's output was put,
+# and must already carry a signature.
+WINDOWS_SIGNING ?= self
+WINDOWS_SIGNED_DIR ?=
+WINDOWS_PRODUCT_NAME ?= $(notdir $(GO_PACKAGE))
+WINDOWS_COMPANY_NAME ?= Cloudfra
+
 RELEASE_BINARIES = $(foreach app,$(ALL_APPS),$(foreach platform,$(RELEASE_PLATFORMS),build/release/$(app)-$(subst /,_,$(platform))$(if $(findstring windows,$(platform)),.exe,)))
+WINDOWS_RELEASE_BINARIES = $(filter %.exe,$(RELEASE_BINARIES))
 
 WINDOWS_VERSIONS = 1709 1803 1809 1903 1909 2004 20H2 ltsc2022 ltsc2025
 BUILDX_BUILDER = buildx-builder
@@ -137,6 +153,11 @@ build/packages/%-binaries.zip: $(ALL_BINARIES)
 	touch "$(REPOSITORY_ROOT)/$@"
 
 release-binaries: $(RELEASE_BINARIES)
+windows-release-binaries: $(WINDOWS_RELEASE_BINARIES)
+
+# The version the binaries are stamped with, for scripts.
+print-version:
+	@echo "$(VERSION)"
 
 build/packages/release.tar.gz: $(RELEASE_BINARIES)
 	mkdir -p "$(dir $@)"
@@ -366,11 +387,33 @@ rel2bin  = build/bin/$(subst _,/,$(call platform,$(1)))/$(call appname,$(1))$(if
 # same as darwin/bsd/other platforms with no apt-installable signing tool.
 LINUX_OBJCOPY_SIGNABLE_PLATFORMS = linux_386 linux_amd64
 
+# A Windows release binary: version information, then signed (see
+# WINDOWS_SIGNING), or the signing service's copy from WINDOWS_SIGNED_DIR.
+# go-winres's --delete starts from no resources, which is what go build
+# leaves.
+WINDOWS_RELEASE_DEPS = $(if $(WINDOWS_SIGNED_DIR),,$(GOWINRES) $(if $(filter self,$(WINDOWS_SIGNING)),$(CODESIGN_CERT) $(CODESIGN_KEY)))
+winres_json = {"RT_VERSION":{"\#1":{"0000":{"fixed":{"file_version":"0.0.0.0","product_version":"0.0.0.0"},"info":{"0409":{"CompanyName":"$(WINDOWS_COMPANY_NAME)","FileDescription":"$(1)","InternalName":"$(1)","LegalCopyright":"Copyright $(WINDOWS_COMPANY_NAME)","OriginalFilename":"$(2)","ProductName":"$(WINDOWS_PRODUCT_NAME)"}}}}}}
+
+build/release/%.exe: $$(call rel2bin,$$*.exe) $(WINDOWS_RELEASE_DEPS)
+	@mkdir -p $(@D)
+ifneq ($(WINDOWS_SIGNED_DIR),)
+	cp "$(WINDOWS_SIGNED_DIR)/$(notdir $@)" "$@"
+	osslsigncode extract-signature -in "$@" -out "$@.p7" >/dev/null || { echo "ERROR: $(WINDOWS_SIGNED_DIR)/$(notdir $@) is not signed"; exit 1; }
+	rm -f "$@.p7"
+else
+	cp "$<" "$@"
+	printf '%s' '$(call winres_json,$(call appname,$*.exe),$(notdir $@))' > "$@.winres.json"
+	"$(GOWINRES)" patch --delete --no-backup --in "$@.winres.json" --product-version "$(VERSION)" --file-version "$(VERSION)" "$@"
+	rm -f "$@.winres.json"
+	$(if $(filter self,$(WINDOWS_SIGNING)),osslsigncode sign -certs $(CODESIGN_CERT) -key $(CODESIGN_KEY) -in $@ -out $@.signed && mv $@.signed $@,)
+endif
+	chmod +x "$@"
+	touch "$(REPOSITORY_ROOT)/$@"
+
 build/release/%: $$(call rel2bin,$$*) $(CODESIGN_CERT) $(CODESIGN_KEY)
 	@mkdir -p $(@D)
 	cp "$<" "$@"
 	touch "$(REPOSITORY_ROOT)/$@"
-	$(if $(findstring windows,$(call platform,$*)),osslsigncode sign -certs $(CODESIGN_CERT) -key $(CODESIGN_KEY) -in $@ -out $@.signed && mv $@.signed $@ && chmod +x $@,)
 	$(if $(filter $(LINUX_OBJCOPY_SIGNABLE_PLATFORMS),$(call platform,$*)),openssl cms -sign -binary -in $@ -signer $(CODESIGN_CERT) -inkey $(CODESIGN_KEY) -outform DER -out $@.sig && objcopy --add-section .cloudfra_signature=$@.sig --set-section-flags .cloudfra_signature=noload$(COMMA)readonly $@ && rm -f $@.sig,)
 
 no-sudo:
@@ -396,4 +439,4 @@ system-info:
 sync-upstream:
 	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main
 
-.PHONY: tools all assets testassets protos windows-binaries release-binaries wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean clean-cache presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream
+.PHONY: tools all assets testassets protos windows-binaries release-binaries windows-release-binaries print-version wasm-binaries lint lint-terraform lint-go lint-docker lint-yaml lint-shell lint-markdown lint-vuln bench test test-go test-deflake test-tf deps clean clean-cache presubmit ensure-builder docker-images scan-images images linux-images windows-images no-sudo system-info sync-upstream

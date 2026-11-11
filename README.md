@@ -121,6 +121,35 @@ What isn't: no file or folder name. Each is replaced by a token, the first 10 he
 | Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing`
 | macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-darwin_arm64`
 
+The Windows builds are code-signed; see the [code signing policy](#code-signing-policy).
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io),
+certificate by [SignPath Foundation](https://signpath.org).
+
+* Committers and reviewers: [members of the Cloudfra organization](https://github.com/orgs/cloudfra/people)
+* Approvers: [owners of the Cloudfra organization](https://github.com/orgs/cloudfra/people?query=role%3Aowner)
+
+Only binaries built by this repository's GitHub Actions workflows, from its
+own source, are signed, and an approver approves each release by hand.
+Changes from anyone who is not a committer are reviewed before they are
+merged. Everyone on the team signs in to GitHub and SignPath with
+multi-factor authentication.
+
+Privacy: this program will not transfer any information to other networked
+systems unless specifically requested by the user or the person installing
+or operating it. It serves what it is configured to serve, and reaches out
+only where its configuration says to: a git repository or proxy target it
+serves, metrics or traces sent to a collector, or an ffmpeg download once
+`ffmpeg.installOnDemand` and `ffmpeg.acceptLicense` are both set.
+
+How releases are signed (`.github/workflows/sign-windows.yaml`, the
+`WINDOWS_SIGNING`/`WINDOWS_SIGNED_DIR` make variables, and setting a
+repository up for SignPath) is described in
+[template-go's README](https://github.com/cloudfra/template-go#code-signing),
+which this repository's build comes from.
+
 ## Docker Images
 
 * [gowebserver](https://hub.docker.com/r/cloudfra/gowebserver/tags)

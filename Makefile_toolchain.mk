@@ -30,6 +30,8 @@ GOCOVER_COBERTURA_VERSION = 0.0.0-20180217150009-aaee18c8195c
 GOFUMPT_VERSION = 0.12.0
 # https://github.com/golangci/golangci-lint/releases
 GOLANGCI_LINT_VERSION = 2.15.0
+# https://github.com/tc-hib/go-winres/releases
+GOWINRES_VERSION = 0.3.3
 # https://github.com/golang/vuln/releases
 GOVULNCHECK_VERSION = 1.9.0
 # https://github.com/mgechev/revive/releases
@@ -105,6 +107,8 @@ GOFUMPT_GO_PACKAGE = mvdan.cc/gofumpt
 GOFUMPT = $(call go_tool_path,gofumpt,$(GOFUMPT_VERSION),$(GOFUMPT_GO_PACKAGE))
 GOLANGCI_LINT_GO_PACKAGE = github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 GOLANGCI_LINT = $(call go_tool_path,golangci-lint,$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_GO_PACKAGE))
+GOWINRES_GO_PACKAGE = github.com/tc-hib/go-winres
+GOWINRES = $(call go_tool_path,go-winres,$(GOWINRES_VERSION),$(GOWINRES_GO_PACKAGE))
 GOVULNCHECK_GO_PACKAGE = golang.org/x/vuln/cmd/govulncheck
 GOVULNCHECK = $(call go_tool_path,govulncheck,$(GOVULNCHECK_VERSION),$(GOVULNCHECK_GO_PACKAGE))
 HADOLINT = $(call tool_path,hadolint,$(HADOLINT_VERSION),$(HADOLINT_PACKAGE))
@@ -131,7 +135,7 @@ ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 # would fetch and HEAD-check a candidate NDK release before rewriting the pin.
 ANDROID_NDK_PACKAGE = https://dl.google.com/android/repository/android-ndk-$(ANDROID_NDK_VERSION)-linux.zip
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(GOWINRES) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
 	$(call GO_INSTALL_TOOL,$(ACTIONLINT_GO_PACKAGE)@$(call go_ref,$(ACTIONLINT_VERSION)))
@@ -154,6 +158,9 @@ $(GOFUMPT):
 # would, so it's the only Go correctness linter wired into `lint`.
 $(GOLANGCI_LINT):
 	$(call GO_INSTALL_TOOL,$(GOLANGCI_LINT_GO_PACKAGE)@$(call go_ref,$(GOLANGCI_LINT_VERSION)))
+
+$(GOWINRES):
+	$(call GO_INSTALL_TOOL,$(GOWINRES_GO_PACKAGE)@$(call go_ref,$(GOWINRES_VERSION)))
 
 $(GOVULNCHECK):
 	$(call GO_INSTALL_TOOL,$(GOVULNCHECK_GO_PACKAGE)@$(call go_ref,$(GOVULNCHECK_VERSION)))

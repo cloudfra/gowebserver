@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The SignPath artifact configuration for this project's Windows binaries.
+  SignPath keeps its own copy: paste this into the project's default artifact
+  configuration (SignPath > Projects > <project> > Artifact configurations).
+  It is kept here so it is reviewed with the build that has to match it.
+
+  The artifact is the zip that .github/workflows/sign-windows.yaml uploads:
+  the .exe files from `make windows-release-binaries`, at the zip's root.
+  Each must say it is this product, at the version the workflow passes in
+  (`make print-version`), which Makefile_build.mk stamps with go-winres.
+  The product name is WINDOWS_PRODUCT_NAME, the repository name.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" />
+  </parameters>
+  <zip-file>
+    <pe-file-set product-name="gowebserver" product-version="${version}" company-name="Cloudfra">
+      <include path="*.exe" max-matches="unbounded" />
+      <for-each>
+        <authenticode-sign />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>
