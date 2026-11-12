@@ -20,8 +20,3 @@ self-hosted-runner:
     - large
     - root
     - desktop-experience
-
-paths:
-  "**/*.yaml":
-    ignore:
-      - 'unknown permission scope "code-quality"'

@@ -117,36 +117,33 @@ else
 endif
 
 # Many projects, pinned to different versions, share one TOOLCHAIN_CACHE on a
-# runner, so each tool goes in a directory named for the tool, its version and
-# a key, a git hash of everything that decides which binary gets installed:
+# runner, so each tool goes in a directory named only by the machine, the tool
+# and the version:
 #
 # - the machine's OS and exact CPU (uname -m tells arm64 from 32-bit arm,
-#   which HOST_PLATFORM doesn't); this is also the cache subdirectory, so the
+#   which HOST_PLATFORM doesn't) separate the cache subdirectories, so the
 #   cache can be shared by machines of every kind;
-# - the install recipes above, so a template that installs tools differently
-#   installs them again;
-# - the tool, its version and where it comes from: a download URL, or a Go
-#   package and the Go version that builds it (a linter built with an older Go
-#   can't read code written for a newer one);
-# - for a version of `latest`, today's date, so a floating tool is fetched
-#   again each day instead of being kept forever.
+# - the tool and its pinned version decide which binary belongs there.
 #
-# Projects therefore never install over each other's tools, and a project
-# that changes nothing finds its tools where it left them.
-# git_hash TEXT is a short git object hash of TEXT.
-git_hash = $(shell printf '%s' '$(subst ','\'',$(1))' | git hash-object --stdin | cut -c1-12)
+# Nothing else goes into the name: no project, no download URL, no hash of the
+# install recipe. Projects made from this template pin the same tools and
+# install them the same way, so each one finds another project's install
+# already on the runner and installs only what is missing.
+#
+# Naming by version alone assumes the version identifies the install. If an
+# install recipe below changes without a version bump, bump the version or run
+# `make clean-cache` to clear what the old recipe left behind; a Go tool
+# rebuilt by a newer Go is reused too, for the same reason.
 TOOLCHAIN_HOST := $(HOST_OS)-$(shell uname -m)
 TOOLCHAIN_HOST_CACHE = $(TOOLCHAIN_CACHE)/$(TOOLCHAIN_HOST)
-TOOLCHAIN_RECIPES_KEY := $(call git_hash,$(value DOWNLOAD_TOOL) $(value INSTALL_FROM_ARCHIVE) $(value GO_INSTALL_TOOL))
-# tool_dir TOOL,VERSION,SOURCE names the directory TOOL is installed into.
-tool_dir = $(TOOLCHAIN_HOST_CACHE)/$(1)-$(2)-$(call tool_key,$(1),$(2),$(3))
-# tool_path TOOL,VERSION,URL names the installed binary of a downloaded tool.
-tool_path = $(call tool_dir,$(1),$(2),$(3))/$(1)$(EXE)
-# go_tool_path TOOL,VERSION,GO_PACKAGE names the binary go install builds.
-go_tool_path = $(call tool_path,$(1),$(2),$(3)@$(call go_ref,$(2)) $(TOOLCHAIN_GO_VERSION))
+# tool_dir TOOL,VERSION names the directory TOOL is installed into. A version
+# of `latest` names no binary, so its directory carries the date and is
+# fetched again each day instead of being kept forever.
+tool_dir = $(TOOLCHAIN_HOST_CACHE)/$(1)-$(2)$(if $(filter latest,$(2)),-$(TOOLCHAIN_DATE))
+# tool_path TOOL,VERSION names the installed binary of a downloaded tool.
+tool_path = $(call tool_dir,$(1),$(2))/$(1)$(EXE)
+# go_tool_path TOOL,VERSION names the binary go install builds.
+go_tool_path = $(call tool_path,$(1),$(2))
 
-# Each key and the Go version are worked out once per make run, when first
-# used.
-tool_key = $(or $(TOOL_KEY_$(1)_$(2)),$(eval TOOL_KEY_$(1)_$(2) := $(call git_hash,$(TOOLCHAIN_HOST) $(TOOLCHAIN_RECIPES_KEY) $(1) $(2) $(3)$(if $(filter latest,$(2)), $(TOOLCHAIN_DATE))))$(TOOL_KEY_$(1)_$(2)))
-TOOLCHAIN_GO_VERSION = $(or $(TOOLCHAIN_GO_VERSION_),$(eval TOOLCHAIN_GO_VERSION_ := $(shell $(TOOLCHAIN_GO) env GOVERSION))$(TOOLCHAIN_GO_VERSION_))
-TOOLCHAIN_DATE = $(shell date -u +%Y-%m-%d)
+# TOOLCHAIN_DATE is worked out once per make run, when first used.
+TOOLCHAIN_DATE = $(or $(TOOLCHAIN_DATE_),$(eval TOOLCHAIN_DATE_ := $(shell date -u +%Y-%m-%d))$(TOOLCHAIN_DATE_))

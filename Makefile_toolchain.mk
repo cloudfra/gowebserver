@@ -24,8 +24,6 @@ TERRAFORM_VERSION = 1.17.1
 CERTTOOL_VERSION = 0.8.1
 # https://github.com/hadolint/hadolint/releases
 HADOLINT_VERSION = 2.15.1
-# https://github.com/t-yuki/gocover-cobertura/releases
-GOCOVER_COBERTURA_VERSION = 0.0.0-20180217150009-aaee18c8195c
 # https://github.com/mvdan/gofumpt/releases
 GOFUMPT_VERSION = 0.12.0
 # https://github.com/golangci/golangci-lint/releases
@@ -92,38 +90,36 @@ else
 endif
 
 # Each tool is installed once into TOOLCHAIN_CACHE (see Makefile_core.mk), in a
-# directory keyed by its version and source, and run from there. A Go tool's
-# source is its X_GO_PACKAGE (not X_PACKAGE, which update-project.sh takes to be
+# directory named by its version, and run from there. A Go tool's package is
+# its X_GO_PACKAGE (not X_PACKAGE, which update-project.sh takes to be
 # a download URL to check).
 ACTIONLINT_GO_PACKAGE = github.com/rhysd/actionlint/cmd/actionlint
-ACTIONLINT = $(call go_tool_path,actionlint,$(ACTIONLINT_VERSION),$(ACTIONLINT_GO_PACKAGE))
-CERTTOOL = $(call tool_path,certtool,$(CERTTOOL_VERSION),$(CERTTOOL_PACKAGE))
-DOCKER_COMPOSE = $(call tool_path,docker-compose,$(DOCKERCOMPOSE_VERSION),$(DOCKERCOMPOSE_PACKAGE))
-GOCOVER_COBERTURA_GO_PACKAGE = github.com/t-yuki/gocover-cobertura
-GOCOVER_COBERTURA = $(call go_tool_path,gocover-cobertura,$(GOCOVER_COBERTURA_VERSION),$(GOCOVER_COBERTURA_GO_PACKAGE))
+ACTIONLINT = $(call go_tool_path,actionlint,$(ACTIONLINT_VERSION))
+CERTTOOL = $(call tool_path,certtool,$(CERTTOOL_VERSION))
+DOCKER_COMPOSE = $(call tool_path,docker-compose,$(DOCKERCOMPOSE_VERSION))
 GOFUMPT_GO_PACKAGE = mvdan.cc/gofumpt
-GOFUMPT = $(call go_tool_path,gofumpt,$(GOFUMPT_VERSION),$(GOFUMPT_GO_PACKAGE))
+GOFUMPT = $(call go_tool_path,gofumpt,$(GOFUMPT_VERSION))
 GOLANGCI_LINT_GO_PACKAGE = github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-GOLANGCI_LINT = $(call go_tool_path,golangci-lint,$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_GO_PACKAGE))
+GOLANGCI_LINT = $(call go_tool_path,golangci-lint,$(GOLANGCI_LINT_VERSION))
 GOVULNCHECK_GO_PACKAGE = golang.org/x/vuln/cmd/govulncheck
-GOVULNCHECK = $(call go_tool_path,govulncheck,$(GOVULNCHECK_VERSION),$(GOVULNCHECK_GO_PACKAGE))
-HADOLINT = $(call tool_path,hadolint,$(HADOLINT_VERSION),$(HADOLINT_PACKAGE))
+GOVULNCHECK = $(call go_tool_path,govulncheck,$(GOVULNCHECK_VERSION))
+HADOLINT = $(call tool_path,hadolint,$(HADOLINT_VERSION))
 REVIVE_GO_PACKAGE = github.com/mgechev/revive
-REVIVE = $(call go_tool_path,revive,$(REVIVE_VERSION),$(REVIVE_GO_PACKAGE))
-RUMDL = $(call tool_path,rumdl,$(RUMDL_VERSION),$(RUMDL_PACKAGE))
-SHELLCHECK = $(call tool_path,shellcheck,$(SHELLCHECK_VERSION),$(SHELLCHECK_PACKAGE))
-TERRAFORM = $(call tool_path,terraform,$(TERRAFORM_VERSION),$(TERRAFORM_PACKAGE))
+REVIVE = $(call go_tool_path,revive,$(REVIVE_VERSION))
+RUMDL = $(call tool_path,rumdl,$(RUMDL_VERSION))
+SHELLCHECK = $(call tool_path,shellcheck,$(SHELLCHECK_VERSION))
+TERRAFORM = $(call tool_path,terraform,$(TERRAFORM_VERSION))
 TFLINT_GO_PACKAGE = github.com/terraform-linters/tflint
-TFLINT = $(call go_tool_path,tflint,$(TFLINT_VERSION),$(TFLINT_GO_PACKAGE))
-TRIVY = $(call tool_path,trivy,$(TRIVY_VERSION),$(TRIVY_PACKAGE))
+TFLINT = $(call go_tool_path,tflint,$(TFLINT_VERSION))
+TRIVY = $(call tool_path,trivy,$(TRIVY_VERSION))
 VIZB_GO_PACKAGE = github.com/goptics/vizb
-VIZB = $(call go_tool_path,vizb,$(VIZB_VERSION),$(VIZB_GO_PACKAGE))
+VIZB = $(call go_tool_path,vizb,$(VIZB_VERSION))
 
 # The Android NDK supplies the C toolchain that android/386, android/amd64 and
 # android/arm need for cgo external linking. It is ~700 MB, so it is not part
 # of COMMON_TOOLCHAIN (`make tools`); only those binaries depend on it (see
 # Makefile_build.mk). Only the linux-x86_64 host package is wired up.
-ANDROID_NDK = $(call tool_dir,android-ndk,$(ANDROID_NDK_VERSION),$(ANDROID_NDK_PACKAGE))/android-ndk
+ANDROID_NDK = $(call tool_dir,android-ndk,$(ANDROID_NDK_VERSION))/android-ndk
 ANDROID_NDK_BIN = $(ANDROID_NDK)/toolchains/llvm/prebuilt/linux-x86_64/bin
 ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 # Kept as a variable (rather than inline in the download rule) so
@@ -131,7 +127,7 @@ ANDROID_NDK_CLANG = $(ANDROID_NDK_BIN)/clang
 # would fetch and HEAD-check a candidate NDK release before rewriting the pin.
 ANDROID_NDK_PACKAGE = https://dl.google.com/android/repository/android-ndk-$(ANDROID_NDK_VERSION)-linux.zip
 
-COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOCOVER_COBERTURA) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
+COMMON_TOOLCHAIN = $(ACTIONLINT) $(CERTTOOL) $(DOCKER_COMPOSE) $(GOFUMPT) $(GOLANGCI_LINT) $(GOVULNCHECK) $(HADOLINT) $(REVIVE) $(RUMDL) $(SHELLCHECK) $(TERRAFORM) $(TFLINT) $(TRIVY) $(VIZB)
 
 $(ACTIONLINT):
 	$(call GO_INSTALL_TOOL,$(ACTIONLINT_GO_PACKAGE)@$(call go_ref,$(ACTIONLINT_VERSION)))
@@ -141,9 +137,6 @@ $(CERTTOOL):
 
 $(DOCKER_COMPOSE):
 	$(call DOWNLOAD_TOOL,$(DOCKERCOMPOSE_PACKAGE))
-
-$(GOCOVER_COBERTURA):
-	$(call GO_INSTALL_TOOL,$(GOCOVER_COBERTURA_GO_PACKAGE)@$(call go_ref,$(GOCOVER_COBERTURA_VERSION)))
 
 # Stricter formatting than `go fmt` (gofmt superset).
 $(GOFUMPT):
