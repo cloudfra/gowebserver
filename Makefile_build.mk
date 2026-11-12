@@ -203,13 +203,33 @@ else
 lint-terraform:
 endif
 
+# LINT_GOOS lists the GOOS values lint-go analyzes ./... under, one pass each.
+# golangci-lint and revive resolve build constraints through the host's build
+# context, so on Linux they never parse the source named for another platform.
+# This template has no platform-suffixed Go files yet, so the extra pass only
+# rechecks the files the first pass already saw. It is here because the Windows
+# job no longer runs a linter: a consumer that adds _windows.go source gets it
+# checked by the Linux job instead of never being checked at all. Listing every
+# platform CI builds on lets one job lint the whole tree. GOARCH is left at the
+# host's because build constraints are matched on GOOS alone, and a Windows host
+# lists windows once.
+#
+# The formatters ahead of the loop need no pass per GOOS because they never
+# resolve a build context: go fmt hands gofmt pkg.InternalAllGoFiles(), which
+# includes the files that build constraints exclude, and gofumpt and
+# golangci-lint fmt walk files. Planting a misindented _windows.go on a Linux
+# host shows all three rewriting it.
+LINT_GOOS ?= $(sort $(HOST_OS) windows)
+
 lint-go: $(GOLANGCI_LINT) $(GOFUMPT) $(REVIVE)
 	$(IGNORE_LINT_CHECK)$(GO) fmt ./...
 	$(IGNORE_LINT_CHECK)$(GO) mod verify
 	$(IGNORE_LINT_CHECK)"$(GOFUMPT)" -l -w .
 	$(IGNORE_LINT_CHECK)"$(GOLANGCI_LINT)" fmt ./...
-	$(IGNORE_LINT_CHECK)"$(GOLANGCI_LINT)" run ./...
-	$(IGNORE_LINT_CHECK)"$(REVIVE)" -set_exit_status -exclude=build/... ./...
+	$(IGNORE_LINT_CHECK)for goos in $(LINT_GOOS); do \
+		GOOS=$$goos "$(GOLANGCI_LINT)" run ./... || exit 1; \
+		GOOS=$$goos "$(REVIVE)" -set_exit_status -exclude=build/... ./... || exit 1; \
+	done
 
 lint-docker: $(HADOLINT)
 	$(IGNORE_LINT_CHECK)$(FIND) cmd -iname 'Dockerfile*' -exec "$(HADOLINT)" --ignore=DL3066 {} +
@@ -263,18 +283,12 @@ else
 test-tf:
 endif
 
-coverage.txt: $(ASSETS)
-	for sfile in ${SOURCE_DIRS} ; do \
-		go test -race "$$sfile" -coverprofile=package.coverage -covermode=atomic; \
-		if [ -f package.coverage ]; then \
-			cat package.coverage >> coverage.txt; \
-			$(RM) package.coverage; \
-		fi; \
-	done; \
-	sed -i '2,$${/mode: /d;}' $@
-
-coverage.xml: coverage.txt $(GOCOVER_COBERTURA)
-	"$(GOCOVER_COBERTURA)" < $< > $@
+# One go test for every package rather than one per package: cross-package
+# coverage is off, so each per-package profile only ever held its own package,
+# which is exactly what a batched run writes. Going serial paid for a separate
+# race-instrumented build, link and test-binary startup for every package.
+coverage.txt: $(ASSETS) testassets
+	$(GO) test -tags testing $(GO_RACE) ${SOURCE_DIRS} -cover -covermode=atomic -count=1 -coverprofile=$@
 
 deps:
 	$(GO_WITH_PROXY) get -u ./...

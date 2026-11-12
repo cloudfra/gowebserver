@@ -47,9 +47,6 @@ jobs:
     permissions:
       contents: read
       checks: write
-      # Required by actions/upload-code-coverage below.
-      # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage
-      code-quality: write
     timeout-minutes: 20
     steps:
       - name: Fix mod cache permissions
@@ -91,37 +88,31 @@ jobs:
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
       - name: Lint
+        # The only lint step in the workflow: make lint-go runs once per GOOS
+        # in LINT_GOOS, so source gated to another platform is checked here
+        # and the Windows job needs no lint pass of its own.
         run: make lint
       - name: Test
         run: make test
       - name: Test (Deflake)
         run: make test-deflake
       - name: Coverage
-        run: make coverage.txt coverage.xml
+        # Coverage numbers are only tracked for the default branch, and this
+        # is a second race-instrumented pass over every package, so a pull
+        # request does not pay for it.
+        if: ${{ github.event_name != 'pull_request' }}
+        run: make coverage.txt
       - name: Push Code Coverage
         # https://github.com/codecov/codecov-action
+        if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v7
         with:
           name: codecov-umbrella
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.txt
           flags: unittests
-          # Ignore upload errors since authz token is required for codecov.
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          fail_ci_if_error: true
           verbose: true
-      - name: Upload Coverage Report
-        # https://github.com/actions/upload-code-coverage
-        # https://docs.github.com/en/code-security/how-tos/maintain-quality-code/set-up-code-coverage#step-2-upload-the-coverage-report
-        # Requires: code-quality: write
-        if: >-
-          github.event_name != 'pull_request'
-          || github.event.pull_request.head.repo.full_name == github.repository
-        continue-on-error: true
-        uses: actions/upload-code-coverage@v1
-        with:
-          file: coverage.xml
-          language: Go
-          label: code-coverage/gotest
       - name: Benchmark
         # Benchmarks are for performance tracking, not PR correctness.
         if: ${{ github.event_name != 'pull_request' }}
@@ -173,8 +164,6 @@ jobs:
         run: make deps
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
-      - name: Lint
-        run: make lint
       - name: Test
         run: make test
       - name: Test (Deflake)
@@ -182,7 +171,10 @@ jobs:
           make GO_TEST_COUNT=${{ github.event_name == 'pull_request'
           && '3' || '5' }} test-deflake
       - name: Coverage
-        run: make coverage.txt coverage.xml
+        # Same as the Linux job: coverage is tracked on the default branch
+        # only, so a pull request skips this second race-instrumented pass.
+        if: ${{ github.event_name != 'pull_request' }}
+        run: make coverage.txt
       - name: Benchmark
         # Benchmarks are for performance tracking, not PR correctness.
         if: ${{ github.event_name != 'pull_request' }}
