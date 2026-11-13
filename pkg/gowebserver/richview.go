@@ -26,6 +26,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/alecthomas/chroma/v2"
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
@@ -81,13 +82,21 @@ type RichViewReport struct {
 	HighlightedHTML    template.HTML
 	ApplicationVersion string
 	Oversized          bool
+	// FollowURL is where a log file's later lines stream from, empty for the
+	// files that are not logs. FollowOffset and FollowLine say where the page
+	// stops rendering, which is where the stream picks the file up.
+	FollowURL    string
+	FollowOffset int64
+	FollowLine   int
 }
 
 type richViewHandler struct {
-	baseHandler http.Handler
-	baseFS      fs.FS
-	metrics     *richViewMetrics
-	tmpl        *template.Template
+	baseHandler  http.Handler
+	baseFS       fs.FS
+	metrics      *richViewMetrics
+	tmpl         *template.Template
+	followSlots  chan struct{}
+	pollInterval time.Duration
 }
 
 // The stages of showing a file in the text viewer, the "stage" of
@@ -120,6 +129,10 @@ type richViewMetrics struct {
 	requests metric.Int64Counter
 	// Size of the files highlighted.
 	sourceSize metric.Int64Histogram
+	// Following a log file while it is written.
+	followConnections metric.Int64Counter
+	followActive      metric.Int64UpDownCounter
+	followLines       metric.Int64Counter
 }
 
 func newRichViewMetrics(mc *monitoringContext) (*richViewMetrics, error) {
@@ -138,6 +151,18 @@ func newRichViewMetrics(mc *monitoringContext) (*richViewMetrics, error) {
 		metric.WithExplicitBucketBoundaries(richViewBytes...)); err != nil {
 		return nil, err
 	}
+	if rm.followConnections, err = m.Int64Counter("richview_follow_connections_total",
+		metric.WithDescription("Streams of a log followed while it is written, by how each ended (ended, gone, limit, refused, failed).")); err != nil {
+		return nil, err
+	}
+	if rm.followActive, err = m.Int64UpDownCounter("richview_follow_active",
+		metric.WithDescription("Logs being streamed to browsers right now.")); err != nil {
+		return nil, err
+	}
+	if rm.followLines, err = m.Int64Counter("richview_follow_lines_total",
+		metric.WithDescription("Lines of followed logs streamed to browsers.")); err != nil {
+		return nil, err
+	}
 	return rm, nil
 }
 
@@ -151,10 +176,12 @@ func newRichViewHandler(baseHandler http.Handler, baseFS fs.FS, mc *monitoringCo
 		return nil, err
 	}
 	return &richViewHandler{
-		baseHandler: baseHandler,
-		baseFS:      baseFS,
-		metrics:     metrics,
-		tmpl:        tmpl,
+		baseHandler:  baseHandler,
+		baseFS:       baseFS,
+		metrics:      metrics,
+		tmpl:         tmpl,
+		followSlots:  make(chan struct{}, followMaxStreams),
+		pollInterval: followPollInterval,
 	}, nil
 }
 
@@ -165,6 +192,10 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fsPath := cleanPath(strings.TrimPrefix(r.URL.Path, "/"))
+	if r.URL.Query().Get("follow") == "1" {
+		h.serveFollow(w, r, fsPath)
+		return
+	}
 
 	setRequestHandler(r, handlerRichView)
 	ctx, span := h.metrics.tracer.Start(r.Context(), "richview", trace.WithAttributes(attribute.String("path", fsPath)))
@@ -263,20 +294,9 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Detect language.
 	contentStr := string(content)
-	lexer := lexers.Match(fileName)
-	if lexer == nil {
-		lexer = lexers.Analyse(contentStr)
-	}
-	if lexer == nil {
-		lexer = lexers.Fallback
-	}
-	lexer = chroma.Coalesce(lexer)
+	lexer := richViewLexer(fileName, contentStr)
 
-	formatter := chromahtml.New(
-		chromahtml.WithLineNumbers(true),
-		chromahtml.WithLinkableLineNumbers(true, "L"),
-		chromahtml.WithClasses(true),
-	)
+	formatter := chromahtml.New(richViewFormatterOptions...)
 
 	chromaCSS, err := richViewCSS(formatter, themeName)
 	if err != nil {
@@ -318,6 +338,25 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ApplicationVersion: internal.Version(),
 	}
 
+	// A log file can be followed while it is written. The page shows the
+	// whole file, so the stream starts at the first byte the page did not
+	// finish: a last line with no newline at all is not shown as complete,
+	// and the stream sends it again once it has one.
+	if isFollowable(fileName) {
+		start := int64(len(content))
+		line := report.Lines + 1
+		if !strings.HasSuffix(contentStr, "\n") {
+			partial := len(contentStr) - (strings.LastIndex(contentStr, "\n") + 1)
+			start = int64(len(content)) - int64(partial)
+			if report.Lines > 0 {
+				line = report.Lines
+			}
+		}
+		report.FollowURL = rawURL + "?view=rich&follow=1"
+		report.FollowOffset = start
+		report.FollowLine = line
+	}
+
 	result = richViewHighlighted
 	_, _, rendered := h.metrics.stage(ctx, richViewStageRender)
 	defer rendered()
@@ -325,6 +364,27 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl.Execute(w, report); err != nil {
 		slog.Error("failed to execute rich view template", "path", fsPath, "error", err)
 	}
+}
+
+// richViewFormatterOptions colors the code on the page and the lines the
+// follow stream adds to it, so the two match.
+var richViewFormatterOptions = []chromahtml.Option{
+	chromahtml.WithLineNumbers(true),
+	chromahtml.WithLinkableLineNumbers(true, "L"),
+	chromahtml.WithClasses(true),
+}
+
+// richViewLexer picks the language of a file: its name first, then its
+// content, then the plain-text fallback.
+func richViewLexer(fileName, content string) chroma.Lexer {
+	lexer := lexers.Match(fileName)
+	if lexer == nil {
+		lexer = lexers.Analyse(content)
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	return chroma.Coalesce(lexer)
 }
 
 // richViewCSS returns the chroma stylesheet for themeName. The "auto" theme

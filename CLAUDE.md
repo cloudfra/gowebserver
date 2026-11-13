@@ -57,6 +57,7 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 - **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
 - **richview.go**: Syntax-highlighted text viewer (`?view=rich`)
+- **richviewfollow.go**: Following a log in that viewer while it is written: server-sent events on `?view=rich&follow=1`, which files count as logs, where a stream picks the file up, and the `richview_follow_*` metrics
 - **thumbnail.go**: Resized images and video frames (`?width=`/`?height=`), made once and stored
 - **thumbnail_metrics.go**: Where thumbnail time goes: `thumbnail_*` Prometheus metrics, a span per stage (wait, decode, scale, encode, store), and a `Server-Timing` header on each thumbnail for the browser's network panel
 - **folderpreview.go**: A folder's preview for the file browser's list (`folder/?preview`, JSON): its first `folderPreviewItems` photos and videos by name, or, with none, the nearest ones below it within `folderPreviewDepth` levels and `folderPreviewBudget` entries read. Kept per folder and modification time for `folderPreviewFor`. `folders.js` shows it as a strip in the row, loading only as many as fit, and tints the row with the strip's `vividColor`
