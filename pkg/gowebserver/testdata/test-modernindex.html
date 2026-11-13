@@ -2714,14 +2714,12 @@
 
     .ss-stage,
     .ss:not(.open) .ss-top,
-    .ss:not(.open) .ss-bottom,
     .ss:not(.open) .ss-nav {
       transition: opacity 0.25s var(--ease-out);
     }
 
     .ss:not(.open) .ss-stage,
     .ss:not(.open) .ss-top,
-    .ss:not(.open) .ss-bottom,
     .ss:not(.open) .ss-nav {
       opacity: 0;
     }
@@ -2768,22 +2766,25 @@
       will-change: transform, clip-path;
     }
 
-    .ss-top,
-    .ss-bottom {
+     
+    .ss-top {
+      top: 0;
       position: absolute;
       left: 0;
       right: 0;
       z-index: 6;
+      display: flex;
+      flex-direction: column;
+      padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left));
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
       transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
     }
 
-    .ss-top {
-      top: 0;
+    .ss-bar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 28px max(20px, env(safe-area-inset-left));
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+      transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
     }
 
     .ss-info {
@@ -3316,19 +3317,15 @@
       pointer-events: none;
     }
 
-    .ss-bottom {
-      bottom: 0;
-      padding: 28px max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-      background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
-      pointer-events: none;
-    }
-
     .ss-strip {
       display: flex;
+      flex: none;
       justify-content: center;
       gap: 5px;
       height: 63px;
+      margin-top: 12px;
       pointer-events: auto;
+      transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease);
     }
 
     .ss-strip[hidden] {
@@ -3387,37 +3384,29 @@
     }
 
      
-    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) {
+    .ss.is-fs:not(.strip-on) .ss-strip:not(:focus-within) {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(-8px);
+      pointer-events: none;
     }
 
-    .ss.is-fs.strip-on .ss-bottom {
+    .ss.is-fs.strip-on .ss-strip {
       opacity: 1;
       transform: none;
-    }
-
-    .ss.is-fs:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip {
-      pointer-events: none;
     }
 
     .ss.strip-on {
       cursor: auto;
     }
 
-    .ss.chrome-off .ss-top,
-    .ss.chrome-off .ss-nav,
-    .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
+    .ss.chrome-off .ss-bar,
+    .ss.chrome-off .ss-nav {
       opacity: 0;
       pointer-events: none;
     }
 
-    .ss.chrome-off .ss-top {
+    .ss.chrome-off .ss-bar {
       transform: translateY(-8px);
-    }
-
-    .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
-      transform: translateY(8px);
     }
 
     .ss.chrome-off {
@@ -3437,8 +3426,11 @@
     }
 
     @media (max-width: 480px) {
-      .ss-top {
+      .ss-bar {
         gap: 4px;
+      }
+
+      .ss-top {
         padding-left: max(16px, env(safe-area-inset-left));
       }
 
@@ -3844,21 +3836,21 @@
       <div class="ss-stage" id="ss-stage"></div>
       <div class="ss-shade"></div>
       <div class="ss-top">
-        <div class="ss-info" aria-live="polite">
-          <div class="ss-name" id="ss-name"></div>
-          <div class="ss-sub" id="ss-sub"></div>
+        <div class="ss-bar">
+          <div class="ss-info" aria-live="polite">
+            <div class="ss-name" id="ss-name"></div>
+            <div class="ss-sub" id="ss-sub"></div>
+          </div>
+          <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
+          <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
+          <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
+          <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
+          <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
         </div>
-        <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
-        <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
-        <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
-        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
-        <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
+        <div class="ss-strip" id="ss-strip" hidden></div>
       </div>
       <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
       <button class="ss-btn ss-nav ss-next" id="ss-next" type="button" aria-label="Next" data-key="→"><svg viewBox="0 0 24 24"><polyline class="i-fwd" points="9 18 15 12 9 6" /></svg></button>
-      <div class="ss-bottom">
-        <div class="ss-strip" id="ss-strip" hidden></div>
-      </div>
     </div>
   </dialog>
 
@@ -5595,7 +5587,8 @@
         function insets() {
           
           if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
-          return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
+          
+          return { t: CFG.thumbs ? 150 : 76, r: 96, b: 64, l: 96 };
         }
 
         function fitRect(nw, nh, maxUp) {
@@ -5863,6 +5856,7 @@
         
         
         var STRIP_STEP = 60, STRIP_MARGIN = 28;
+
         function renderStrip() {
           if (!CFG.thumbs) return;
           strip.hidden = list.length < 2;
@@ -5905,8 +5899,8 @@
         
         function diagStrip(ev) {
           if (!CFG.diag) return;
-          var r = strip.getBoundingClientRect(), bottom = strip.parentNode;
-          var cs = getComputedStyle(strip), bcs = getComputedStyle(bottom);
+          var r = strip.getBoundingClientRect(), top = strip.parentNode;
+          var cs = getComputedStyle(strip), bcs = getComputedStyle(top);
           var loading = 0;
           strip.querySelectorAll('img').forEach(function (im) { if (im._thumb) loading++; });
           diag(ev, {
@@ -5929,7 +5923,7 @@
         
         
         
-        var STRIP_ZONE = 120, stripTimer = 0;
+        var STRIP_ZONE = 150, stripTimer = 0;
         function revealStrip(hideAfter) {
           dlg.classList.add('strip-on');
           clearTimeout(stripTimer);
@@ -5942,7 +5936,7 @@
         }
         function stripZone(e) {
           if (!isFullscreen() || strip.hidden) return;
-          var near = e.clientY > frame.getBoundingClientRect().bottom - STRIP_ZONE;
+          var near = e.clientY < frame.getBoundingClientRect().top + STRIP_ZONE;
           if (e.pointerType !== 'mouse') {
             if (near) revealStrip(3000);
           } else if (near) {
@@ -6181,7 +6175,7 @@
           dlg.classList.remove('chrome-off');
           clearTimeout(chromeTimer);
           chromeTimer = setTimeout(function () {
-            if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover')) dlg.classList.add('chrome-off');
+            if (!dlg.querySelector('.ss-top:hover, .ss-nav:hover')) dlg.classList.add('chrome-off');
           }, 2800);
         }
 

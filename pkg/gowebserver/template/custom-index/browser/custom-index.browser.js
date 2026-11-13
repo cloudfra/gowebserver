@@ -130,16 +130,44 @@ test('the filmstrip stays when the other controls fade, except in full screen', 
   // touch screen.
   await b.page.evaluate(() => document.getElementById('ss').classList.add('chrome-off'));
   await settle();
-  assert.equal(await opacity('.ss-top'), '0', 'the other controls fade');
-  assert.equal(await opacity('.ss-bottom'), '1', 'the filmstrip stays');
+  assert.equal(await opacity('.ss-bar'), '0', 'the other controls fade');
+  assert.equal(await opacity('#ss-strip'), '1', 'the filmstrip stays');
   // In full screen it keeps out of the way until asked for.
   await b.page.evaluate(() => document.getElementById('ss').classList.add('is-fs'));
   await settle();
-  assert.equal(await opacity('.ss-bottom'), '0');
+  assert.equal(await opacity('#ss-strip'), '0');
   await b.page.evaluate(() => document.getElementById('ss').classList.add('strip-on'));
   await settle();
-  assert.equal(await opacity('.ss-bottom'), '1', 'near the bottom edge it shows');
+  assert.equal(await opacity('#ss-strip'), '1', 'near the top edge it shows');
   await b.page.evaluate(() => document.getElementById('ss').classList.remove('is-fs', 'strip-on', 'chrome-off'));
+  await b.page.keyboard.press('Escape');
+  await b.page.waitForFunction(() => !document.getElementById('ss').open);
+});
+
+test('the filmstrip hangs at the top of the frame, clear of a video\'s controls', async () => {
+  await settled();
+  await b.page.locator('.tile[aria-label="photo-00006.png"]').click();
+  await b.page.waitForSelector('dialog#ss[open]');
+  await b.page.waitForFunction(() => document.querySelectorAll('#ss-strip > button').length > 1);
+  // The browser paints its own control panel, scrubber included, along
+  // the bottom of a video, so the strip belongs at the top: under the
+  // bar, and above the picture the slide keeps room for it.
+  const geo = () => b.page.evaluate(() => {
+    const f = document.getElementById('ss-frame').getBoundingClientRect();
+    const s = document.querySelector('#ss-strip').getBoundingClientRect();
+    const slide = document.querySelector('#ss-stage > * > *').getBoundingClientRect();
+    return {
+      belowBar: Math.round(s.top - f.top),
+      height: Math.round(s.height),
+      clearOfBottom: Math.round(f.bottom - s.bottom),
+      abovePic: Math.round(slide.top - s.bottom),
+    };
+  });
+  const g = await geo();
+  assert.ok(g.belowBar > 0 && g.belowBar < 120, `the strip hangs under the bar, ${g.belowBar}px below the top edge`);
+  assert.equal(g.height, 63, 'one row of thumbnails');
+  assert.ok(g.clearOfBottom > 400, `the bottom edge is left to a video's panel, ${g.clearOfBottom}px clear`);
+  assert.ok(g.abovePic >= 0, `the picture starts below the strip, ${g.abovePic}px clear`);
   await b.page.keyboard.press('Escape');
   await b.page.waitForFunction(() => !document.getElementById('ss').open);
 });

@@ -125,7 +125,8 @@ var slideshow = (function () {
   function insets() {
     // In full screen the controls float over the media instead.
     if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
-    return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
+    // The bar and the strip hanging under it both sit at the top.
+    return { t: CFG.thumbs ? 150 : 76, r: 96, b: 64, l: 96 };
   }
 
   function fitRect(nw, nh, maxUp) {
@@ -393,6 +394,7 @@ var slideshow = (function () {
   // A filmstrip thumbnail with the gap to the next (.ss-strip in the
   // stylesheet), and the padding either side of the strip.
   var STRIP_STEP = 60, STRIP_MARGIN = 28;
+
   function renderStrip() {
     if (!CFG.thumbs) return;
     strip.hidden = list.length < 2;
@@ -435,8 +437,8 @@ var slideshow = (function () {
   // For diagnostics: what the filmstrip looks like now.
   function diagStrip(ev) {
     if (!CFG.diag) return;
-    var r = strip.getBoundingClientRect(), bottom = strip.parentNode;
-    var cs = getComputedStyle(strip), bcs = getComputedStyle(bottom);
+    var r = strip.getBoundingClientRect(), top = strip.parentNode;
+    var cs = getComputedStyle(strip), bcs = getComputedStyle(top);
     var loading = 0;
     strip.querySelectorAll('img').forEach(function (im) { if (im._thumb) loading++; });
     diag(ev, {
@@ -456,10 +458,10 @@ var slideshow = (function () {
   });
 
   // ---- Strip in full screen ----
-  // Hidden until the pointer or a finger comes within STRIP_ZONE px
-  // of the bottom edge. It goes again shortly after the mouse leaves
-  // that area, or a while after a touch.
-  var STRIP_ZONE = 120, stripTimer = 0;
+  // Hidden until the pointer or a finger comes within STRIP_ZONE px of
+  // the top edge, where it hangs under the bar. It goes again shortly
+  // after the mouse leaves that area, or a while after a touch.
+  var STRIP_ZONE = 150, stripTimer = 0;
   function revealStrip(hideAfter) {
     dlg.classList.add('strip-on');
     clearTimeout(stripTimer);
@@ -472,7 +474,7 @@ var slideshow = (function () {
   }
   function stripZone(e) {
     if (!isFullscreen() || strip.hidden) return;
-    var near = e.clientY > frame.getBoundingClientRect().bottom - STRIP_ZONE;
+    var near = e.clientY < frame.getBoundingClientRect().top + STRIP_ZONE;
     if (e.pointerType !== 'mouse') {
       if (near) revealStrip(3000);
     } else if (near) {
@@ -711,7 +713,7 @@ var slideshow = (function () {
     dlg.classList.remove('chrome-off');
     clearTimeout(chromeTimer);
     chromeTimer = setTimeout(function () {
-      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover')) dlg.classList.add('chrome-off');
+      if (!dlg.querySelector('.ss-top:hover, .ss-nav:hover')) dlg.classList.add('chrome-off');
     }, 2800);
   }
 
