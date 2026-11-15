@@ -17,6 +17,7 @@ self-hosted-runner:
   # .github/workflows/deploy.yaml). Declared here so actionlint doesn't flag
   # them as unknown GitHub-hosted runner labels.
   labels:
+    - small
     - large
     - root
     - desktop-experience

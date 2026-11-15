@@ -17,9 +17,9 @@ include Makefile_core.mk
 # https://github.com/rhysd/actionlint/releases
 ACTIONLINT_VERSION = 1.7.12
 # https://github.com/docker/compose/releases
-DOCKERCOMPOSE_VERSION = 5.7.0
+DOCKERCOMPOSE_VERSION = 5.7.1
 # https://developer.hashicorp.com/terraform/install
-TERRAFORM_VERSION = 1.17.1
+TERRAFORM_VERSION = 1.17.2
 # https://github.com/cloudfra/certtool/releases
 CERTTOOL_VERSION = 0.8.1
 # https://github.com/hadolint/hadolint/releases
@@ -33,7 +33,7 @@ GOVULNCHECK_VERSION = 1.9.0
 # https://github.com/mgechev/revive/releases
 REVIVE_VERSION = 1.17.1
 # https://github.com/rvben/rumdl/releases
-RUMDL_VERSION = 0.3.2
+RUMDL_VERSION = 0.3.4
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
