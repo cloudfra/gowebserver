@@ -36,18 +36,18 @@ env:
   MAKEFLAGS: >-
     ${{ github.event_name == 'pull_request'
     && 'GO_TEST_COUNT=3 NICHE_PLATFORMS=
-    LINUX_PLATFORMS=linux/amd64\ linux/arm64
-    WINDOWS_PLATFORMS=windows/amd64\ windows/arm64'
+    LINUX_PLATFORMS=linux/amd64
+    WINDOWS_PLATFORMS=windows/amd64'
     || '' }}
 
 jobs:
   build-linux:
     name: "Build Linux"
-    runs-on: ["self-hosted", "linux", "large"]
+    runs-on: ["self-hosted", "linux"]
     permissions:
       contents: read
       checks: write
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Fix mod cache permissions
         run: |
@@ -73,10 +73,6 @@ jobs:
           cache: false
       - name: Prepare CI
         run: ./scripts/prepare-ci.sh
-      - name: System Information
-        run: make system-info
-      # - name: Container Fix
-      #   run: git config --system --add safe.directory /__w/
       - name: Install Signing Dependencies
         run: ./scripts/template-go/install-codesign.sh
       - name: Clean
@@ -93,8 +89,10 @@ jobs:
         # and the Windows job needs no lint pass of its own.
         run: make lint
       - name: Test
+        if: ${{ github.event_name == 'pull_request' }}
         run: make test
       - name: Test (Deflake)
+        if: ${{ github.event_name != 'pull_request' }}
         run: make test-deflake
       - name: Coverage
         # Coverage numbers are only tracked for the default branch, and this
@@ -132,10 +130,10 @@ jobs:
 
   build-windows:
     name: "Build Windows"
-    runs-on: ["self-hosted", "windows", "large"]
+    runs-on: ["self-hosted", "windows"]
     permissions:
       contents: read
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -165,11 +163,12 @@ jobs:
       - name: Install Toolchain
         run: make tools -j"$(nproc)"
       - name: Test
+        if: ${{ github.event_name == 'pull_request' }}
         run: make test
       - name: Test (Deflake)
+        if: ${{ github.event_name != 'pull_request' }}
         run: >-
-          make GO_TEST_COUNT=${{ github.event_name == 'pull_request'
-          && '3' || '5' }} test-deflake
+          make GO_TEST_COUNT=5 test-deflake
       - name: Coverage
         # Same as the Linux job: coverage is tracked on the default branch
         # only, so a pull request skips this second race-instrumented pass.

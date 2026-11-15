@@ -20,18 +20,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # https://github.com/marketplace/actions/run-misspell-with-reviewdog
-  misspell:
-    name: runner / misspell
-    runs-on: ubuntu-latest
-    # Default reviewdog reporter (github-pr-check) posts via the Checks API.
+  # Lint every pull request in one job instead of one runner per linter.
+  # The VM startup and checkout cost more than the checks themselves.
+  #
+  # A step that fails stops the steps after it, so the order is not
+  # arbitrary. The reviewdog steps annotate the PR and exit 0 whatever they
+  # find, so they can run first. codespell is the only step that fails the
+  # job today, and dependency-review can too once the repo is public or has
+  # GHAS, so codespell goes second-to-last: if both would fail, the blocking
+  # result survives and dependency-review - non-blocking while private - is
+  # the step that gets skipped.
+  reviewdog:
+    name: runner / reviewdog
+    # While private, the checks cost Actions minutes on every push and
+    # there is no fork-supplied code to isolate, so they go to the same
+    # self-hosted pool deploy.yaml uses. A public repo can get a pull
+    # request from anyone, and a self-hosted runner would run that code on
+    # our own hardware, so it moves back to a GitHub-hosted VM. fromJSON
+    # because runs-on wants a list of labels, and 'linux' because the pool
+    # also has Windows runners that can't run these steps.
+    runs-on: >-
+      ${{ fromJSON(github.event.repository.private
+      && '["self-hosted", "linux"]'
+      || '["ubuntu-latest"]') }}
+    # Union of what the steps need: checks: write for reviewdog's default
+    # github-pr-check reporter, pull-requests: write for the steps using
+    # github-pr-review and for dependency-review's review comments.
     permissions:
       contents: read
       checks: write
-    timeout-minutes: 10
+      pull-requests: write
+    timeout-minutes: 5
     steps:
       - name: Check out code.
         uses: actions/checkout@v7
+
+      # https://github.com/marketplace/actions/run-misspell-with-reviewdog
       - name: misspell
         # https://github.com/reviewdog/action-misspell
         uses: reviewdog/action-misspell@v1
@@ -46,18 +70,7 @@ jobs:
             ./.cache/*
             ./third_party/*
 
-  # https://github.com/marketplace/actions/run-hadolint-with-reviewdog
-  hadolint:
-    name: runner / hadolint
-    runs-on: ubuntu-latest
-    # reporter: github-pr-review below posts inline PR review comments.
-    permissions:
-      contents: read
-      pull-requests: write
-    timeout-minutes: 10
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v7
+      # https://github.com/marketplace/actions/run-hadolint-with-reviewdog
       - name: hadolint
         # https://github.com/reviewdog/action-hadolint
         uses: reviewdog/action-hadolint@v1
@@ -65,21 +78,23 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review  # Default is github-pr-check
 
-  # plettich/action-codespell is unmaintained (last updated 2024-12) and its
-  # Dockerfile floats on `alpine:latest`, which broke `pip install codespell`
-  # once Alpine picked up a PEP 668 externally-managed Python. Use the
-  # actively maintained official action instead.
-  # https://github.com/codespell-project/actions-codespell
-  codespell:
-    name: runner / codespell
-    runs-on: ubuntu-latest
-    # Just runs and exits non-zero on hits; no PR annotations, no API calls.
-    permissions:
-      contents: read
-    timeout-minutes: 10
-    steps:
-      - name: Check out code.
-        uses: actions/checkout@v7
+      # https://github.com/marketplace/actions/run-yamllint-with-reviewdog
+      - name: yamllint
+        # https://github.com/reviewdog/action-yamllint
+        uses: reviewdog/action-yamllint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review  # Default is github-pr-check
+          # Workflow/dependabot/actionlint config - the YAML this repo owns
+          # and maintains. third_party is vendored upstream sources, same
+          # exclusion the misspell and codespell steps above apply.
+          yamllint_flags: ".github/"
+
+      # https://github.com/codespell-project/actions-codespell
+      # plettich/action-codespell is unmaintained (last updated 2024-12) and
+      # its Dockerfile floats on `alpine:latest`, which broke `pip install
+      # codespell` once Alpine picked up a PEP 668 externally-managed
+      # Python. Use the actively maintained official action instead.
       - name: codespell
         uses: codespell-project/actions-codespell@v2.4.3
         with:
@@ -89,50 +104,20 @@ jobs:
           skip: "./.git,./go.sum,./go.mod,./third_party,package-lock.json"
           ignore_words_file: .codespellignore
 
-  # https://github.com/marketplace/actions/run-yamllint-with-reviewdog
-  yamllint:
-    name: runner / yamllint
-    runs-on: ubuntu-latest
-    # reporter: github-pr-review below posts inline PR review comments.
-    permissions:
-      contents: read
-      pull-requests: write
-    timeout-minutes: 10
-    steps:
-      - name: Check out code.
-        uses: actions/checkout@v7
-      - name: yamllint
-        # https://github.com/reviewdog/action-yamllint
-        uses: reviewdog/action-yamllint@v1
-        with:
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review  # Default is github-pr-check
-          # Workflow/dependabot/actionlint config - the YAML this repo owns
-          # and maintains. third_party is vendored upstream sources, same
-          # exclusion the misspell/codespell jobs above already apply.
-          yamllint_flags: ".github/"
-
-  # https://github.com/actions/dependency-review-action
-  # Full functionality (failing the job on vulnerable/incompatible deps)
-  # requires either a public repo or a private repo with GitHub Advanced
-  # Security licensed. This repo is private without GHAS (confirmed via API
-  # - same wall as branch protection), so the dependency-graph lookup this
-  # action needs hard-errors with "Dependency review is not supported on
-  # this repository" - not a soft warning, so without the guard below this
-  # job fails on every single PR regardless of the actual dependency change.
-  # `continue-on-error` is keyed off `github.event.repository.private` so
-  # this asserts degraded (non-blocking) mode automatically while private,
-  # and full (blocking) mode with zero further changes once the repo goes
-  # public or GHAS gets licensed.
-  dependency-review:
-    name: runner / dependency-review
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - name: Check out code.
-        uses: actions/checkout@v7
+      # https://github.com/actions/dependency-review-action
+      # Not a reviewdog step, and it was tried as a fifth job first (see
+      # #14). Full functionality (failing the job on vulnerable/incompatible
+      # deps) requires either a public repo or a private repo with GitHub
+      # Advanced Security licensed. This repo is private without GHAS
+      # (confirmed via API - same wall as branch protection), so the
+      # dependency-graph lookup this action needs hard-errors with
+      # "Dependency review is not supported on this repository" - not a soft
+      # warning, so without the guard below this step fails on every single
+      # PR regardless of the actual dependency change. `continue-on-error`
+      # is keyed off `github.event.repository.private` so this asserts
+      # degraded (non-blocking) mode automatically while private, and full
+      # (blocking) mode with zero further changes once the repo goes public
+      # or GHAS gets licensed.
       - name: dependency-review
         uses: actions/dependency-review-action@v5
         continue-on-error: ${{ github.event.repository.private }}

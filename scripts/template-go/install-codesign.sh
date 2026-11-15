@@ -16,5 +16,24 @@
 
 set -euo pipefail
 
-sudo apt-get update
-sudo apt-get -y -q install osslsigncode binutils openssl
+function InstallPackages() {
+  sudo apt-get update
+  sudo apt-get -y -q install osslsigncode binutils openssl
+}
+
+# CheckPackages reports whether every binary the signing recipes in
+# Makefile_build.mk invoke is already on PATH, so a runner that was set up
+# by a previous run skips the apt-get pass.
+function CheckPackages() {
+  command -v osslsigncode >/dev/null 2>&1 &&
+    command -v objcopy >/dev/null 2>&1 &&
+    command -v openssl >/dev/null 2>&1
+}
+
+function Main() {
+  if ! CheckPackages; then
+    InstallPackages
+  fi
+}
+
+Main

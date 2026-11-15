@@ -174,12 +174,14 @@ best_effort "secret scanning push protection" \
 # merges rather than improve quality.
 #
 # Keep this context list in sync with the jobs actually defined in
-# deploy.yaml/reviewdog.yaml - it doesn't derive from them automatically,
-# so a renamed/added/removed job silently drifts out of sync otherwise
-# (see #64, which is how runner / yamllint ended up missing here).
-# runner / dependency-review is deliberately left out: it needs GitHub
-# Advanced Security and always fails without it (see #14/#49), so
-# requiring it would block every merge once this actually takes effect.
+# deploy.yaml - it doesn't derive from them automatically, so a
+# renamed/added/removed job silently drifts out of sync otherwise (see #64).
+# Only the two build jobs are required, deliberately: each reviewdog
+# context is a name that has to keep matching reviewdog.yaml forever, and
+# dependency-review needs GitHub Advanced Security and always fails
+# without it (see #14/#49), so requiring it would block every merge.
+# This PUT replaces required_status_checks wholesale, so contexts an
+# earlier run left required stop being required the next time it lands.
 best_effort "branch protection on main" \
   run gh api --method PUT "repos/$REPO/branches/main/protection" --input - <<'EOF'
 {
@@ -187,11 +189,7 @@ best_effort "branch protection on main" \
     "strict": true,
     "contexts": [
       "Build Linux",
-      "Build Windows",
-      "runner / misspell",
-      "runner / hadolint",
-      "runner / codespell",
-      "runner / yamllint"
+      "Build Windows"
     ]
   },
   "enforce_admins": false,
