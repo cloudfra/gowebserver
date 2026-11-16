@@ -130,17 +130,21 @@ async function serve(opts) {
 }
 
 // open starts the browser named by BROWSER (chromium, firefox or webkit)
-// and resolves to {browser, page, problems, name, close}. problems
-// collects what a healthy page doesn't do: script errors, console
-// errors, failed requests and error responses. Requests the page itself
-// canceled (a thumbnail scrolled away) aren't problems.
+// and resolves to {browser, page, problems, name, close}. Its viewport is
+// opts.viewport, and opts.touch gives that screen a finger instead of a
+// mouse. problems collects what a healthy page doesn't do: script errors,
+// console errors, failed requests and error responses. Requests the page
+// itself canceled (a thumbnail scrolled away) aren't problems.
 async function open(opts) {
   opts = opts || {};
   const name = process.env.BROWSER || 'chromium';
   const playwright = require('playwright');
   if (!playwright[name] || !playwright[name].launch) throw new Error('BROWSER=' + name + ': want chromium, firefox or webkit');
   const browser = await playwright[name].launch();
-  const context = await browser.newContext({ viewport: opts.viewport || { width: 1280, height: 800 } });
+  const context = await browser.newContext({
+    viewport: opts.viewport || { width: 1280, height: 800 },
+    isMobile: opts.touch, hasTouch: opts.touch,
+  });
   const page = await context.newPage();
   const problems = [];
   page.on('pageerror', (e) => problems.push('error: ' + e.message));
