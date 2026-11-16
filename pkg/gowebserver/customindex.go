@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -45,7 +46,7 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
+func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList, hideSecrets bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
@@ -58,18 +59,26 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 		return nil, nilFuncWithError, err
 	}
 
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc, enhancedList, thumbs)
+	// Everything below is what a request reaches, so hiding secrets here
+	// covers listings, previews, thumbnails, the text viewer and the files
+	// themselves.
+	browseFS := fs.FS(nFS)
+	if hideSecrets {
+		browseFS = secretFS{nFS}
+	}
+
+	ci, err := newCustomIndex(http.FileServer(http.FS(browseFS)), browseFS, mc, enhancedList, thumbs)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
-	rv, err := newRichViewHandler(ci, nFS, mc)
+	rv, err := newRichViewHandler(ci, browseFS, mc)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
 	if thumbs == nil {
 		return rv, nFS.Close, nil
 	}
-	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
+	return thumbs.handler(rv, browseFS, fsSpec), nFS.Close, nil
 }
 
 func cleanPath(path string) string {
@@ -309,6 +318,13 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	f, err := c.baseFS.Open(path)
 	opened()
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// A folder that isn't there is a 404, which is also the answer
+			// security.hideSecrets gives for a hidden one. Any other failure
+			// would tell the two apart.
+			http.NotFound(w, r)
+			return true
+		}
 		return fail(err)
 	}
 	defer func() {

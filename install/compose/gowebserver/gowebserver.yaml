@@ -41,3 +41,5 @@ upload:
   endpoint: /upload
 debug:
   endpoint: /debug
+security:
+  hideSecrets: true

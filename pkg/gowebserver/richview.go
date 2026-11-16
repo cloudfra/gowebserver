@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -182,6 +183,12 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	f, err := h.baseFS.Open(fsPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// Saying it failed another way would confirm that the file is
+			// there, which is what hiding a file is for.
+			http.NotFound(w, r)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
