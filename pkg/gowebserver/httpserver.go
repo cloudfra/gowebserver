@@ -281,13 +281,28 @@ func (ws *webServerImpl) Serve(wait func()) error {
 
 	ws.setPorts(httpPort, httpsPort)
 
+	// Go's server writes its own complaints, a failed TLS handshake among
+	// them, through a log.Logger of its own making. Giving it one that goes
+	// through slog puts those complaints in the same stream, at the same level
+	// and with a caller, as everything else logged.
+	serverErrorLog := slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo)
+
 	go func() {
 		if ws.certificateFilePath != "" {
-			checkError(http.ServeTLS(httpsSocket, httpHandler, ws.certificateFilePath, ws.privateKeyFilePath))
+			// http.ServeTLS builds a server nobody can configure, so the
+			// error log is set by building the server here instead.
+			httpsServer := &http.Server{Handler: httpHandler, ErrorLog: serverErrorLog}
+			redirectListener := newHTTPSRedirectListener(httpsSocket, httpsPort)
+			// ServeTLS returns without serving when the certificate pair cannot
+			// be loaded, and then the goroutines started for the wrapping are
+			// still waiting. Whoever set them up stops them.
+			defer redirectListener.stop()
+			checkError(httpsServer.ServeTLS(redirectListener, ws.certificateFilePath, ws.privateKeyFilePath))
 		}
 	}()
 	go func() {
-		checkError(http.Serve(httpSocket, httpHandler))
+		httpServer := &http.Server{Handler: httpHandler, ErrorLog: serverErrorLog}
+		checkError(httpServer.Serve(httpSocket))
 	}()
 
 	wait()
