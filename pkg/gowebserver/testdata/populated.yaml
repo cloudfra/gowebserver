@@ -36,3 +36,5 @@ debug:
   endpoint: /debugging
   shutdown: true
   diagnostics: /var/log/gowebserver-diagnostics.log
+security:
+  hideSecrets: true

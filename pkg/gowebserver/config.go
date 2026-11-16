@@ -75,6 +75,9 @@ var (
 	// Thumbnail Flags
 	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
 	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
+
+	// Security Flags
+	securityHideSecretsFlag = flag.Bool("security.hidesecrets", false, "Keep private keys, key stores and credential files out of listings, and answer 404 for them rather than serving them.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -144,6 +147,15 @@ type Config struct {
 	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
 	Thumbnails Thumbnails `yaml:"thumbnails"`
 	Debug      Debug      `yaml:"debug"`
+	Security   Security   `yaml:"security"`
+}
+
+// Security holds the options that limit what browsing reveals.
+type Security struct {
+	// HideSecrets leaves private keys, key stores and credential files out
+	// of listings, and answers that they aren't there when they're
+	// requested by name.
+	HideSecrets bool `yaml:"hideSecrets"`
 }
 
 // FFmpeg configures the ffmpeg binary used for video features.
@@ -339,6 +351,9 @@ func loadFromFlags() (*Config, error) {
 		Thumbnails: Thumbnails{
 			Enabled:   *thumbnailsEnabledFlag,
 			CachePath: *thumbnailsCachePathFlag,
+		},
+		Security: Security{
+			HideSecrets: *securityHideSecretsFlag,
 		},
 	}, nil
 }

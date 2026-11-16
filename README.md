@@ -85,6 +85,19 @@ With ffmpeg, thumbnails are cheaper and smaller. It decodes JPEG photos several 
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, covering square photo tiles or 16:9 video tiles (`fit=outside`, so the thumbnail keeps the file's shape and the tile crops it), chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
 
+## Security
+
+Browsing shows every file the served path holds, keys included. Set `security.hideSecrets` (`-security.hidesecrets`) to keep the ones that hold secrets out of it:
+
+```yaml
+security:
+  hideSecrets: false    # keep private keys, key stores and credential files out of browsing (-security.hidesecrets)
+```
+
+A file or folder is secret by its name alone: a private key or key store extension (`.key`, `.pem`, `.p12`, `.pfx`, `.ppk`, `.jks`, `.truststore`, `.kdb`, `.kdbx`, `.asc`, `.pgp`, `.gpg`), one of the known credential names (`.ssh`, `.aws`, `.docker`, `.kube`, `.gnupg`, `.htpasswd`, `.netrc`, `_netrc`, `.npmrc`, `.pgpass`, `.pypirc`, `.git-credentials`, and the `id_rsa` and other ssh private keys), or a name starting with `.env`. A secret folder is hidden along with what's inside it, including inside a served archive. Hidden names are left out of listings, folder previews and thumbnails, and a request that names one gets the same 404 as a request for a file that isn't there, so the answer never confirms that the file exists.
+
+The list is built in, matching names rather than contents, and is off by default so that upgrading changes nothing. A key saved under another name is still served, so keep it out of the served path.
+
 ## Debugging
 
 Settings only for debugging and diagnosing the server are in one block, all off unless set:

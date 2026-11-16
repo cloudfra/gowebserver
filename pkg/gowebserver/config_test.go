@@ -89,7 +89,8 @@ func TestPopulatedConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
-		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Debug:    Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Security: Security{HideSecrets: true},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -217,7 +218,8 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
-		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Debug:    Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Security: Security{HideSecrets: true},
 	}
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {

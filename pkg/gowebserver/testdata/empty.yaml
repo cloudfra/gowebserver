@@ -34,3 +34,5 @@ debug:
   endpoint: ""
   shutdown: false
   diagnostics: ""
+security:
+  hideSecrets: false

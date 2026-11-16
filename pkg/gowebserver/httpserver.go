@@ -49,6 +49,7 @@ type webServerImpl struct {
 	uploadPath          string
 	uploadHTTPPath      string
 	enhancedListMode    bool
+	hideSecrets         bool
 	enableDebugMethods  bool
 	diagnosticsPath     string
 	thumbnails          Thumbnails
@@ -176,7 +177,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler, handlerIndex)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, ws.hideSecrets, thumbs)
 			if err != nil {
 				return err
 			}
@@ -193,7 +194,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, ws.hideSecrets, thumbs)
 		if err != nil {
 			return err
 		}
@@ -343,6 +344,7 @@ func New(conf *Config) (WebServer, error) {
 		certificateFilePath: conf.HTTPS.Certificate.CertificateFilePath,
 		privateKeyFilePath:  conf.HTTPS.Certificate.PrivateKeyFilePath,
 		enhancedListMode:    conf.EnhancedList,
+		hideSecrets:         conf.Security.HideSecrets,
 		enableDebugMethods:  conf.Debug.Shutdown,
 		diagnosticsPath:     conf.Debug.Diagnostics,
 		thumbnails:          conf.Thumbnails,
