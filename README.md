@@ -46,6 +46,7 @@ sc.exe start gowebserver
 * Folder previews: in the enhanced file browser, a folder's row shows a strip of its first photos and videos between its name and its size (or, when it has none, from the nearest folders below it, up to three levels down), as many as fit, fading in as they load, and the row takes their most vivid color for its icon and a faint wash. A folder's URL with `?preview` lists them as JSON.
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
+* Optionally also serve on a [Tailscale](https://tailscale.com) network, with Tailscale inside the server and no Tailscale install needed on the machine (see [Tailnet](#tailnet)).
 
 ## ffmpeg
 
@@ -84,6 +85,27 @@ Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orient
 With ffmpeg, thumbnails are cheaper and smaller. It decodes JPEG photos several times faster than Go, and at a half, a quarter or an eighth of their size when the thumbnail needs no more. When the browser accepts WebP (all current browsers do), a thumbnail that only shrinks the file (`fit=outside` or `inside`, or one side given) is made in one run of ffmpeg, from the file to the WebP image. For 12-megapixel photos at the grid's 512-pixel tiles, that takes about 30 ms of one core instead of about 150 ms spread over several, and the files are about a third smaller than JPEG at quality 82, with no difference you can see at that size. Without ffmpeg, photos are decoded in Go and thumbnails are JPEG or PNG. Responses whose format the browser's `Accept` header picked carry `Vary: Accept`.
 
 The enhanced index asks for only a few sizes: 128, 256, 512 or 1024 pixels, covering square photo tiles or 16:9 video tiles (`fit=outside`, so the thumbnail keeps the file's shape and the tile crops it), chosen once for the screen's pixel density. It uses 1024 for slideshow previews. The browser scales these to fit, so each file is rendered at only a couple of sizes.
+
+## Tailnet
+
+`tailnet.enabled` (`-tailnet.enabled`) also serves the same content on a [Tailscale](https://tailscale.com) network, a "tailnet". gowebserver runs the Tailscale node itself, through [tsnet](https://tailscale.com/docs/features/tsnet), so this machine needs no Tailscale app and no new listening port: the two ports below exist on the tailnet only.
+
+```yaml
+tailnet:
+  enabled: false     # (-tailnet.enabled)
+  hostname: ""       # name the node joins as; empty uses the binary name (-tailnet.hostname)
+  authKey: ""        # Tailscale auth key; empty uses TS_AUTHKEY or TS_AUTH_KEY, then the saved state, then a login URL (-tailnet.authkey)
+  stateDir: ""       # where that state is kept; empty uses tsnet's own folder under the user config dir (-tailnet.statedir)
+  ephemeral: false   # leave the tailnet when the server stops instead of staying enrolled; needs an ephemeral auth key (-tailnet.ephemeral)
+  httpPort: 80       # HTTP port on the tailnet only (-tailnet.httpport)
+  httpsPort: 443     # HTTPS port on the tailnet only, with the certificate Tailscale issues for the node (-tailnet.httpsport)
+```
+
+The node joins with an [auth key](https://tailscale.com/kb/1085/auth-keys/) from your tailnet, given as `tailnet.authKey` or in `TS_AUTHKEY` or `TS_AUTH_KEY`. `tailnet.stateDir` keeps it enrolled across restarts, so later starts need no key; in a container, put that folder on a volume. With neither, the server logs a Tailscale login URL to open in a browser, and keeps serving its normal ports while it waits: the tailnet never delays or stops them. Set `tailnet.ephemeral: true` for a node that leaves the tailnet when the server stops, which needs an ephemeral auth key.
+
+`tailnet.httpsPort` uses the certificate Tailscale issues for the node's tailnet domain rather than `https.certificate`, so it needs HTTPS certificates enabled on the tailnet. Inside the tailnet, the tailnet's ACLs decide which nodes may connect. Enabling the tailnet pulls the `tailscale.com` module into the build and makes the binary bigger.
+
+The embedded node is built in for every operating system Tailscale supports. The js/wasm, wasip1, DragonFly BSD and NetBSD binaries leave it out and refuse `tailnet.enabled: true`, so they stay free of the extra dependency.
 
 ## Debugging
 

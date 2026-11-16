@@ -40,6 +40,7 @@ type WebServer interface {
 type webServerImpl struct {
 	httpAddr            string
 	httpsAddr           string
+	tailnet             Tailnet
 	metricsEnabled      bool
 	fileSystemServePath []servePath
 	metricsServePath    string
@@ -268,6 +269,14 @@ func (ws *webServerImpl) Serve(wait func()) error {
 
 	httpHandler := cors.Default().Handler(gzipHandler(serverMux))
 
+	if ws.tailnet.Enabled {
+		tailnetCleanup, err := serveTailnet(ws.tailnet, httpHandler)
+		if err != nil {
+			return err
+		}
+		allCleanups = append(allCleanups, tailnetCleanup)
+	}
+
 	httpPort, err := getPort(httpSocket)
 	if err != nil {
 		slog.Error("cannot get port from HTTP listener", "error", err)
@@ -320,6 +329,10 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath = dir
 	}
 
+	if err := conf.Tailnet.validate(); err != nil {
+		return nil, err
+	}
+
 	monitoringCtx, err := setupMonitoring(conf.Monitoring, conf.Debug.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
@@ -350,6 +363,7 @@ func New(conf *Config) (WebServer, error) {
 		uploadHTTPPath:      conf.Upload.Endpoint,
 		verbose:             conf.Verbose,
 		ffmpeg:              ff,
+		tailnet:             conf.Tailnet,
 	}
 
 	return ws, nil
