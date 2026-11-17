@@ -89,6 +89,15 @@ func TestPopulatedConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
+		Tailnet: Tailnet{
+			Enabled:   true,
+			Hostname:  "gowebserver-node",
+			AuthKey:   "tskey-000000ABCDEF",
+			StateDir:  "/var/lib/gowebserver/tailnet",
+			Ephemeral: true,
+			HTTPPort:  8080,
+			HTTPSPort: 8443,
+		},
 		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
@@ -217,6 +226,15 @@ func TestPopulatedYamlConfig(t *testing.T) {
 		Thumbnails: Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
+		Tailnet: Tailnet{
+			Enabled:   true,
+			Hostname:  "gowebserver-node",
+			AuthKey:   "tskey-000000ABCDEF",
+			StateDir:  "/var/lib/gowebserver/tailnet",
+			Ephemeral: true,
+			HTTPPort:  8080,
+			HTTPSPort: 8443,
+		},
 		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
@@ -275,6 +293,11 @@ func TestDefaultConfiguration(t *testing.T) {
 		},
 		Thumbnails: Thumbnails{
 			Enabled: true,
+		},
+		Tailnet: Tailnet{
+			Enabled:   false,
+			HTTPPort:  80,
+			HTTPSPort: 443,
 		},
 	}
 

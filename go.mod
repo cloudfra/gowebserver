@@ -1,6 +1,6 @@
 module github.com/cloudfra/gowebserver
 
-go 1.26.2
+go 1.27.4
 
 require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
@@ -28,6 +28,7 @@ require (
 	go.uber.org/zap/exp v0.3.0
 	golang.org/x/image v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
+	tailscale.com v1.104.7
 )
 
 require (
@@ -41,6 +42,7 @@ require (
 	cloud.google.com/go/pubsub/v2 v2.9.0 // indirect
 	cloud.google.com/go/storage v1.70.0 // indirect
 	filippo.io/age v1.3.2 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	filippo.io/nistec v0.0.4 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.62.0 // indirect
@@ -48,6 +50,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.4 // indirect
 	github.com/ProtonMail/go-crypto v1.5.2 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
+	github.com/akutz/memconn v0.1.0 // indirect
+	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
 	github.com/andybalholm/brotli v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
@@ -57,6 +61,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudflare/circl v1.6.5 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
+	github.com/coder/websocket v1.8.15 // indirect
+	github.com/creachadair/msync v0.10.1 // indirect
+	github.com/dblohm7/wingoes v0.0.0-20260526185140-fb298caac7ca // indirect
 	github.com/dlclark/regexp2/v2 v2.13.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/ebitengine/purego v0.11.3 // indirect
@@ -65,30 +72,43 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
+	github.com/gaissmai/bart v0.29.0 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-git/go-billy/v6 v6.0.0-beta.1 // indirect
 	github.com/go-git/go-git/v6 v6.0.0-beta.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.9 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
+	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/google/btree v1.1.3 // indirect
 	github.com/google/s2a-go v0.1.11 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.25 // indirect
 	github.com/googleapis/gax-go/v2 v2.27.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
+	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/jsimonetti/rtnetlink v1.4.2 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/klauspost/pgzip v1.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20261101121723-be84dd9509a0 // indirect
+	github.com/mdlayher/netlink v1.11.2 // indirect
+	github.com/mdlayher/socket v0.7.0 // indirect
 	github.com/mholt/archives v0.1.5 // indirect
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/minio/minlz v1.2.4 // indirect
+	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nwaples/rardecode/v2 v2.4.6 // indirect
 	github.com/pandatix/go-abnf v0.5.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
+	github.com/pires/go-proxyproto v0.15.0 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
@@ -96,14 +116,22 @@ require (
 	github.com/prometheus/common v0.74.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
+	github.com/safchain/ethtool v0.7.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.10 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/stangelandcl/ppmd v0.1.1 // indirect
+	github.com/tailscale/certstore v0.1.1-0.20260409135935-3638fb84b77d // indirect
+	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
+	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f // indirect
+	github.com/tailscale/peercred v0.0.0-20250107143737-35a0c7bd7edc // indirect
+	github.com/tailscale/web-client-prebuilt v0.0.0-20260917222731-e0ed2d0d0fea // indirect
+	github.com/tailscale/wireguard-go v0.0.0-20261106233718-9e0ab45c16ca // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.etcd.io/bbolt v1.5.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -115,7 +143,10 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go4.org v0.0.0-20261028031214-ed6929a230fe // indirect
+	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
+	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb // indirect
 	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
@@ -123,14 +154,22 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+	golang.zx2c4.com/wireguard/windows v1.0.1 // indirect
 	google.golang.org/api v0.315.0 // indirect
 	google.golang.org/genproto v0.0.0-20261110000943-09e21b237f2c // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261110000943-09e21b237f2c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261110000943-09e21b237f2c // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
+	gvisor.dev/gvisor v0.0.0-20260915211658-a6f909f08a72 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.7.4 // indirect
 )
+
+// The gvisor snapshot from 2026-11-16 declares package refs_template in pkg/refs
+// and package bridge_test in pkg/tcpip/stack, so no package can import them.
+// Excluding it keeps make deps from selecting that snapshot.
+exclude gvisor.dev/gvisor v0.0.0-20261116061457-89cacadae21e
 
 ignore (
 	./build

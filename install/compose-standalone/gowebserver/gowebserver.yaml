@@ -38,5 +38,9 @@ monitoring:
 upload:
   source: /gowebserver/upload
   endpoint: /upload
+# Also serve the content on a Tailscale tailnet. The README's Tailnet section
+# covers the rest: hostname, authKey, stateDir, ephemeral, httpPort, httpsPort.
+tailnet:
+  enabled: false
 debug:
   endpoint: /debug

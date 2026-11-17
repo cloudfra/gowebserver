@@ -14,6 +14,14 @@ https:
     path: public-certificate.pem
     hosts: gowebserver.com
     duration: 24h0m0s
+tailnet:
+  enabled: true
+  hostname: gowebserver-node
+  authKey: tskey-000000ABCDEF
+  stateDir: /var/lib/gowebserver/tailnet
+  ephemeral: true
+  httpPort: 8080
+  httpsPort: 8443
 monitoring:
   metrics:
     enabled: true

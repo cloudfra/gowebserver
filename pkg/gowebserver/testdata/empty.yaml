@@ -12,6 +12,14 @@ https:
     path: ""
     hosts: ""
     duration: 0s
+tailnet:
+  enabled: false
+  hostname: ""
+  authKey: ""
+  stateDir: ""
+  ephemeral: false
+  httpPort: 0
+  httpsPort: 0
 monitoring:
   metrics:
     enabled: false

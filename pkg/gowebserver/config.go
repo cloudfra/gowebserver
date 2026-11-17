@@ -75,6 +75,15 @@ var (
 	// Thumbnail Flags
 	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
 	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
+
+	// Tailnet Flags
+	tailnetEnabledFlag   = flag.Bool("tailnet.enabled", false, "Also serve the content on a Tailscale network (a tailnet) with an embedded Tailscale node, which needs no tailscaled on this machine.")
+	tailnetHostnameFlag  = flag.String("tailnet.hostname", "", "Machine name the embedded node joins the tailnet as. Empty uses the binary name.")
+	tailnetAuthKeyFlag   = flag.String("tailnet.authkey", "", "Tailscale auth key that joins the embedded node to the tailnet. Empty uses TS_AUTHKEY or TS_AUTH_KEY, then the enrolled state in tailnet.statedir, then an interactive login URL.")
+	tailnetStateDirFlag  = flag.String("tailnet.statedir", "", "Directory holding the embedded node's Tailscale state so it stays enrolled across restarts. Empty uses tsnet's own directory under the user config dir.")
+	tailnetEphemeralFlag = flag.Bool("tailnet.ephemeral", false, "Leave the tailnet when the server stops instead of staying enrolled. Needs an ephemeral auth key.")
+	tailnetHTTPPortFlag  = flag.Int("tailnet.httpport", 80, "Port the embedded node serves HTTP on, on the tailnet only.")
+	tailnetHTTPSPortFlag = flag.Int("tailnet.httpsport", 443, "Port the embedded node serves HTTPS on, on the tailnet only, using Tailscale's own certificate.")
 )
 
 // HTTP holds the configuration for HTTP serving.
@@ -139,6 +148,7 @@ type Config struct {
 
 	HTTP       HTTP       `yaml:"http"`
 	HTTPS      HTTPS      `yaml:"https"`
+	Tailnet    Tailnet    `yaml:"tailnet"`
 	Monitoring Monitoring `yaml:"monitoring"`
 	Upload     Serve      `yaml:"upload"`
 	FFmpeg     FFmpeg     `yaml:"ffmpeg"`
@@ -175,6 +185,33 @@ type Thumbnails struct {
 	// Empty uses <user cache dir>/gowebserver/thumbnails.db; "memory:"
 	// keeps them in memory only, for the life of the server.
 	CachePath string `yaml:"cachePath"`
+}
+
+// Tailnet serves the same content on a Tailscale network (a "tailnet")
+// through a Tailscale node embedded in this process; it's off unless
+// Enabled is set. See tailnet.go.
+type Tailnet struct {
+	// Enabled joins the tailnet and serves the content there as well.
+	Enabled bool `yaml:"enabled"`
+	// Hostname is the machine name the node joins the tailnet as. Empty
+	// uses the name of the binary.
+	Hostname string `yaml:"hostname"`
+	// AuthKey is the Tailscale auth key that enrolls the node. Empty uses
+	// TS_AUTHKEY or TS_AUTH_KEY, then the state already in StateDir, and
+	// failing both Tailscale serves an interactive login URL.
+	AuthKey string `yaml:"authKey"`
+	// StateDir is the directory holding the node's Tailscale state, which
+	// keeps it enrolled across restarts. Empty uses tsnet's own directory
+	// under the user config dir.
+	StateDir string `yaml:"stateDir"`
+	// Ephemeral leaves the tailnet when the server stops instead of staying
+	// enrolled. It needs an ephemeral auth key, see AuthKey.
+	Ephemeral bool `yaml:"ephemeral"`
+	// HTTPPort and HTTPSPort are ports announced on the tailnet only, not
+	// bound on this machine. HTTPS uses Tailscale's own certificate, not
+	// the one in HTTPS.Certificate.
+	HTTPPort  int `yaml:"httpPort"`
+	HTTPSPort int `yaml:"httpsPort"`
 }
 
 // Serve maps the source to endpoint serving of content.
@@ -310,6 +347,15 @@ func loadFromFlags() (*Config, error) {
 				CertificateValidDuration: *validDurationFlag,
 				ForceOverwrite:           *forceOverwriteCertFlag,
 			},
+		},
+		Tailnet: Tailnet{
+			Enabled:   *tailnetEnabledFlag,
+			Hostname:  *tailnetHostnameFlag,
+			AuthKey:   *tailnetAuthKeyFlag,
+			StateDir:  *tailnetStateDirFlag,
+			Ephemeral: *tailnetEphemeralFlag,
+			HTTPPort:  *tailnetHTTPPortFlag,
+			HTTPSPort: *tailnetHTTPSPortFlag,
 		},
 		Debug: Debug{
 			Endpoint:    *debugEndpointFlag,
