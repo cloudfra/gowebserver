@@ -10,7 +10,11 @@ function escapeHTML(s) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-var SEP = '<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
+// A URL's path segment as a name to read: decoded, and an opened
+// archive (NAME.d) named for the archive.
+function decode(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+function label(s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; }
+var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
 
 // ===== Theme =====
 (function () {
@@ -40,8 +44,6 @@ var SEP = '<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18
 // ===== Header: breadcrumbs, title, sticky toolbar =====
 (function () {
   var parts = location.pathname.split('/').filter(Boolean);
-  var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
-  var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
   var crumbs = $('crumbs');
   // Parent folders shown after home, by screen width: 4 on wide
   // screens, 3 on medium, 2 on phones. Deeper ones collapse into an
@@ -67,6 +69,8 @@ var SEP = '<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18
     ancestors.slice(hidden.length).forEach(function (a) {
       html += SEP + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
     });
+    // A panel can't stay on a crumb that's about to be replaced.
+    hoverPanel.close();
     crumbs.innerHTML = html;
   }
   renderCrumbs();

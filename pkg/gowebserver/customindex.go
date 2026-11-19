@@ -293,6 +293,11 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		c.serveFolderPreview(w, r, path)
 		return true
 	}
+	if r.URL.Query().Has("folders") {
+		setRequestHandler(r, handlerListing)
+		c.serveSubfolders(w, r, path)
+		return true
+	}
 
 	// One span per stage, never per entry: a folder can hold tens of
 	// thousands.

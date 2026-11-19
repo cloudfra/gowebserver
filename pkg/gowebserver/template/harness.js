@@ -341,6 +341,7 @@ function page(html, opts) {
     devicePixelRatio: opts.devicePixelRatio || 1,
     innerWidth: opts.innerWidth || 1280,
     innerHeight: opts.innerHeight || 800,
+    scrollX: 0,
     scrollY: 0,
     isSecureContext: true,
     console,

@@ -23,6 +23,11 @@ var folderPreviews = (function () {
     return href && href.charAt(href.length - 1) === '/' ? href : '';
   }
 
+  // A preview's item it, of the folder at url, as the grid has its items.
+  function itemOf(url, it) {
+    return { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+  }
+
   function next() {
     while (asking < LIMIT && waiting.length) ask(waiting.shift());
   }
@@ -57,12 +62,14 @@ var folderPreviews = (function () {
       row.classList.remove('has-strip');
       return;
     }
+    // All of them are kept for the strip's slideshow (below).
+    strip.all = items.map(function (it) { return itemOf(url, it); });
     items = items.slice(0, Math.floor((room + GAP) / (THUMB + GAP)) + 1);
     // Long enough to read as a filmstrip: it fades out toward the name.
     if (items.length >= 3) strip.classList.add('fade');
     var settled = 0;
-    items.forEach(function (it) {
-      var item = { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+    items.forEach(function (it, i) {
+      var item = strip.all[i];
       var img = doc.createElement('img');
       img.alt = '';
       img.decoding = 'async';
@@ -100,5 +107,112 @@ var folderPreviews = (function () {
   for (var i = 0; i < rowEls.length; i++) {
     if (rowDir[i] && folderURL(rowEls[i])) seen.observe(rowEls[i]);
   }
+  stripSlideshow();
   return {};
 })();
+
+// ===== A strip's slideshow =====
+// Resting the pointer on a folder row with a strip plays the folder's
+// photos through the strip's own box: a panel fades in over it and the
+// thumbnails step along it, one a moment, the folder's next one coming
+// in at the size and the strip looping while the pointer stays. Nothing
+// in it is a control and nothing in the list moves: it's the strip's
+// size, inside the strip. It opens through the hover panels the
+// breadcrumb uses too (page-theme/hover-panel.js), so it shares their
+// dwell, pointer gate and closing rules, and only one of them is ever
+// open. It plays only what the row's preview already sent (up to 20),
+// at the strip's own thumbnail size, so nothing new is asked of the
+// server beyond the next few thumbnails, which go through the
+// thumbnail queue like the strip's. With reduced motion asked for, the
+// strip stays as it is.
+function stripSlideshow() {
+  var hp = window.gowsHoverPanel;
+  if (!hp) return;
+  // How long each step shows, and the strip's thumbnails' size and gap
+  // (as in folderPreviews).
+  var STEP = 700, THUMB = 40, GAP = 4;
+  var show = null;
+
+  function stripOf(row) {
+    return row.querySelector('.row-strip');
+  }
+
+  // Loads frame i of the track, if it isn't loading already.
+  function want(track, i) {
+    var img = track.children[i];
+    if (!img || img._wanted) return;
+    img._wanted = true;
+    thumbLoader.load(img, tileThumbURL(img._item, THUMB), function (ok) {
+      if (ok) img.classList.add('ready');
+    }, false, true);
+  }
+
+  function play(row) {
+    stop();
+    var strip = stripOf(row), all = strip.all;
+    // The frames that fit, the folder's first ones, then all of them
+    // again after the rest, so the loop's end looks like its start.
+    var fit = Math.max(1, Math.floor((strip.clientWidth + GAP) / (THUMB + GAP)));
+    var panel = doc.createElement('span');
+    panel.className = 'strip-show hover-panel';
+    panel.setAttribute('aria-hidden', 'true');
+    var track = doc.createElement('span');
+    track.className = 'strip-track';
+    var frames = all.concat(all.slice(0, fit + 1));
+    frames.forEach(function (item) {
+      var img = doc.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.draggable = false;
+      img._item = item;
+      track.appendChild(img);
+    });
+    panel.appendChild(track);
+    strip.appendChild(panel);
+    for (var i = 0; i <= fit + 1; i++) want(track, i);
+    var s = show = { row: row, panel: panel, track: track, k: 0, timer: 0 };
+    function step() {
+      if (show !== s) return;
+      s.k++;
+      track.classList.remove('jump');
+      track.style.transform = 'translateX(' + s.k * (THUMB + GAP) + 'px)';
+      want(track, s.k + fit + 1);
+      if (s.k >= all.length) {
+        // On the copy of the start: back to the start, unseen.
+        s.timer = setTimeout(function () {
+          if (show !== s) return;
+          s.k = 0;
+          track.classList.add('jump');
+          track.style.transform = '';
+          s.timer = setTimeout(step, STEP / 2);
+        }, STEP / 2);
+        return;
+      }
+      s.timer = setTimeout(step, STEP);
+    }
+    s.timer = setTimeout(step, STEP);
+    // A frame after it's in the page, so the reveal transitions.
+    requestAnimationFrame(function () { if (show === s) hp.show(panel, true); });
+  }
+
+  function stop() {
+    if (!show) return;
+    var s = show;
+    show = null;
+    clearTimeout(s.timer);
+    hp.show(s.panel, false);
+    Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
+    setTimeout(function () { s.panel.remove(); }, 300);
+  }
+
+  hp.attach(doc.body, '.row.has-strip', {
+    // Off the row, it closes at once: there's nothing to move into.
+    grace: 0,
+    when: function (row) {
+      var strip = stripOf(row);
+      return !hp.reducedMotion.matches && !!strip && !!strip.all && strip.all.length > 1;
+    },
+    open: play,
+    close: stop,
+  });
+}
