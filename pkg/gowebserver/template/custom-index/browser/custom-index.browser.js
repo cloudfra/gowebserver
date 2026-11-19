@@ -154,15 +154,48 @@ test('the theme button switches the page and remembers', async () => {
   assert.equal(await b.page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'before the page draws');
 });
 
-test('the icons, which come in a script of their own, are drawn in the rows', async () => {
-  assert.equal(await count('#icon-folder'), 1);
+// The icons are in the page, not a script, so they draw with JavaScript
+// off too. The rows are list.js's, so with it off there are none, but the
+// sort arrow draws from the page's icons, and so do the rows' once built.
+test('the icons are in the page: the sort arrow draws without JavaScript, the rows from them', async () => {
+  const ctx = await b.browser.newContext({ javaScriptEnabled: false });
+  try {
+    const pg = await ctx.newPage();
+    await pg.goto(srv.url);
+    assert.equal(await pg.locator('#icon-folder').count(), 1);
+    const width = await pg.locator('.seg [aria-current] use').first().evaluate((u) => u.getBBox().width);
+    assert.ok(width > 0, 'the sort arrow has a size: ' + width);
+  } finally {
+    await ctx.close();
+  }
+  await b.page.goto(srv.url);
   const width = await b.page.locator('.row[data-dir] .chip use').first().evaluate((u) => u.getBBox().width);
-  assert.ok(width > 0, 'the folder icon has a size: ' + width);
+  assert.ok(width > 0, 'a row icon has a size: ' + width);
 });
 
-// The styles, scripts and icons are files every folder's page links to
+// The shared scripts are a file apart from the file browser's own, so a
+// throw in them leaves the folder working.
+test('the folder works when the shared scripts fail', async () => {
+  const ctx = await b.browser.newContext();
+  try {
+    const pg = await ctx.newPage();
+    const errors = [];
+    pg.on('pageerror', (e) => errors.push(e.message));
+    await pg.route(/\/_gows\/[0-9a-f]+\/page-theme\.js$/, (route) => route.fulfill({
+      contentType: 'text/javascript', body: 'throw new Error("shared scripts broke");',
+    }));
+    await pg.goto(srv.url);
+    await pg.waitForSelector('.tile');
+    assert.deepEqual(errors, ['shared scripts broke']);
+    assert.equal(await pg.locator('#summary').textContent(), '1 folder, 1 file, ' + (PHOTOS + 1) + ' photos');
+  } finally {
+    await ctx.close();
+  }
+});
+
+// The styles and scripts are files every folder's page links to
 // (pageassets.go), so the next folder downloads only its own page.
-test('another folder\'s page takes its styles, scripts and icons from the cache', async () => {
+test('another folder\'s page takes its styles and scripts from the cache', async () => {
   const assets = () => b.page.evaluate(() => performance.getEntriesByType('resource')
     .filter((e) => e.name.includes('/_gows/'))
     .map((e) => ({ url: e.name, transferSize: e.transferSize })));

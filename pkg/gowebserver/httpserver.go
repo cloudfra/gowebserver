@@ -163,6 +163,10 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 	}
 
+	// What answers "/", which a request under the assets' path that
+	// isn't for one of them is passed on to.
+	var rootHandler http.Handler
+	rootKind := ""
 	if rootPath == "" && len(mounts) > 0 {
 		// No root endpoint configured but non-root mounts exist: generate a root
 		// index listing and register each mount with its own handler.
@@ -175,6 +179,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 			return err
 		}
 		ws.addHandler(serverMux, "/", indexHandler, handlerIndex)
+		rootHandler, rootKind = indexHandler, handlerIndex
 
 		for _, paths := range ws.fileSystemServePath {
 			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs)
@@ -200,6 +205,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 		allCleanups = append(allCleanups, cleanup)
 		ws.addHandler(serverMux, "/", fsHandler, handlerFile)
+		rootHandler, rootKind = fsHandler, handlerFile
 	}
 
 	defer func() {
@@ -211,10 +217,10 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	}()
 
 	if ws.enhancedListMode {
-		// The file browser's styles, scripts and icons, which its pages
-		// link to. Only this build's hash is routed here, so a folder of
-		// the same name stays the served filesystem's.
-		ws.addHandler(serverMux, customIndexAssets.prefix(), customIndexAssets, handlerAsset)
+		// The file browser's styles and scripts, which its pages link
+		// to. Anything else under the same path is passed on, so a
+		// folder of the same name stays the served filesystem's.
+		ws.addHandler(serverMux, pageAssetsPattern, customIndexAssets.handler(rootHandler, rootKind), handlerAsset)
 	}
 
 	if len(ws.uploadHTTPPath) > 0 {

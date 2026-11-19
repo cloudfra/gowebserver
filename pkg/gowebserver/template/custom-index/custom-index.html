@@ -12,138 +12,16 @@
       if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     } catch (e) { }
   </script>
-  {{- /* The styles, scripts and icons are the same on every folder's page,
-         so they are files of their own that the browser keeps
-         (pageassets.go): the page itself is only the folder. They are
-         defined at the end of this file. */}}
+  {{- /* The styles and scripts are the same on every folder's page, so
+         they are files of their own that the browser keeps
+         (pageassets.go), defined at the end of this file. The icons stay
+         in the page, so that they draw without JavaScript. */}}
   <link rel="stylesheet" href="{{.Assets}}custom-index.css">
 </head>
 
 <body>
   <div class="ambient" id="ambient" aria-hidden="true"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div>
 
-  <script src="{{.Assets}}icons.js"></script>
-
-  <div class="page">
-    <header class="hero" id="hero">
-      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
-      <h1 class="title" id="title" data-from-path>{{.RootName}}</h1>
-      <p class="summary" id="summary"></p>
-    </header>
-
-    <div class="toolbar" id="toolbar">
-      <span class="tb-title" id="tb-title" aria-hidden="true">{{.RootName}}</span>
-      <label class="search">
-        <span class="sr-only">Filter this folder</span>
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
-        <input id="filter" type="search" placeholder="Filter" autocomplete="off" spellcheck="false">
-        <kbd>/</kbd>
-      </label>
-      <nav class="seg" aria-label="Sort by">
-        {{if eq .SortBy "name"}}<a href="?sort=name-desc" aria-current="true">Name<svg><use href="#ui-up" /></svg></a>{{else if eq .SortBy "name-desc"}}<a href="?sort=name" aria-current="true">Name<svg><use href="#ui-down" /></svg></a>{{else}}<a href="?sort=name">Name</a>{{end}}
-        {{if eq .SortBy "date-desc"}}<a href="?sort=date" aria-current="true">Date<svg><use href="#ui-down" /></svg></a>{{else if eq .SortBy "date"}}<a href="?sort=date-desc" aria-current="true">Date<svg><use href="#ui-up" /></svg></a>{{else}}<a href="?sort=date-desc">Date</a>{{end}}
-        {{if eq .SortBy "size-desc"}}<a href="?sort=size" aria-current="true">Size<svg><use href="#ui-down" /></svg></a>{{else if eq .SortBy "size"}}<a href="?sort=size-desc" aria-current="true">Size<svg><use href="#ui-up" /></svg></a>{{else}}<a href="?sort=size-desc">Size</a>{{end}}
-      </nav>
-      <button class="icon-btn" id="theme" type="button" aria-label="Theme: automatic">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 010 16z" fill="currentColor" /></svg>
-      </button>
-    </div>
-
-    <main>
-      {{if .HasNonMediaEntry}}
-      <section class="files" id="files" aria-label="Folders and files">
-        <div class="files-head" aria-hidden="true"><span>Name</span><span class="col-size">Size</span><span class="col-date">Modified</span></div>
-        {{- /* The rows are list.js's: only those near the screen are built,
-               from files below, since a folder can hold tens of thousands. */}}
-        <div class="files-body" id="files-body"></div>
-      </section>
-      {{end}}
-
-      {{if or .HasImage .HasVideo}}
-      <section class="media" id="media" aria-label="Photos and videos"></section>
-      {{end}}
-
-      {{if not (or .HasNonMediaEntry .HasImage .HasVideo)}}
-      <p class="empty"><strong>This folder is empty</strong>Files added here will show up on refresh.</p>
-      {{end}}
-      <p class="empty" id="no-match" hidden><strong>No matches</strong>Nothing in this folder matches your filter.</p>
-    </main>
-
-    <div class="footer">Go Web Server {{ .ApplicationVersion }}, {{ .ApplicationBuildstamp }}</div>
-  </div>
-
-  <div class="scrub" id="scrub" aria-hidden="true"><div class="scrub-label" id="scrub-label"></div><div class="scrub-thumb" id="scrub-thumb"></div></div>
-
-  <dialog class="ss" id="ss" aria-label="Slideshow" tabindex="-1">
-    <!-- Browsers refuse to make a <dialog> itself fullscreen, so the frame
-         inside it is what goes fullscreen. -->
-    <div class="ss-frame" id="ss-frame">
-      <div class="ss-bg"></div>
-      <div class="ss-ambient" id="ss-ambient"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div>
-      <div class="ss-vignette"></div>
-      <div class="ss-stage" id="ss-stage"></div>
-      <div class="ss-shade"></div>
-      <div class="ss-top">
-        <div class="ss-info" aria-live="polite">
-          <div class="ss-name" id="ss-name"></div>
-          <div class="ss-sub" id="ss-sub"></div>
-        </div>
-        <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
-        <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
-        <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
-        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
-        <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
-      </div>
-      <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
-      <button class="ss-btn ss-nav ss-next" id="ss-next" type="button" aria-label="Next" data-key="→"><svg viewBox="0 0 24 24"><polyline class="i-fwd" points="9 18 15 12 9 6" /></svg></button>
-      <div class="ss-bottom">
-        <div class="ss-strip" id="ss-strip" hidden></div>
-      </div>
-    </div>
-  </dialog>
-
-  <script>
-    window.GOWS = {
-      sort: {{.SortBy}},
-      // Whether the server can resize images (thumbs) and grab video
-      // frames (videoThumbs); see thumbnail.go.
-      thumbs: {{.Thumbnails}},
-      videoThumbs: {{.VideoThumbnails}},
-      // Where diagnostics go, or "" when they're off (see diagnostics.go).
-      diag: {{.Diagnostics}},
-      // The list's folders and files, in order:
-      // [kind, url, name, icon, size, date]; kind is 0 a file, 1 a file
-      // the text viewer shows, 2 a folder, 3 an archive (opened as one).
-      files: [
-        {{- range $.DirEntries}}{{if not .IsMedia}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
-      ],
-      // [isVideo, url, name, size, unix mtime]
-      media: [
-        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
-      ]
-    };
-  </script>
-  <script src="{{.Assets}}custom-index.js"></script>
-</body>
-
-</html>
-{{- /*
-  The page's assets, each defined under the name it is served as. They are
-  made once, with no data, so nothing in them may depend on the folder;
-  pageassets.go serves them under a hash of their content, which the
-  page's .Assets leads to, so that the browser keeps them for good.
-*/}}
-{{- define "custom-index.css"}}
-{{template "page-style"}}
-
-    {{include "custom-index.css"}}
-{{end}}
-
-{{- /* The icons the rows and the grid use (<use href="#icon-...">). The
-       script puts them into the page where it stands, before the rows, so
-       they are part of the page as if they were written there. */}}
-{{- define "icons.js"}}
-document.currentScript.insertAdjacentHTML('afterend', `
   <!-- Hidden with zero size rather than display:none: clip paths inside a
        display:none SVG don't render, and some icons clip their parts. -->
   <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -466,13 +344,132 @@ document.currentScript.insertAdjacentHTML('afterend', `
       </symbol>
     </defs>
   </svg>
-`);
+
+  <div class="page">
+    <header class="hero" id="hero">
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+      <h1 class="title" id="title" data-from-path>{{.RootName}}</h1>
+      <p class="summary" id="summary"></p>
+    </header>
+
+    <div class="toolbar" id="toolbar">
+      <span class="tb-title" id="tb-title" aria-hidden="true">{{.RootName}}</span>
+      <label class="search">
+        <span class="sr-only">Filter this folder</span>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
+        <input id="filter" type="search" placeholder="Filter" autocomplete="off" spellcheck="false">
+        <kbd>/</kbd>
+      </label>
+      <nav class="seg" aria-label="Sort by">
+        {{if eq .SortBy "name"}}<a href="?sort=name-desc" aria-current="true">Name<svg><use href="#ui-up" /></svg></a>{{else if eq .SortBy "name-desc"}}<a href="?sort=name" aria-current="true">Name<svg><use href="#ui-down" /></svg></a>{{else}}<a href="?sort=name">Name</a>{{end}}
+        {{if eq .SortBy "date-desc"}}<a href="?sort=date" aria-current="true">Date<svg><use href="#ui-down" /></svg></a>{{else if eq .SortBy "date"}}<a href="?sort=date-desc" aria-current="true">Date<svg><use href="#ui-up" /></svg></a>{{else}}<a href="?sort=date-desc">Date</a>{{end}}
+        {{if eq .SortBy "size-desc"}}<a href="?sort=size" aria-current="true">Size<svg><use href="#ui-down" /></svg></a>{{else if eq .SortBy "size"}}<a href="?sort=size-desc" aria-current="true">Size<svg><use href="#ui-up" /></svg></a>{{else}}<a href="?sort=size-desc">Size</a>{{end}}
+      </nav>
+      <button class="icon-btn" id="theme" type="button" aria-label="Theme: automatic">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 010 16z" fill="currentColor" /></svg>
+      </button>
+    </div>
+
+    <main>
+      {{if .HasNonMediaEntry}}
+      <section class="files" id="files" aria-label="Folders and files">
+        <div class="files-head" aria-hidden="true"><span>Name</span><span class="col-size">Size</span><span class="col-date">Modified</span></div>
+        {{- /* The rows are list.js's: only those near the screen are built,
+               from files below, since a folder can hold tens of thousands. */}}
+        <div class="files-body" id="files-body"></div>
+      </section>
+      {{end}}
+
+      {{if or .HasImage .HasVideo}}
+      <section class="media" id="media" aria-label="Photos and videos"></section>
+      {{end}}
+
+      {{if not (or .HasNonMediaEntry .HasImage .HasVideo)}}
+      <p class="empty"><strong>This folder is empty</strong>Files added here will show up on refresh.</p>
+      {{end}}
+      <p class="empty" id="no-match" hidden><strong>No matches</strong>Nothing in this folder matches your filter.</p>
+    </main>
+
+    <div class="footer">Go Web Server {{ .ApplicationVersion }}, {{ .ApplicationBuildstamp }}</div>
+  </div>
+
+  <div class="scrub" id="scrub" aria-hidden="true"><div class="scrub-label" id="scrub-label"></div><div class="scrub-thumb" id="scrub-thumb"></div></div>
+
+  <dialog class="ss" id="ss" aria-label="Slideshow" tabindex="-1">
+    <!-- Browsers refuse to make a <dialog> itself fullscreen, so the frame
+         inside it is what goes fullscreen. -->
+    <div class="ss-frame" id="ss-frame">
+      <div class="ss-bg"></div>
+      <div class="ss-ambient" id="ss-ambient"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div>
+      <div class="ss-vignette"></div>
+      <div class="ss-stage" id="ss-stage"></div>
+      <div class="ss-shade"></div>
+      <div class="ss-top">
+        <div class="ss-info" aria-live="polite">
+          <div class="ss-name" id="ss-name"></div>
+          <div class="ss-sub" id="ss-sub"></div>
+        </div>
+        <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
+        <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
+        <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
+        <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
+        <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
+      </div>
+      <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
+      <button class="ss-btn ss-nav ss-next" id="ss-next" type="button" aria-label="Next" data-key="→"><svg viewBox="0 0 24 24"><polyline class="i-fwd" points="9 18 15 12 9 6" /></svg></button>
+      <div class="ss-bottom">
+        <div class="ss-strip" id="ss-strip" hidden></div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    window.GOWS = {
+      sort: {{.SortBy}},
+      // Whether the server can resize images (thumbs) and grab video
+      // frames (videoThumbs); see thumbnail.go.
+      thumbs: {{.Thumbnails}},
+      videoThumbs: {{.VideoThumbnails}},
+      // Where diagnostics go, or "" when they're off (see diagnostics.go).
+      diag: {{.Diagnostics}},
+      // The list's folders and files, in order:
+      // [kind, url, name, icon, size, date]; kind is 0 a file, 1 a file
+      // the text viewer shows, 2 a folder, 3 an archive (opened as one).
+      files: [
+        {{- range $.DirEntries}}{{if not .IsMedia}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
+      ],
+      // [isVideo, url, name, size, unix mtime]
+      media: [
+        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
+      ]
+    };
+  </script>
+  <script src="{{.Assets}}page-theme.js"></script>
+  <script src="{{.Assets}}custom-index.js"></script>
+</body>
+
+</html>
+{{- /*
+  The page's assets, each defined under the name it is served as. They are
+  made once, with no data, so nothing in them may depend on the folder;
+  pageassets.go serves them under a hash of their content, which the
+  page's .Assets leads to, so that the browser keeps them for good.
+*/}}
+{{- define "custom-index.css"}}
+{{template "page-style"}}
+
+    {{include "custom-index.css"}}
 {{end}}
 
-{{- /* The page's scripts: the parts every page shares, then the file
-       browser's own, in one function so they share a scope. */}}
-{{- define "custom-index.js"}}
+{{- /* The scripts every page shares (page-theme). A file of their own,
+       so that a throw in them doesn't stop the file browser's. */}}
+{{- define "page-theme.js"}}
 {{template "page-script-js"}}
+{{end}}
+
+{{- /* The file browser's own scripts, in one function so they share a
+       scope. */}}
+{{- define "custom-index.js"}}
     (function () {
       'use strict';
 

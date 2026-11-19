@@ -256,6 +256,18 @@ func relativeURL(name string) string {
 	return "./" + url.PathEscape(name)
 }
 
+// rootRelative returns the relative link from a page at requestURI (the
+// path the browser asked for, with any query) up to the server root,
+// ending in "/": "./" and a "../" for each directory below it. It's for
+// what the server serves once, under its root, for every page (the
+// diagnostics endpoint, the page assets), whatever serve path or proxy
+// prefix the page is under: relative links resolve against the path the
+// browser actually requested (see relativeURL).
+func rootRelative(requestURI string) string {
+	p, _, _ := strings.Cut(requestURI, "?")
+	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0))
+}
+
 // redirectRelative writes a redirect to target without resolving it against
 // r.URL.Path the way http.Redirect does, which would lose the prefix removed
 // by http.StripPrefix.

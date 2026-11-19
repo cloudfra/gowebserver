@@ -45,10 +45,11 @@ func mustLoadTemplate(name string) []byte {
 }
 
 // loadTemplate returns the text of the template template/NAME/NAME.html
-// in fsys as one page: a page is served as a single response, so the CSS
-// and JavaScript kept in files of their own go back into it here. Each
-// line that is only {{include "FILE"}} becomes the content of FILE, from
-// the template's directory, indented like that line.
+// in fsys as one text: the CSS and JavaScript kept in files of their own
+// go back into it here, whether into the page itself or into the assets
+// it defines and links to (pageassets.go). Each line that is only
+// {{include "FILE"}} becomes the content of FILE, from the template's
+// directory, indented like that line.
 //
 // An included file is CSS or JavaScript and nothing else, so it can be
 // linted and tested as such; it is an error for it to hold a template

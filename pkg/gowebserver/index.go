@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"bytes"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -25,7 +26,8 @@ import (
 var templateIndexHTML = mustLoadTemplate("template-index")
 
 type indexHTTPHandler struct {
-	page []byte
+	tmpl   *template.Template
+	params customIndexReport
 	// folders is the answer to "/?folders": the serve paths, in the
 	// order they were configured, which is the order the page lists
 	// them in.
@@ -37,7 +39,10 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	if modern {
 		templateHTML = customIndexHTML
 	}
-	w := &bytes.Buffer{}
+	tmpl, err := createTemplate(templateHTML)
+	if err != nil {
+		return nil, err
+	}
 
 	entries := make([]*DirEntry, len(servePaths))
 	folders := make([]subfolder, len(servePaths))
@@ -58,18 +63,31 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 		SortBy:           "name",
 		UseTimestamp:     false,
 		HasNonMediaEntry: true,
-		Assets:           customIndexAssets.pagePath("/"),
 	}
 
 	slog.Debug("newIndexHTTPHandler", "params", params)
-	if err := executeTemplate(templateHTML, params, w); err != nil {
+	// Made once here so that a template that can't be is an error now;
+	// each request makes its own (see ServeHTTP).
+	h := &indexHTTPHandler{tmpl: tmpl, params: *params}
+	if _, err := h.page("/"); err != nil {
 		return nil, err
 	}
 
-	return &indexHTTPHandler{
-		page:    w.Bytes(),
-		folders: folders,
-	}, nil
+	h.folders = folders
+	return h, nil
+}
+
+// page is the index as the page at requestURI. The index answers every
+// path no served one does, such as a mistyped /typo/sub/, so its links to
+// the assets are made for the path asked for, as a folder's are.
+func (h *indexHTTPHandler) page(requestURI string) ([]byte, error) {
+	params := h.params
+	params.Assets = customIndexAssets.pagePath(requestURI)
+	var b bytes.Buffer
+	if err := h.tmpl.Execute(&b, &params); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
 
 func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -77,8 +95,13 @@ func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeSubfolders(w, h.folders)
 		return
 	}
+	page, err := h.page(r.RequestURI)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Add("Content-Type", "text/html")
-	if _, err := w.Write(h.page); err != nil {
+	if _, err := w.Write(page); err != nil {
 		slog.Warn("cannot write index response", "error", err)
 	}
 }

@@ -12,13 +12,329 @@
       if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     } catch (e) { }
   </script>
-  <link rel="stylesheet" href="./_gows/208be44fd87f3ecb/custom-index.css">
+  <link rel="stylesheet" href="./_gows/b3fe3f1fb11c5e50/custom-index.css">
 </head>
 
 <body>
   <div class="ambient" id="ambient" aria-hidden="true"><canvas width="192" height="128"></canvas><canvas width="192" height="128"></canvas></div>
 
-  <script src="./_gows/208be44fd87f3ecb/icons.js"></script>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      
+      
+      <symbol id="icon-folder" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-folder-clip"><rect x="0" y="-20" width="24" height="28.2" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <path d="M3 18V6a2 2 0 012-2h4.5l2 2H19a2 2 0 012 2v10" />
+          <g clip-path="url(#icon-folder-clip)">
+            <path class="p-folder-paper1" d="M6.5 13V5.5h7V13" />
+            <path class="p-folder-paper2" d="M10.5 13V6.5h7V13" />
+          </g>
+          <path class="p-folder-front" d="M3 18v-7a2 2 0 012-2h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-text" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-text-hop">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line class="p-text-l1" x1="8" y1="13" x2="16" y2="13" />
+          <line class="p-text-l2" x1="8" y1="17" x2="16" y2="17" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-pdf" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-pdf-clip"><rect x="-4" y="-4" width="32" height="27.2" /></clipPath></defs>
+        <line class="p-pdf-slot" x1="2.5" y1="23.2" x2="21.5" y2="23.2" />
+        <g clip-path="url(#icon-pdf-clip)">
+          <g class="p-pdf-page">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M9 15v-4h1.5a1.5 1.5 0 010 3H9" />
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-doc" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-doc-turn">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line class="p-doc-l1" x1="8" y1="9" x2="12" y2="9" />
+          <line class="p-doc-l2" x1="8" y1="13" x2="16" y2="13" />
+          <line class="p-doc-l3" x1="8" y1="17" x2="16" y2="17" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-spreadsheet" viewBox="0 0 24 24" overflow="visible">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <rect class="p-spreadsheet-c1" x="8.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c2" x="12.6" y="13.6" width="2.8" height="2.8" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c3" x="8.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
+        <rect class="p-spreadsheet-c4" x="12.6" y="17.6" width="2.8" height="1.4" rx="0.5" fill="currentColor" stroke="none" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="16" y2="17" />
+        <line x1="12" y1="11" x2="12" y2="19" />
+      </symbol>
+      
+      <symbol id="icon-presentation" viewBox="0 0 24 24" overflow="visible">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line class="p-presentation-b1" x1="8" y1="13" x2="8" y2="10" />
+        <line class="p-presentation-b2" x1="12" y1="13" x2="12" y2="7" />
+        <line class="p-presentation-b3" x1="16" y1="13" x2="16" y2="9" />
+      </symbol>
+      
+      <symbol id="icon-image" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle class="p-image-sun" cx="8.5" cy="8.5" r="1.5" />
+          <path class="p-image-land" d="M21 15l-5-5L5 21" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-video" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <polygon class="p-video-lens" points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" />
+          <circle class="p-video-rec" cx="4.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-audio" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <g class="p-audio-note">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-archive" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <g class="p-archive-box">
+            <path d="M21 8v13H3V8" />
+            <path d="M10 12h4" />
+          </g>
+          <path class="p-archive-lid" d="M1 3h22v5H1z" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-download" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-download-clip"><rect x="0" y="0" width="24" height="25.2" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <g clip-path="url(#icon-download-clip)">
+            <path class="p-download-arrow" d="M12 3v13M7 11l5 5 5-5" />
+          </g>
+          <path class="p-download-gl" d="M4 21h8" />
+          <path class="p-download-gr" d="M12 21h8" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-code" viewBox="0 0 24 24" overflow="visible">
+        <polyline class="p-code-gt" points="16 18 22 12 16 6" />
+        <polyline class="p-code-lt" points="8 6 2 12 8 18" />
+        <line class="p-code-slash" x1="14" y1="5" x2="10" y2="19" />
+      </symbol>
+      
+      <symbol id="icon-terminal" viewBox="0 0 24 24" overflow="visible">
+        <rect x="2" y="3" width="20" height="18" rx="2" />
+        <polyline points="7 9 10 12 7 15" />
+      </symbol>
+      
+      <symbol id="icon-disc" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-disc-disc">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 5.5a6.5 6.5 0 016.5 6.5" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-config" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <g class="p-config-gear">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1.08H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1.08H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-font" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-3 -3) scale(1.25)" style="--k: 1.25">
+          <g class="p-font-letter">
+            <polyline points="4 7 4 4 20 4 20 7" />
+            <line x1="9" y1="20" x2="15" y2="20" />
+            <line x1="12" y1="4" x2="12" y2="20" />
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-database" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-database-db">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-ebook" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-ebook-clip"><rect x="0" y="2" width="24" height="22" /></clipPath></defs>
+        <g class="p-ebook-book">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+          <path d="M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5z" />
+          <g clip-path="url(#icon-ebook-clip)">
+            <path class="p-ebook-ribbon" d="M13 2v7.5l1.75-1.5 1.75 1.5V2" />
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-cad" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-cad-cube">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 7v10l10 5V12" />
+          <path d="M22 7v10l-10 5V12" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-vector" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-vector-pen">
+          <path d="M12 19l7-7 3 3-7 7-3-3z" />
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+          <path d="M2 2l7.586 7.586" />
+          <circle cx="11" cy="11" r="2" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-photoshop" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(0 1) scale(1)" style="--k: 1">
+          <rect class="p-photoshop-back" x="2" y="7" width="16" height="12" rx="1" />
+          <rect class="p-photoshop-front" x="6" y="3" width="16" height="12" rx="1" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-markup" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(1.091 1.091) scale(0.909)" style="--k: 0.909">
+          <polyline class="p-markup-lt" points="4 7 1 12 4 17" />
+          <polyline class="p-markup-gt" points="20 7 23 12 20 17" />
+          <line class="p-markup-slash" x1="15" y1="4" x2="9" y2="20" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-stylesheet" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path class="p-stylesheet-s1" d="M7 8h4" />
+          <path class="p-stylesheet-s2" d="M7 12h10" />
+          <path class="p-stylesheet-s3" d="M7 16h7" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-script" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-1.333 -1.333) scale(1.111)" style="--k: 1.111">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path class="p-script-lb" d="M8 7c-2 0-2 2-2 3s0 2-1.5 2c1.5 0 1.5 1 1.5 2s0 3 2 3" />
+          <path class="p-script-rb" d="M16 7c2 0 2 2 2 3s0 2 1.5 2c-1.5 0-1.5 1-1.5 2s0 3-2 3" />
+          <circle class="p-script-d1" cx="9.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
+          <circle class="p-script-d2" cx="12" cy="12" r="0.6" fill="currentColor" stroke="none" />
+          <circle class="p-script-d3" cx="14.5" cy="12" r="0.6" fill="currentColor" stroke="none" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-data" viewBox="0 0 24 24" overflow="visible">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <circle class="p-data-d1" cx="8" cy="13" r="1" />
+        <line class="p-data-r1" x1="11" y1="13" x2="16" y2="13" />
+        <circle class="p-data-d2" cx="8" cy="17" r="1" />
+        <line class="p-data-r2" x1="11" y1="17" x2="16" y2="17" />
+      </symbol>
+      
+      <symbol id="icon-certificate" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-certificate-shield">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <path class="p-certificate-check" d="M9 12l2 2 4-4" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-key" viewBox="0 0 24 24" overflow="visible">
+        <defs><clipPath id="icon-key-clip"><rect x="-4" y="0" width="15.2" height="24" /></clipPath></defs>
+        <g class="ic-fit" transform="translate(0 -0.5) scale(1)" style="--k: 1">
+          <g class="p-key-shackle">
+            <path d="M14 10.5V8a3 3 0 016 0v2.5" />
+          </g>
+          <rect x="12" y="10.5" width="10" height="9.5" rx="2" />
+          <path class="p-key-hole" d="M17 14.25v2.5" />
+          <g clip-path="url(#icon-key-clip)">
+            <g class="p-key-key">
+              <circle cx="4.5" cy="15.5" r="2.5" />
+              <path d="M7 15.5h4M9.5 15.5v1.8" />
+            </g>
+          </g>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-log" viewBox="0 0 24 24" overflow="visible">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line class="p-log-l1" x1="8" y1="12" x2="12" y2="12" />
+        <line class="p-log-l2" x1="8" y1="15" x2="15" y2="15" />
+        <line class="p-log-l3" x1="8" y1="18" x2="13" y2="18" />
+      </symbol>
+      
+      <symbol id="icon-backup" viewBox="0 0 24 24" overflow="visible">
+        <circle cx="12" cy="12" r="10" />
+        <polyline class="p-backup-hand" points="12 6 12 12 16 14" />
+      </symbol>
+      
+      <symbol id="icon-binary" viewBox="0 0 24 24" overflow="visible">
+        <g class="ic-fit" transform="translate(-1.291 -1.165) scale(1.097)" style="--k: 1.097">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <text class="p-binary-b1" x="6" y="11" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">01</text>
+          <text class="p-binary-b2" x="14" y="11" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">10</text>
+          <text class="p-binary-b3" x="6" y="18" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">11</text>
+          <text class="p-binary-b4" x="14" y="18" font-size="6" font-family="monospace" fill="currentColor"
+            stroke="none">00</text>
+        </g>
+      </symbol>
+      
+      <symbol id="icon-package" viewBox="0 0 24 24" overflow="visible">
+        <g class="p-package-pkg">
+          <path
+            d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+          <line x1="12" y1="22.08" x2="12" y2="12" />
+        </g>
+      </symbol>
+      
+      <symbol id="icon-unknown" viewBox="0 0 24 24" overflow="visible">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <g class="p-unknown-q">
+          <path d="M9.8 11.5a2.2 2.2 0 114.2 1c-.5.9-2 1.2-2 2.4" />
+          <path d="M12 18h.01" />
+        </g>
+      </symbol>
+      <symbol id="ui-chevron" viewBox="0 0 24 24">
+        <polyline points="9 6 15 12 9 18" />
+      </symbol>
+      <symbol id="ui-up" viewBox="0 0 24 24">
+        <polyline points="6 15 12 9 18 15" />
+      </symbol>
+      <symbol id="ui-down" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9" />
+      </symbol>
+      <symbol id="ui-play" viewBox="0 0 24 24">
+        <path d="M7 4.5v15a1 1 0 001.5.86l12.5-7.5a1 1 0 000-1.72L8.5 3.64A1 1 0 007 4.5z" />
+      </symbol>
+    </defs>
+  </svg>
 
   <div class="page">
     <header class="hero" id="hero">
@@ -108,7 +424,8 @@
       media: []
     };
   </script>
-  <script src="./_gows/208be44fd87f3ecb/custom-index.js"></script>
+  <script src="./_gows/b3fe3f1fb11c5e50/page-theme.js"></script>
+  <script src="./_gows/b3fe3f1fb11c5e50/custom-index.js"></script>
 </body>
 
 </html>

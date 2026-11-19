@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -78,7 +79,7 @@ func TestPageAssets(t *testing.T) {
 	for name, want := range map[string]string{
 		"custom-index.css": "text/css; charset=utf-8",
 		"custom-index.js":  "text/javascript; charset=utf-8",
-		"icons.js":         "text/javascript; charset=utf-8",
+		"page-theme.js":    "text/javascript; charset=utf-8",
 	} {
 		if got := a.files[name].contentType; got != want {
 			t.Errorf("%s content type = %q, want %q", name, got, want)
@@ -86,26 +87,56 @@ func TestPageAssets(t *testing.T) {
 	}
 
 	holds("custom-index.css", "page-theme/page-theme.css", "custom-index/custom-index.css")
-	holds("custom-index.js", "page-theme/hover-panel.js", "page-theme/page-theme.js", "page-theme/crumb-panel.js", "custom-index/util.js", "custom-index/diag.js", "custom-index/thumbs.js", "custom-index/data.js", "custom-index/folders.js", "custom-index/accent.js", "custom-index/list.js", "custom-index/grid.js", "custom-index/scrubber.js", "custom-index/slideshow.js", "custom-index/main.js")
+	holds("page-theme.js", "page-theme/hover-panel.js", "page-theme/page-theme.js", "page-theme/crumb-panel.js")
+	holds("custom-index.js", "custom-index/util.js", "custom-index/diag.js", "custom-index/thumbs.js", "custom-index/data.js", "custom-index/folders.js", "custom-index/accent.js", "custom-index/list.js", "custom-index/grid.js", "custom-index/scrubber.js", "custom-index/slideshow.js", "custom-index/main.js")
 	// As when the page held them, comments are left out.
-	if js := string(a.files["custom-index.js"].body); strings.Contains(js, "\n// ") || strings.Contains(js, " // ") {
-		t.Errorf("custom-index.js holds comments")
-	}
-
-	icons := string(a.files["icons.js"].body)
-	for _, want := range []string{"document.currentScript.insertAdjacentHTML", `<symbol id="icon-folder"`, `<symbol id="ui-play"`} {
-		if !strings.Contains(icons, want) {
-			t.Errorf("icons.js doesn't hold %s", want)
+	for _, name := range []string{"page-theme.js", "custom-index.js"} {
+		if js := string(a.files[name].body); strings.Contains(js, "\n// ") || strings.Contains(js, " // ") {
+			t.Errorf("%s holds comments", name)
 		}
 	}
+	// The shared scripts are a file of their own, so a throw in them
+	// doesn't stop the file browser's.
+	if strings.Contains(string(a.files["custom-index.js"].body), "gowsHoverPanel =") {
+		t.Errorf("custom-index.js holds the shared scripts too")
+	}
 
-	// The page links to them instead of holding them.
-	page := string(customIndexHTML)
-	page, _, _ = strings.Cut(page, "</html>")
-	for _, gone := range []string{"<style>", "<symbol", "'use strict'"} {
+	// The page links to them instead of holding them, but holds the
+	// icons, which then draw without JavaScript.
+	page, _, _ := strings.Cut(string(customIndexHTML), "</html>")
+	for _, gone := range []string{"<style>", "'use strict'"} {
 		if strings.Contains(page, gone) {
 			t.Errorf("the page still holds %q", gone)
 		}
+	}
+	for _, want := range []string{`<symbol id="icon-folder"`, `<symbol id="ui-up"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page doesn't hold the icons: no %s", want)
+		}
+	}
+	if strings.Index(page, `page-theme.js"></script>`) > strings.Index(page, `custom-index.js"></script>`) {
+		t.Errorf("the page must load page-theme.js before custom-index.js")
+	}
+}
+
+// TestPageAssetsContentType checks that an asset's content type doesn't
+// depend on the host's, which can map .js to text/plain (the Windows
+// registry).
+func TestPageAssetsContentType(t *testing.T) {
+	if err := mime.AddExtensionType(".js", "text/plain; charset=utf-8"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := mime.AddExtensionType(".js", "text/javascript; charset=utf-8"); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	a, err := newPageAssets([]byte(`{{define "a.js"}}x(){{end}}`), nil, "a.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := a.files["a.js"].contentType, "text/javascript; charset=utf-8"; got != want {
+		t.Errorf("a.js content type = %q, want %q", got, want)
 	}
 }
 
@@ -170,7 +201,7 @@ func TestPageAssetsLineEndings(t *testing.T) {
 	toCRLF := func(b []byte) []byte {
 		return []byte(strings.ReplaceAll(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n", "\r\n"))
 	}
-	c, err := newPageAssets(toCRLF(customIndexHTML), toCRLF(pageThemeHTML), "custom-index.css", "icons.js", "custom-index.js")
+	c, err := newPageAssets(toCRLF(customIndexHTML), toCRLF(pageThemeHTML), "custom-index.css", "page-theme.js", "custom-index.js")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,13 +243,22 @@ func TestPageAssetsPagePath(t *testing.T) {
 
 func TestPageAssetsServeHTTP(t *testing.T) {
 	a := customIndexAssets
+	if strings.Contains(pageAssetsPattern, a.hash) {
+		t.Errorf("the route %q holds the hash, so it changes with every build", pageAssetsPattern)
+	}
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := io.WriteString(w, "next"); err != nil {
+			t.Error(err)
+		}
+	})
+	h := a.handler(next, handlerFile)
 	get := func(target string, header http.Header) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, target, nil)
 		for k, v := range header {
 			r.Header[k] = v
 		}
 		w := httptest.NewRecorder()
-		a.ServeHTTP(w, r)
+		h.ServeHTTP(w, r)
 		return w
 	}
 
@@ -251,9 +291,65 @@ func TestPageAssetsServeHTTP(t *testing.T) {
 		}
 	}
 
-	for _, target := range []string{a.prefix() + "missing.js", a.prefix(), a.prefix() + "sub/custom-index.css"} {
-		if w := get(target, nil); w.Code != http.StatusNotFound {
-			t.Errorf("GET %s = %d, want 404", target, w.Code)
+	// An asset under another build's hash, as from a page another
+	// replica made in a rolling update: this build's file, not cached.
+	other := "/" + pageAssetsDir + "/0123456789abcdef/custom-index.css"
+	w := get(other, nil)
+	if w.Code != http.StatusOK || w.Body.String() != string(a.files["custom-index.css"].body) {
+		t.Errorf("GET %s = %d, want 200 and this build's file", other, w.Code)
+	}
+	if got := w.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Errorf("GET %s: Cache-Control = %q, want no-cache", other, got)
+	}
+
+	// Anything else is the next handler's: a served folder named the
+	// same.
+	for _, target := range []string{
+		a.prefix() + "missing.js",
+		a.prefix(),
+		"/" + pageAssetsDir + "/sub/custom-index.css",
+		"/" + pageAssetsDir + "/0123456789ABCDEF/custom-index.css",
+		"/" + pageAssetsDir + "/mine.txt",
+	} {
+		if w := get(target, nil); w.Body.String() != "next" {
+			t.Errorf("GET %s = %d %q, want it passed on", target, w.Code, w.Body.String())
+		}
+	}
+	w = httptest.NewRecorder()
+	a.handler(nil, "").ServeHTTP(w, httptest.NewRequest(http.MethodGet, a.prefix()+"missing.js", nil))
+	if w.Code != http.StatusNotFound {
+		t.Errorf("GET missing.js with nothing to pass it on to = %d, want 404", w.Code)
+	}
+}
+
+// TestIndexAssetLinks checks the list of served paths, which also
+// answers every path nothing else does: its links to the assets lead to
+// them from whatever path it was asked for.
+func TestIndexAssetLinks(t *testing.T) {
+	h, err := newIndexHTTPHandler([]string{"/e", "/f"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"/", "/typo", "/typo/sub/", "/typo/sub/deeper/?sort=date"} {
+		r := httptest.NewRequest(http.MethodGet, p, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		links := assetLinks.FindAllStringSubmatch(w.Body.String(), -1)
+		if len(links) != len(customIndexAssets.files) {
+			t.Fatalf("GET %s: %d asset links, want %d", p, len(links), len(customIndexAssets.files))
+		}
+		base, err := url.Parse("http://host" + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, link := range links {
+			ref, err := url.Parse(link[1])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := base.ResolveReference(ref).Path; !strings.HasPrefix(got, customIndexAssets.prefix()) {
+				t.Errorf("GET %s: %s resolves to %s, outside %s", p, link[1], got, customIndexAssets.prefix())
+			}
 		}
 	}
 }
@@ -273,6 +369,10 @@ func TestPageAssetsServed(t *testing.T) {
 		t.Fatal(err)
 	}
 	gowsTesting.MustFile(t, filepath.Join(dir, pageAssetsDir, "mine.txt"), []byte("mine"))
+	if err := os.MkdirAll(filepath.Join(dir, pageAssetsDir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gowsTesting.MustFile(t, filepath.Join(dir, pageAssetsDir, "sub", "mine.txt"), []byte("mine too"))
 
 	for _, tc := range []struct {
 		name     string
@@ -280,7 +380,9 @@ func TestPageAssetsServed(t *testing.T) {
 		pages    []string
 	}{
 		{name: "root", endpoint: "/", pages: []string{"/", "/a/", "/a/b/?sort=date"}},
-		{name: "serve path", endpoint: "/e", pages: []string{"/", "/e/", "/e/a/", "/e/a/b/"}},
+		// With no root, "/" is the list of served paths, which also
+		// answers a path nothing is served at.
+		{name: "serve path", endpoint: "/e", pages: []string{"/", "/e/", "/e/a/", "/e/a/b/", "/typo/sub/"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &Config{EnhancedList: true, Serve: []Serve{{Source: dir, Endpoint: tc.endpoint}}}
@@ -335,19 +437,21 @@ func TestPageAssetsServed(t *testing.T) {
 			}
 
 			// A folder named like the assets' directory is still the
-			// served folder's.
+			// served folder's, at either depth.
 			if tc.endpoint == "/" {
-				resp, err := http.Get(baseURL + "/" + pageAssetsDir + "/mine.txt")
-				if err != nil {
-					t.Fatal(err)
-				}
-				got, err := io.ReadAll(resp.Body)
-				gowsTesting.DeferClose(t, resp.Body)()
-				if err != nil {
-					t.Fatal(err)
-				}
-				if string(got) != "mine" {
-					t.Errorf("GET /%s/mine.txt = %q, want the served file", pageAssetsDir, got)
+				for file, want := range map[string]string{"mine.txt": "mine", "sub/mine.txt": "mine too"} {
+					resp, err := http.Get(baseURL + "/" + pageAssetsDir + "/" + file)
+					if err != nil {
+						t.Fatal(err)
+					}
+					got, err := io.ReadAll(resp.Body)
+					gowsTesting.DeferClose(t, resp.Body)()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if string(got) != want {
+						t.Errorf("GET /%s/%s = %q, want the served file", pageAssetsDir, file, got)
+					}
 				}
 			}
 		})
