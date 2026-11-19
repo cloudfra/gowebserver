@@ -3335,6 +3335,11 @@
       display: none;
     }
 
+     
+    .ss.no-strip .ss-bottom {
+      display: none;
+    }
+
     .ss-strip button {
       flex: none;
       width: 55px;
@@ -5592,14 +5597,35 @@
         }
 
         
-        function insets() {
+        
+        function insets(video) {
           
-          if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
+          
+          if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: videoBand(video), l: 0 };
           return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
         }
 
-        function fitRect(nw, nh, maxUp) {
-          var p = insets();
+        
+        
+        
+        
+        
+        
+        
+        
+        var STRIP_BAND = 77;
+        function hasStrip() {
+          return CFG.thumbs && list.length > 1;
+        }
+        function videoBand(video) {
+          return video && isFullscreen() && !tinyStage() && hasStrip() ? STRIP_BAND : 0;
+        }
+        function stripRoom() {
+          dlg.classList.toggle('no-strip', !!(hasStrip() && tinyStage() && list[idx] && list[idx].video));
+        }
+
+        function fitRect(nw, nh, maxUp, video) {
+          var p = insets(video);
           var bw = W - p.l - p.r, bh = H - p.t - p.b;
           
           var f = isFullscreen() && fitMode !== 'inner' ?
@@ -5614,7 +5640,7 @@
             if (el.tagName === 'VIDEO') { el.style.width = Math.min(W, 960) + 'px'; el.style.height = Math.min(H, 540) + 'px'; }
             return;
           }
-          var r = fitRect(nw, nh, el._thumb ? Infinity : 2);
+          var r = fitRect(nw, nh, el._thumb ? Infinity : 2, el.tagName === 'VIDEO');
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
         }
@@ -5623,7 +5649,7 @@
           var it = list[k];
           var div = doc.createElement('div');
           div.className = 'slide';
-          var p = insets();
+          var p = insets(it.video);
           div.style.padding = p.t + 'px ' + p.r + 'px ' + p.b + 'px ' + p.l + 'px';
           if (it.video) {
             var v = doc.createElement('video');
@@ -5866,6 +5892,7 @@
         function renderStrip() {
           if (!CFG.thumbs) return;
           strip.hidden = list.length < 2;
+          stripRoom();
           
           
           var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
@@ -5941,8 +5968,9 @@
           dlg.classList.remove('strip-on');
         }
         function stripZone(e) {
-          if (!isFullscreen() || strip.hidden) return;
-          var near = e.clientY > frame.getBoundingClientRect().bottom - STRIP_ZONE;
+          if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip')) return;
+          var zone = videoBand(list[idx].video) || STRIP_ZONE;
+          var near = e.clientY > frame.getBoundingClientRect().bottom - zone;
           if (e.pointerType !== 'mouse') {
             if (near) revealStrip(3000);
           } else if (near) {
@@ -6400,8 +6428,9 @@
 
         function relayoutSlides() {
           measure();
+          stripRoom();
           slides.forEach(function (div) {
-            var p = insets();
+            var p = insets(list[div._k].video);
             div.style.padding = p.t + 'px ' + p.r + 'px ' + p.b + 'px ' + p.l + 'px';
             if (div.firstChild) sizeMedia(div.firstChild);
           });
