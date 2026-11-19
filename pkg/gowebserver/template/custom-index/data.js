@@ -38,8 +38,11 @@ function applyFilter(q) {
   vis.files = [];
   for (i = 0; i < listEntries.length; i++) {
     var f = listEntries[i];
+    // Its place among what shows, or -1.
+    f.pos = -1;
     if (q && f.lower.indexOf(q) < 0) continue;
     if (f.dir) folders++; else files++;
+    f.pos = vis.files.length;
     vis.files.push(f);
   }
   vis.photos = []; vis.videos = [];

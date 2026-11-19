@@ -903,7 +903,6 @@
       align-items: center;
       gap: 16px;
       padding: 10px 20px 10px 72px;
-      border-bottom: 1px solid var(--line);
       font-size: 0.75rem;
       font-weight: 600;
       color: var(--ink-3);
@@ -928,17 +927,20 @@
       position: relative;
       display: flex;
       align-items: center;
+      height: 57px;
       border-top: 1px solid var(--line);
       transition: background-color 0.12s;
     }
 
-    .row.first {
-      border-top-color: transparent;
-    }
-
      
     .files-body {
-      margin-top: -1px;
+      position: relative;
+    }
+
+    .row.parked {
+      position: absolute;
+      left: 0;
+      right: 0;
     }
 
     .row:hover {
@@ -1165,6 +1167,15 @@
 
       .files-head {
         display: none;
+      }
+
+       
+      .row {
+        height: 66px;
+      }
+
+      .row.first {
+        border-top-color: transparent;
       }
 
       .row-icon {
@@ -4619,12 +4630,18 @@
       }
 
       
+      
+      
       function fmtBytes(n) {
         if (n < 10) return n + ' B';
         var units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
         var e = Math.min(Math.floor(Math.log(n) / Math.log(1000)), units.length - 1);
         var v = n / Math.pow(1000, e);
-        return (v < 10 ? v.toFixed(1) : v.toFixed(0)) + ' ' + units[e];
+        var digits = function (x) { return String(Math.trunc(x)).length; };
+        var whole = digits(v), d = Math.max(2 - whole, 0), r = Math.pow(10, d);
+        v = Math.floor(v * r + 0.5) / r;
+        d = Math.max(d - Math.max(digits(v) - whole, 0), 0);
+        return v.toFixed(d) + ' ' + units[e];
       }
 
       function plural(n, one, many) {
@@ -4979,8 +4996,11 @@
         vis.files = [];
         for (i = 0; i < listEntries.length; i++) {
           var f = listEntries[i];
+          
+          f.pos = -1;
           if (q && f.lower.indexOf(q) < 0) continue;
           if (f.dir) folders++; else files++;
+          f.pos = vis.files.length;
           vis.files.push(f);
         }
         vis.photos = []; vis.videos = [];
@@ -5043,6 +5063,7 @@
         }
 
         function show(row, f) {
+          if (row.querySelector('.row-strip')) return;
           var url = f.url + '/';
           
           var items = (f.preview.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
@@ -5080,7 +5101,9 @@
             strip.appendChild(img);
             thumbLoader.load(img, tileThumbURL(item, THUMB), function (ok) {
               if (ok) img.classList.add('ready'); else img.remove();
-              if (++settled === items.length && f.tint === undefined) tint(row, strip, f);
+              if (++settled < items.length) return;
+              strip._settled = true;
+              if (f.tint === undefined && !f.tinting) tint(strip, f);
             }, false, true);
           });
         }
@@ -5088,12 +5111,23 @@
         
         
         
-        function tint(row, strip, f) {
+        
+        
+        function tint(strip, f) {
           var imgs = Array.prototype.slice.call(strip.querySelectorAll('img.ready'));
           if (!imgs.length || typeof vividColor !== 'function') return;
-          vividColor(imgs.map(function (el, i) { return { el: el, w: 1 / (1 + i * 0.25) }; })).then(function (col) {
+          f.tinting = true;
+          Promise.resolve(vividColor(imgs.map(function (el, i) { return { el: el, w: 1 / (1 + i * 0.25) }; }))).then(function (col) {
+            f.tinting = false;
+            if (!col && !strip.isConnected) {
+              
+              
+              var now = f.row && f.row.querySelector('.row-strip');
+              if (now && now._settled) tint(now, f);
+              return;
+            }
             f.tint = col || null;
-            if (col && f.row === row) paint(row, col);
+            if (col && f.row && f.row.querySelector('.row-strip')) paint(f.row, col);
           });
         }
 
@@ -5103,12 +5137,16 @@
           row.classList.add('row-accent');
         }
 
+        
+        
         var seen = new IntersectionObserver(function (es) {
           es.forEach(function (e) {
             if (!e.isIntersecting) return;
             seen.unobserve(e.target);
             var f = e.target._file;
-            if (f && waiting.indexOf(f) < 0) waiting.push(f);
+            if (!f) return;
+            if (f.preview) { if (f.row === e.target) show(e.target, f); }
+            else if (!f.asked && waiting.indexOf(f) < 0) waiting.push(f);
           });
           next();
         }, { rootMargin: '300px 0px' });
@@ -5116,12 +5154,14 @@
 
         return {
           
+          
+          
+          
           watch: function (row, f) {
             if (f.kind !== 2) return;
             f.row = row;
             row._file = f;
-            if (f.preview) show(row, f);
-            else if (!f.asked) seen.observe(row);
+            if (f.preview || !f.asked) seen.observe(row);
           },
           
           
@@ -5540,14 +5580,22 @@
         var BUILD = 0.75, KEEP = 1.5, WHOLE = 200;
         
         
-        var ROW_H = 58;
-        var rowH = 0, measured = false;
+        var ROW_H = 57;
+        var rowH = 0;
         var rows = [], first = 0; 
+        
+        
+        
+        var parked = null;
         var frame = 0;
 
-        function buildRow(f, i) {
+        function height() {
+          return rowH || ROW_H;
+        }
+
+        function buildRow(f) {
           var row = doc.createElement('div');
-          row.className = i ? 'row' : 'row first';
+          row.className = 'row';
           if (f.dir) row.setAttribute('data-dir', '');
           
           
@@ -5560,18 +5608,123 @@
             '<span class="meta"><span class="size">' + (f.kind === 2 ? 'Folder' : fmtBytes(f.size)) + '</span>' +
             '<span class="date">' + escapeHTML(f.date) + '</span></span></a>';
           row._file = f;
+          row._new = true;
           return row;
         }
 
         
+        function rowFor(f, have) {
+          var row = have && have.get(f);
+          if (row) { have.delete(f); return row; }
+          if (parked && parked._file === f) { row = unpark(); return row; }
+          return buildRow(f);
+        }
+
         
-        function watch(added) {
-          if (folderPreviews) added.forEach(function (row) { folderPreviews.watch(row, row._file); });
+        
+        function watch(list) {
+          list.forEach(function (row) {
+            row.classList.toggle('first', row._file.pos === 0);
+            if (!row._new) return;
+            row._new = false;
+            if (folderPreviews) folderPreviews.watch(row, row._file);
+          });
         }
 
         function dropRow(row) {
+          if (row.contains(doc.activeElement) && row._file.pos >= 0) { park(row); return; }
           if (folderPreviews) folderPreviews.unwatch(row, row._file);
           row.remove();
+        }
+
+        function park(row) {
+          if (parked && parked !== row) { var was = parked; parked = null; dropRow(was); }
+          parked = row;
+          row.classList.add('parked');
+          place();
+        }
+
+        function unpark() {
+          var row = parked;
+          parked = null;
+          row.classList.remove('parked');
+          row.style.top = '';
+          return row;
+        }
+
+        
+        function place() {
+          if (parked) parked.style.top = parked._file.pos * height() + 'px';
+        }
+
+        
+        
+        function keepFocus(fn) {
+          var active = doc.activeElement, had = active && active !== doc.body && body.contains(active);
+          fn();
+          if (had && active.isConnected && doc.activeElement !== active && active.focus) active.focus({ preventScroll: true });
+        }
+
+        
+        
+        function span(viewTop, over, n) {
+          if (n <= WHOLE) return [0, n - 1];
+          var h = height(), vh = innerHeight;
+          return [
+            Math.max(0, Math.min(n - 1, Math.floor((viewTop - vh * over) / h))),
+            Math.max(0, Math.min(n - 1, Math.floor((viewTop + vh * (1 + over)) / h)))
+          ];
+        }
+
+        
+        
+        
+        
+        function look() {
+          var top = body.getBoundingClientRect().top;
+          var h = rows.length ? rows[0].getBoundingClientRect().height : 0;
+          if (h > 0 && Math.abs(h - height()) > 0.01) rowH = h;
+          return -top;
+        }
+
+        function render() {
+          frame = 0;
+          var n = vis.files.length;
+          var viewTop = look();
+          if (!n) { keepFocus(clear); pad(0, 0); return; }
+          var build = span(viewTop, BUILD, n), keep = span(viewTop, KEEP, n);
+          var last = first + rows.length - 1;
+          var from = build[0], to = build[1];
+          if (rows.length && first <= to && last >= from) {
+            
+            from = Math.min(from, Math.max(keep[0], first));
+            to = Math.max(to, Math.min(keep[1], last));
+          }
+          keepFocus(function () {
+            if (!rows.length || first > to || last < from) {
+              clear();
+              first = from;
+              last = from - 1;
+            }
+            while (first < from) { dropRow(rows.shift()); first++; }
+            while (last > to) { dropRow(rows.pop()); last--; }
+            var add = [];
+            if (from < first) {
+              var before = doc.createDocumentFragment(), head = [];
+              for (var i = from; i < first; i++) { var b = rowFor(vis.files[i]); head.push(b); before.appendChild(b); }
+              body.insertBefore(before, rows[0] || null);
+              rows = head.concat(rows);
+              add = add.concat(head);
+              first = from;
+            }
+            if (to > last) {
+              var after = doc.createDocumentFragment();
+              for (var j = last + 1; j <= to; j++) { var r = rowFor(vis.files[j]); rows.push(r); add.push(r); after.appendChild(r); }
+              body.appendChild(after);
+            }
+            watch(add);
+          });
+          finish(n);
         }
 
         function clear() {
@@ -5582,83 +5735,82 @@
 
         
         
-        function span(viewTop, over, n) {
-          if (n <= WHOLE) return [0, n - 1];
-          var h = rowH || ROW_H, vh = innerHeight;
-          return [
-            Math.max(0, Math.min(n - 1, Math.floor((viewTop - vh * over) / h))),
-            Math.max(0, Math.min(n - 1, Math.floor((viewTop + vh * (1 + over)) / h)))
-          ];
+        
+        
+        function relayout() {
+          var n = vis.files.length, viewTop = look();
+          var have = new Map();
+          rows.forEach(function (row) { have.set(row._file, row); });
+          var range = n ? span(viewTop, BUILD, n) : [0, -1];
+          var want = [];
+          for (var i = range[0]; i <= range[1]; i++) want.push(rowFor(vis.files[i], have));
+          keepFocus(function () {
+            
+            
+            have.forEach(dropRow);
+            if (parked && parked._file.pos < 0) dropRow(unpark());
+            
+            var cur = runAfter(null);
+            want.forEach(function (row) {
+              if (row === cur) { cur = runAfter(cur); return; }
+              body.insertBefore(row, cur);
+            });
+            rows = want;
+            first = range[0];
+            watch(want);
+          });
+          finish(n);
         }
 
-        function render() {
-          frame = 0;
-          var n = vis.files.length;
-          if (!n) { clear(); pad(0, 0); return; }
-          var viewTop = scrollY - (body.getBoundingClientRect().top + scrollY);
-          var build = span(viewTop, BUILD, n), keep = span(viewTop, KEEP, n);
-          var last = first + rows.length - 1;
-          var from = build[0], to = build[1];
-          if (rows.length && first <= to && last >= from) {
-            
-            from = Math.min(from, Math.max(keep[0], first));
-            to = Math.max(to, Math.min(keep[1], last));
-          } else {
-            clear();
-            first = from;
-            last = from - 1;
+        
+        
+        function runAfter(node) {
+          var c = node ? node.nextSibling : body.firstChild;
+          while (c && (c === parked || !c._file)) c = c.nextSibling;
+          return c;
+        }
+
+        function finish(n) {
+          pad(first, Math.max(0, n - 1 - (first + rows.length - 1)));
+          place();
+          
+          if (!rowH && rows.length && rows[0].getBoundingClientRect().height > 0) {
+            rowH = rows[0].getBoundingClientRect().height;
+            render();
           }
-          while (first < from) { dropRow(rows.shift()); first++; }
-          while (last > to) { dropRow(rows.pop()); last--; }
-          if (from < first) {
-            var before = doc.createDocumentFragment(), add = [];
-            for (var i = from; i < first; i++) { add.push(buildRow(vis.files[i], i)); before.appendChild(add[add.length - 1]); }
-            body.insertBefore(before, rows[0] || null);
-            rows = add.concat(rows);
-            first = from;
-            watch(add);
-          }
-          if (to > last) {
-            var after = doc.createDocumentFragment(), added = [];
-            for (var j = last + 1; j <= to; j++) { var r = buildRow(vis.files[j], j); rows.push(r); added.push(r); after.appendChild(r); }
-            body.appendChild(after);
-            watch(added);
-          }
-          pad(first, n - 1 - (first + rows.length - 1));
-          if (!measured) measure();
         }
 
         
         function pad(above, below) {
-          var h = rowH || ROW_H;
+          var h = height();
           body.style.paddingTop = above * h + 'px';
           body.style.paddingBottom = below * h + 'px';
-        }
-
-        
-        
-        function measure() {
-          var h = rows.length ? rows[0].getBoundingClientRect().height : 0;
-          if (!(h > 0)) return;
-          measured = true;
-          if (Math.abs(h - (rowH || ROW_H)) < 0.01) { rowH = h; return; }
-          rowH = h;
-          render();
         }
 
         function schedule() {
           if (!frame) frame = requestAnimationFrame(render);
         }
 
+        
+        
+        body.addEventListener('focusout', function () {
+          setTimeout(function () {
+            if (!parked || parked.contains(doc.activeElement) || (doc.hasFocus && !doc.hasFocus())) return;
+            var row = unpark();
+            if (folderPreviews) folderPreviews.unwatch(row, row._file);
+            row.remove();
+          }, 0);
+        });
         addEventListener('scroll', schedule, { passive: true });
-        addEventListener('resize', function () { measured = false; schedule(); }, { passive: true });
+        addEventListener('resize', schedule, { passive: true });
 
         return {
-          
-          relayout: function () { clear(); render(); },
+          relayout: relayout,
           render: render,
           
-          rows: function () { return rows.slice(); }
+          rows: function () { return rows.slice(); },
+          
+          parked: function () { return parked; }
         };
       }
 

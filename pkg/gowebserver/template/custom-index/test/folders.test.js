@@ -85,7 +85,7 @@ function setup(rows, covers, opts) {
   d.applyFilter('');
   const rowsEl = pg.document.querySelectorAll('.row');
   return {
-    pg, asked, rows: rowsEl, fileList: d.fileList,
+    pg, asked, rows: rowsEl, fileList: d.fileList, applyFilter: d.applyFilter,
     // The rows as they are now, once the list has built them again.
     current: () => pg.document.querySelectorAll('.row'),
     observed: () => observer ? observer.rows.slice() : [],
@@ -383,7 +383,14 @@ test('no slideshow for a row with no strip, or before its strip is in', async ()
   assert.equal(strip(u.rows[0]), null);
 });
 
-test('a row built again shows its strip and color at once, without asking again', async () => {
+// The list drops every row and builds them again: a filter that shows
+// none of them, then none at all.
+function rebuild(t) {
+  t.applyFilter('zzz-nothing');
+  t.applyFilter('');
+}
+
+test('a row built again shows its strip and color once near the screen, without asking again', async () => {
   const t = setup([['Trip', 'folder']], COVERS, {
     colors: { [thumb('Trip', 'a%20b.jpg')]: [255, 120, 0], [thumb('Trip', 'c.jpg')]: [255, 120, 0], [thumb('Trip', 'd.jpg')]: [255, 120, 0] },
   });
@@ -391,37 +398,111 @@ test('a row built again shows its strip and color at once, without asking again'
   await t.settle();
   await arriveAll(t);
   assert.ok(t.rows[0].classList.contains('row-accent'));
-  t.fileList.relayout();
+  rebuild(t);
   const row = t.current()[0];
   assert.notEqual(row, t.rows[0], 'a new row');
-  assert.ok(strip(row), 'with its strip');
+  assert.equal(strip(row), null, 'not before it is near the screen');
+  assert.deepEqual(t.observed(), [row], 'but watched for it');
+  t.seen([row]);
+  assert.ok(strip(row), 'then with its strip');
   assert.ok(row.classList.contains('row-accent'), 'and its color');
   assert.deepEqual(t.asked, ['Trip/?preview'], 'asked once');
-  assert.deepEqual(t.observed(), [], 'and not watched again');
+});
+
+test('a short list built whole lays out no strip until its row is near the screen', async () => {
+  const names = Array.from({ length: 30 }, (_, i) => ['Trip ' + i, 'folder']);
+  const covers = {};
+  names.forEach((n) => { covers[n[0]] = COVERS.Trip; });
+  const t = setup(names, covers);
+  t.seen([...t.rows]);
+  await t.settle();
+  rebuild(t);
+  const rows = t.current();
+  assert.equal(rows.length, 30);
+  assert.equal(rows.filter((r) => strip(r)).length, 0, 'answers are in, but no strip is shown yet');
+  t.seen([rows[0], rows[1]]);
+  assert.equal(rows.filter((r) => strip(r)).length, 2, 'only the rows that came near');
+});
+
+test('a color worked out while the row was built again goes to the new row', async () => {
+  const t = setup([['Trip', 'folder']], COVERS, {
+    colors: { [thumb('Trip', 'a%20b.jpg')]: [255, 120, 0], [thumb('Trip', 'c.jpg')]: [255, 120, 0], [thumb('Trip', 'd.jpg')]: [255, 120, 0] },
+  });
+  t.seen([t.rows[0]]);
+  await t.settle();
+  // Every thumbnail arrives; the last starts the color, and before it's
+  // worked out the row is dropped and built again.
+  // (Two at a time: two batches.)
+  for (let i = 0; i < 2; i++) {
+    t.pg.requests.forEach((r) => { if (r.el._thumb === 'loading') r.el.fire('load'); });
+    t.pg.frame();
+    if (i < 1) await t.settle();
+  }
+  rebuild(t);
+  const row = t.current()[0];
+  t.seen([row]);
+  assert.ok(strip(row));
+  assert.ok(!row.classList.contains('row-accent'), 'not yet');
+  // The color is worked out before the new row's thumbnails are in.
+  for (let i = 0; i < 4; i++) { t.pg.frame(); await t.settle(); }
+  await arriveAll(t);
+  assert.ok(row.classList.contains('row-accent'), 'the new row has the color');
+  assert.ok(parseFloat(row.style.getPropertyValue('--row-c')) > 0);
 });
 
 test('a row dropped before it was asked about is asked about when built again', async () => {
   const t = setup([['Trip', 'folder'], ['Clips', 'folder'], ['Years', 'folder']], COVERS);
   t.seen([...t.rows]); // two asked, one waiting
-  t.fileList.relayout();
+  rebuild(t);
   await t.settle();
   assert.deepEqual(t.asked, ['Trip/?preview', 'Clips/?preview'], 'the waiting one was dropped with its row');
-  assert.deepEqual(t.observed().map((r) => r.querySelector('.name').textContent), ['Years']);
+  assert.deepEqual(t.observed().map((r) => r.querySelector('.name').textContent), ['Years'],
+    'the two being asked about aren\'t watched: their answers go to their new rows');
   assert.ok(strip(t.current()[0]), 'an answer for a dropped row shows on the new one');
+});
+
+test('a filter keeps the rows that still match, strip and all', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder'], ['Clips', 'folder']]);
+  const big = t.rows[0], s = strip(big);
+  const loading = t.pg.requests.filter((r) => r.el._thumb === 'loading').length;
+  t.applyFilter('i'); // Big, Trip, Clips all have an i
+  t.applyFilter('bi');
+  assert.deepEqual(t.current().map((r) => r.querySelector('.name').textContent), ['Big']);
+  assert.equal(t.current()[0], big, 'the same row');
+  assert.equal(strip(big), s, 'the same strip');
+  assert.ok(t.pg.requests.filter((r) => r.el._thumb === 'loading').length <= loading, 'nothing loaded again');
+  t.applyFilter('');
+  assert.equal(t.current()[0], big, 'and still, once the others are back');
+  assert.notEqual(t.current()[1], t.rows[1], 'the others are new');
 });
 
 // ===== The slideshow on rows the list builds again =====
 
 test('a row the list built again plays its slideshow, from the strip it got back', async () => {
   const t = await strips([['Big', 'folder']]);
-  t.fileList.relayout();
+  rebuild(t);
   const row = t.current()[0];
   assert.notEqual(row, t.rows[0], 'a new row');
+  t.seen([row]);
   hover(row.querySelector('.name'));
   t.pg.tick(DWELL);
   assert.ok(show(row), 'it plays');
   assert.equal(frames(row).length, 20 + 10);
   assert.deepEqual(t.asked, ['Big/?preview'], 'without asking the server again');
+});
+
+test('a filter that keeps the row keeps its slideshow playing', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  t.pg.frame();
+  const panel = show(row);
+  t.applyFilter('big');
+  assert.equal(t.current()[0], row);
+  assert.ok(panel.classList.contains('hp-open'), 'still open');
+  t.pg.tick(STEP);
+  assert.equal(panel.querySelector('.strip-track').style.transform, 'translateX(44px)', 'and stepping');
 });
 
 test('a slideshow closes when the list drops its row, and stops stepping', async () => {
@@ -433,13 +514,15 @@ test('a slideshow closes when the list drops its row, and stops stepping', async
   const panel = show(row);
   assert.ok(panel.classList.contains('hp-open'));
   const track = panel.querySelector('.strip-track');
-  t.fileList.relayout(); // a filter or a jump drops the row under the pointer
+  t.applyFilter('trip'); // a filter drops the row under the pointer
   assert.ok(!panel.classList.contains('hp-open'), 'closed');
   assert.ok(!row.classList.contains('hp-anchor'), 'and the hover panel let go of the row');
   t.pg.tick(STEP * 3);
   assert.equal(track.style.transform || '', '', 'no more steps');
   // The row built in its place opens as any other.
+  t.applyFilter('');
   const again = t.current()[0];
+  t.seen([again]);
   hover(again);
   t.pg.tick(DWELL);
   assert.ok(show(again));
@@ -450,10 +533,11 @@ test('a dwell on a row the list drops before it ends opens nothing', async () =>
   const row = t.rows[0];
   hover(row);
   t.pg.tick(DWELL / 2);
-  t.fileList.relayout();
+  rebuild(t);
   t.pg.tick(DWELL);
   assert.equal(show(row), null, 'nothing on the dropped row');
   const again = t.current()[0];
+  t.seen([again]);
   hover(again);
   t.pg.tick(DWELL);
   assert.ok(show(again), 'and the new row still opens');

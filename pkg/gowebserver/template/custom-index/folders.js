@@ -45,6 +45,7 @@ var folderPreviews = (function () {
   }
 
   function show(row, f) {
+    if (row.querySelector('.row-strip')) return;
     var url = f.url + '/';
     // A video's thumbnail needs the server to grab frames.
     var items = (f.preview.items || []).filter(function (it) { return !it.video || CFG.videoThumbs; });
@@ -82,20 +83,33 @@ var folderPreviews = (function () {
       strip.appendChild(img);
       thumbLoader.load(img, tileThumbURL(item, THUMB), function (ok) {
         if (ok) img.classList.add('ready'); else img.remove();
-        if (++settled === items.length && f.tint === undefined) tint(row, strip, f);
+        if (++settled < items.length) return;
+        strip._settled = true;
+        if (f.tint === undefined && !f.tinting) tint(strip, f);
       }, false, true);
     });
   }
 
-  // Tints row with the most vivid color of its strip's thumbnails, the
-  // nearest ones (by the size) counting most. Lightness is left to the
-  // theme (--accent-l), as for the page's accent.
-  function tint(row, strip, f) {
+  // Tints the folder's row with the most vivid color of its strip's
+  // thumbnails, the nearest ones (by the size) counting most. Lightness
+  // is left to the theme (--accent-l), as for the page's accent. The row
+  // the color is for may be dropped and built again while it's worked
+  // out: it goes to whichever row shows the folder then (f.row).
+  function tint(strip, f) {
     var imgs = Array.prototype.slice.call(strip.querySelectorAll('img.ready'));
     if (!imgs.length || typeof vividColor !== 'function') return;
-    vividColor(imgs.map(function (el, i) { return { el: el, w: 1 / (1 + i * 0.25) }; })).then(function (col) {
+    f.tinting = true;
+    Promise.resolve(vividColor(imgs.map(function (el, i) { return { el: el, w: 1 / (1 + i * 0.25) }; }))).then(function (col) {
+      f.tinting = false;
+      if (!col && !strip.isConnected) {
+        // Its row was dropped, and its thumbnails with it, before they
+        // could be read: the row built since works it out from its own.
+        var now = f.row && f.row.querySelector('.row-strip');
+        if (now && now._settled) tint(now, f);
+        return;
+      }
       f.tint = col || null;
-      if (col && f.row === row) paint(row, col);
+      if (col && f.row && f.row.querySelector('.row-strip')) paint(f.row, col);
     });
   }
 
@@ -105,25 +119,31 @@ var folderPreviews = (function () {
     row.classList.add('row-accent');
   }
 
+  // A folder near the screen: its strip, from the answer it already has,
+  // or a question to the server.
   var seen = new IntersectionObserver(function (es) {
     es.forEach(function (e) {
       if (!e.isIntersecting) return;
       seen.unobserve(e.target);
       var f = e.target._file;
-      if (f && waiting.indexOf(f) < 0) waiting.push(f);
+      if (!f) return;
+      if (f.preview) { if (f.row === e.target) show(e.target, f); }
+      else if (!f.asked && waiting.indexOf(f) < 0) waiting.push(f);
     });
     next();
   }, { rootMargin: '300px 0px' });
   var slides = stripSlideshow();
 
   return {
-    // The list built row for entry f.
+    // The list built row for entry f. It gets its strip once it's near
+    // the screen, even when the answer is already in: a short list is
+    // built whole, and its rows far down shouldn't all be laid out and
+    // load their thumbnails at once.
     watch: function (row, f) {
       if (f.kind !== 2) return;
       f.row = row;
       row._file = f;
-      if (f.preview) show(row, f);
-      else if (!f.asked) seen.observe(row);
+      if (f.preview || !f.asked) seen.observe(row);
     },
     // The list is dropping row, which showed entry f: a filter or a jump
     // can drop it under the pointer, its slideshow playing.
