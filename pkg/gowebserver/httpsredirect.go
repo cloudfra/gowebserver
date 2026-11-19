@@ -79,7 +79,7 @@ func (l *httpsRedirectListener) acceptLoop() {
 			}
 			// http.Server retries temporary errors (such as too many open
 			// files) and stops on the others.
-			if te, ok := err.(interface{ Temporary() bool }); ok && te.Temporary() {
+			if tmp, ok := err.(interface{ Temporary() bool }); ok && tmp.Temporary() {
 				continue
 			}
 			return
