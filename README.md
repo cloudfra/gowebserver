@@ -34,7 +34,7 @@ sc.exe start gowebserver
 * Zero-config required, hosts on port 80 or 8080 based on root and supports Cloud9's $PORT variable.
 * HTTP and HTTPs serving
 * Automatic HTTPs certificate generation
-* A plain `http://` request sent to the HTTPS port is redirected to the same URL over `https://` (301, or 308 for methods other than GET and HEAD) instead of failing with "Client sent an HTTP request to an HTTPS server".
+* A plain `http://` request sent to the HTTPS port is redirected to the same URL over `https://` (302, or 307 for methods other than GET and HEAD; temporary, so browsers don't remember it once the port serves plain HTTP again) instead of failing with "Client sent an HTTP request to an HTTPS server". A request without a usable `Host` header still gets a 400.
 * Optional configuration by flags or YAML config file.
 * Host local or HTTP served static files from:
   * Local directory (current directory is default)
