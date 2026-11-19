@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -57,6 +58,7 @@ func readSubfolders(fsys fs.FS, dir, sortBy string) ([]subfolder, error) {
 		names[e.Name()] = true
 	}
 	stat := sortBy != "name" && sortBy != "name-desc"
+	now := time.Now()
 	list := newEntryList(sortBy)
 	for _, e := range entries {
 		name := e.Name()
@@ -69,6 +71,8 @@ func readSubfolders(fsys fs.FS, dir, sortBy string) ([]subfolder, error) {
 		}
 		entry := &DirEntry{Name: name, IsDir: true, IsArchive: archive}
 		if stat {
+			// As serveListing has it: one it can't stat is new.
+			entry.ModTime = now
 			if info, err := e.Info(); err == nil {
 				entry.Size = uint64(info.Size())
 				entry.ModTime = info.ModTime()

@@ -179,13 +179,14 @@ func TestSubfoldersEndpointNeedsEnhancedListing(t *testing.T) {
 	}
 }
 
-// The top of a server with several serve paths lists them.
+// The top of a server with several serve paths lists them, in the order
+// its page does: as they were configured.
 func TestIndexSubfolders(t *testing.T) {
-	h, err := newIndexHTTPHandler([]string{"/photos", "/Archive/", "/docs"}, true)
+	h, err := newIndexHTTPHandler([]string{"/photos", "/Archive/", "/a/b", "/docs"}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := subfoldersGet(t, h, "/?folders"); !cmp.Equal(got.Folders, folders("Archive", "docs", "photos")) {
+	if got := subfoldersGet(t, h, "/?folders"); !cmp.Equal(got.Folders, folders("photos", "Archive", "a/b", "docs")) {
 		t.Errorf("top: %+v", got)
 	}
 	// Without ?folders it's the page, as before.
@@ -193,5 +194,44 @@ func TestIndexSubfolders(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 	if ct := rec.Header().Get("Content-Type"); ct != "text/html" {
 		t.Errorf("page: type %q", ct)
+	}
+}
+
+// statlessFS is a filesystem whose entries named in fail can't be statted.
+type statlessFS struct {
+	fstest.MapFS
+	fail map[string]bool
+}
+
+type statlessEntry struct{ fs.DirEntry }
+
+func (statlessEntry) Info() (fs.FileInfo, error) { return nil, fs.ErrPermission }
+
+func (f statlessFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	entries, err := f.MapFS.ReadDir(name)
+	for i, e := range entries {
+		if f.fail[e.Name()] {
+			entries[i] = statlessEntry{e}
+		}
+	}
+	return entries, err
+}
+
+// A folder that can't be statted sorts by date as the listing sorts it,
+// as new, not as the oldest of all.
+func TestReadSubfoldersUnstatted(t *testing.T) {
+	recent := &fstest.MapFile{Mode: fs.ModeDir, ModTime: time.Now().Add(-time.Hour)}
+	fsys := statlessFS{fstest.MapFS{"f/recent": recent, "f/unknown": recent}, map[string]bool{"unknown": true}}
+	for sortBy, want := range map[string][]subfolder{
+		"date":      folders("recent", "unknown"),
+		"date-desc": folders("unknown", "recent"),
+	} {
+		got, err := readSubfolders(fsys, "f", sortBy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("%s (-want +got):\n%s", sortBy, diff)
+		}
 	}
 }

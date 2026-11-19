@@ -2,8 +2,8 @@
 // A panel that opens when the pointer rests on something: the
 // breadcrumb's folders (crumb-panel.js) and a folder row's slideshow
 // over its strip (custom-index/folders.js). They share one dwell, one
-// timer, one pointer gate and one reveal, so they behave alike and only
-// one is ever open: dwelling on a row closes a breadcrumb's panel.
+// pointer gate and one reveal, so they behave alike, and only one is
+// ever open: dwelling on a row closes a breadcrumb's panel.
 //
 //   var ctl = hoverPanel.attach(container, selector, owner)
 //
@@ -11,13 +11,14 @@
 // They're looked up as events come, so container's content can be
 // rebuilt at will. owner says what to do with them:
 //
-//   open(anchor, how)  Show the panel for anchor. how is 'pointer'
+//   open(anchor, how, from)
+//                      Show the panel for anchor. how is 'pointer'
 //                      when the pointer rested on it for DWELL,
 //                      'focus' when keyboard focus did (with focus
 //                      set), or 'key' for ArrowDown on it, when the
-//                      panel should take the focus. While owner's
-//                      panel is open, another of its anchors opens at
-//                      once: move the panel there.
+//                      panel should take the focus. from is the
+//                      owner's anchor the panel is moving from, if
+//                      it's moving: it's no longer open.
 //   close(anchor)      Hide it.
 //   panel()            Optional: the panel, when it isn't inside the
 //                      anchor. The pointer or focus in it counts as on
@@ -26,6 +27,12 @@
 //                      without a strip, reduced motion).
 //   focus              True: keyboard focus (:focus-visible) and
 //                      ArrowDown open it too.
+//   move               True: while the panel is open, another of the
+//                      owner's anchors takes it at once, without a
+//                      dwell (a menu bar's way, for the crumbs). Left
+//                      out where anchors touch and each panel costs
+//                      something (a row's slideshow): a sweep across
+//                      them would open every one.
 //   grace              How long, in ms, the pointer may be off the
 //                      anchor and its panel before it closes, so a
 //                      diagonal move into a panel doesn't close it.
@@ -38,9 +45,10 @@
 //
 // The pointer gate is a mouse or trackpad only, never a finger, even on
 // a tablet that has both: finePointer, and no touch event. The panel
-// closes when the pointer leaves the anchor and its panel, on Escape, on
-// a press anywhere else, when the anchor scrolls out of the window and
-// when another panel opens.
+// closes when the pointer leaves the anchor and its panel (one opened
+// from the keyboard only once the pointer has been on it), when focus
+// leaves them, on Escape, on a press anywhere else, when the anchor
+// scrolls out of the window and when another panel opens.
 var hoverPanel = (function () {
   // How long the pointer rests on an anchor before its panel opens:
   // longer than a video tile's preview (HOVER_INTENT, grid.js), as a
@@ -50,32 +58,44 @@ var hoverPanel = (function () {
   var finePointer = matchMedia('(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)');
   var reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   var owners = [];
-  // The one timer: a dwell before opening (wait.anchor) or the grace
-  // before closing (wait.closing).
-  var timer = 0, wait = null;
-  // What's open: {owner, anchor, how}.
+  // The dwell before an anchor opens (pending is that anchor), and the
+  // grace before the open panel closes. Apart, so the pointer resting on
+  // a new anchor doesn't keep the panel it left open.
+  var openTimer = 0, pending = null, closeTimer = 0;
+  // What's open: {owner, anchor, how, pointed}, pointed once the pointer
+  // has been on it.
   var active = null;
   var seen = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
     entries.forEach(function (e) {
-      if (!e.isIntersecting && active && e.target === active.anchor) close();
+      if (!e.isIntersecting && active && e.target === active.anchor) closeAll();
     });
   }) : null;
 
   function canHover(e) {
     return !!finePointer.matches && !(e && e.pointerType === 'touch');
   }
-  function arm(fn, ms, what) {
-    clearTimeout(timer);
-    wait = what;
-    timer = setTimeout(function () { timer = 0; wait = null; fn(); }, ms);
-  }
-  function stop() {
-    clearTimeout(timer);
-    timer = 0;
-    wait = null;
+  function stopOpening() {
+    clearTimeout(openTimer);
+    openTimer = 0;
+    pending = null;
   }
   function stopClosing() {
-    if (wait && wait.closing) stop();
+    clearTimeout(closeTimer);
+    closeTimer = 0;
+  }
+  function armOpen(hit, how) {
+    stopOpening();
+    pending = hit.anchor;
+    openTimer = setTimeout(function () {
+      openTimer = 0;
+      pending = null;
+      open(hit.owner, hit.anchor, how);
+    }, DWELL);
+  }
+  function armClose() {
+    if (closeTimer) return;
+    var g = active.owner.grace;
+    closeTimer = setTimeout(function () { closeTimer = 0; close(); }, g === undefined ? GRACE : g);
   }
 
   // The anchor el is in, and its owner, or null.
@@ -97,21 +117,28 @@ var hoverPanel = (function () {
     var p = panelOf(active.owner);
     return !!(p && p.contains(el));
   }
+  // Whether anchor of owner o may open now.
+  function allowed(o, anchor) {
+    return !o.when || o.when(anchor);
+  }
 
   function open(o, anchor, how) {
-    stop();
+    stopOpening();
+    stopClosing();
+    var from = null;
     if (active && active.owner !== o) close();
     if (active) {
-      if (seen) seen.unobserve(active.anchor);
-      active.anchor.classList.remove('hp-anchor');
+      from = active.anchor;
+      if (seen) seen.unobserve(from);
+      from.classList.remove('hp-anchor');
     }
-    active = { owner: o, anchor: anchor, how: how };
+    active = { owner: o, anchor: anchor, how: how, pointed: how === 'pointer' };
     anchor.classList.add('hp-anchor');
     if (seen) seen.observe(anchor);
-    o.open(anchor, how);
+    o.open(anchor, how, from === anchor ? null : from);
   }
   function close() {
-    stop();
+    stopClosing();
     if (!active) return;
     var a = active;
     active = null;
@@ -119,30 +146,37 @@ var hoverPanel = (function () {
     a.anchor.classList.remove('hp-anchor');
     a.owner.close(a.anchor);
   }
+  // Closes what's open, and what was about to.
+  function closeAll() {
+    stopOpening();
+    close();
+  }
 
   // The pointer (how 'pointer') or focus ('focus') came to el. may says
-  // whether it can open a panel.
-  function arrive(el, how, may) {
+  // whether it can open a panel; from is where focus came from.
+  function arrive(el, how, may, from) {
     if (within(el)) {
+      if (how === 'pointer') active.pointed = true;
+      stopOpening();
       stopClosing();
       return;
     }
     var hit = may ? anchorOf(el) : null;
-    if (hit && (how !== 'focus' || hit.owner.focus) && (!hit.owner.when || hit.owner.when(hit.anchor))) {
-      if (active && active.owner === hit.owner) {
+    if (hit && (how !== 'focus' || hit.owner.focus) && allowed(hit.owner, hit.anchor)) {
+      if (active && active.owner === hit.owner && hit.owner.move) {
         open(hit.owner, hit.anchor, how);
-      } else if (!(wait && wait.anchor === hit.anchor)) {
-        arm(function () { open(hit.owner, hit.anchor, how); }, DWELL, { anchor: hit.anchor });
+        return;
       }
-      return;
+      if (pending !== hit.anchor) armOpen(hit, how);
+    } else {
+      stopOpening();
     }
-    if (!active) {
-      stop();
-    } else if (how === 'focus' && active.how !== 'pointer') {
-      close();
-    } else if (how === 'pointer' && !(wait && wait.closing)) {
-      var g = active.owner.grace;
-      arm(close, g === undefined ? GRACE : g, { closing: true });
+    // Away from what's open.
+    if (!active) return;
+    if (how === 'focus') {
+      if (active.how !== 'pointer' || within(from)) close();
+    } else if (active.pointed) {
+      armClose();
     }
   }
 
@@ -158,21 +192,21 @@ var hoverPanel = (function () {
     if (!e.relatedTarget) arrive(null, 'pointer', false);
   });
   document.addEventListener('focusin', function (e) {
-    arrive(e.target, 'focus', focusVisible(e.target));
+    arrive(e.target, 'focus', focusVisible(e.target), e.relatedTarget);
   });
   document.addEventListener('pointerdown', function (e) {
-    if (active && !within(e.target)) close();
+    if (active && !within(e.target)) closeAll();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && active) {
       var back = within(document.activeElement) && active.anchor;
-      close();
+      closeAll();
       if (back && back.focus) back.focus();
       e.preventDefault();
       e.stopPropagation();
     } else if (e.key === 'ArrowDown') {
       var hit = anchorOf(e.target);
-      if (hit && hit.owner.focus && (!hit.owner.when || hit.owner.when(hit.anchor))) {
+      if (hit && hit.owner.focus && allowed(hit.owner, hit.anchor)) {
         open(hit.owner, hit.anchor, 'key');
         e.preventDefault();
       }
@@ -185,7 +219,7 @@ var hoverPanel = (function () {
     finePointer: finePointer,
     reducedMotion: reducedMotion,
     canHover: canHover,
-    close: close,
+    close: closeAll,
     show: function (panel, on) {
       panel.classList.toggle('hp-open', !!on);
     },

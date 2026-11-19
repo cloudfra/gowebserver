@@ -150,15 +150,17 @@ function stripSlideshow() {
   function play(row) {
     stop();
     var strip = stripOf(row), all = strip.all;
-    // The frames that fit, the folder's first ones, then all of them
-    // again after the rest, so the loop's end looks like its start.
+    // The folder's photos, then from the first again, round as often as
+    // it takes to fill the strip once more past the last: wherever the
+    // loop is, every slot has a photo, and its end looks like its start.
     var fit = Math.max(1, Math.floor((strip.clientWidth + GAP) / (THUMB + GAP)));
     var panel = doc.createElement('span');
     panel.className = 'strip-show hover-panel';
     panel.setAttribute('aria-hidden', 'true');
     var track = doc.createElement('span');
     track.className = 'strip-track';
-    var frames = all.concat(all.slice(0, fit + 1));
+    var frames = [];
+    for (var f = 0; f < all.length + fit + 1; f++) frames.push(all[f % all.length]);
     frames.forEach(function (item) {
       var img = doc.createElement('img');
       img.alt = '';
@@ -201,12 +203,17 @@ function stripSlideshow() {
     show = null;
     clearTimeout(s.timer);
     hp.show(s.panel, false);
-    Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
-    setTimeout(function () { s.panel.remove(); }, 300);
+    // Once it has faded out: canceling takes a loaded picture away too.
+    setTimeout(function () {
+      Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
+      s.panel.remove();
+    }, 300);
   }
 
   hp.attach(doc.body, '.row.has-strip', {
-    // Off the row, it closes at once: there's nothing to move into.
+    // Off the row, it closes at once: there's nothing to move into. Each
+    // row waits out its own dwell (no move), so a sweep down the list
+    // plays nothing.
     grace: 0,
     when: function (row) {
       var strip = stripOf(row);

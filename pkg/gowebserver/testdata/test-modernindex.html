@@ -4056,6 +4056,14 @@
       
       
       
+      
+      
+      
+      
+      
+      
+      
+      
       var hoverPanel = (function () {
         
         
@@ -4067,30 +4075,42 @@
         var owners = [];
         
         
-        var timer = 0, wait = null;
+        
+        var openTimer = 0, pending = null, closeTimer = 0;
+        
         
         var active = null;
         var seen = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
           entries.forEach(function (e) {
-            if (!e.isIntersecting && active && e.target === active.anchor) close();
+            if (!e.isIntersecting && active && e.target === active.anchor) closeAll();
           });
         }) : null;
 
         function canHover(e) {
           return !!finePointer.matches && !(e && e.pointerType === 'touch');
         }
-        function arm(fn, ms, what) {
-          clearTimeout(timer);
-          wait = what;
-          timer = setTimeout(function () { timer = 0; wait = null; fn(); }, ms);
-        }
-        function stop() {
-          clearTimeout(timer);
-          timer = 0;
-          wait = null;
+        function stopOpening() {
+          clearTimeout(openTimer);
+          openTimer = 0;
+          pending = null;
         }
         function stopClosing() {
-          if (wait && wait.closing) stop();
+          clearTimeout(closeTimer);
+          closeTimer = 0;
+        }
+        function armOpen(hit, how) {
+          stopOpening();
+          pending = hit.anchor;
+          openTimer = setTimeout(function () {
+            openTimer = 0;
+            pending = null;
+            open(hit.owner, hit.anchor, how);
+          }, DWELL);
+        }
+        function armClose() {
+          if (closeTimer) return;
+          var g = active.owner.grace;
+          closeTimer = setTimeout(function () { closeTimer = 0; close(); }, g === undefined ? GRACE : g);
         }
 
         
@@ -4112,21 +4132,28 @@
           var p = panelOf(active.owner);
           return !!(p && p.contains(el));
         }
+        
+        function allowed(o, anchor) {
+          return !o.when || o.when(anchor);
+        }
 
         function open(o, anchor, how) {
-          stop();
+          stopOpening();
+          stopClosing();
+          var from = null;
           if (active && active.owner !== o) close();
           if (active) {
-            if (seen) seen.unobserve(active.anchor);
-            active.anchor.classList.remove('hp-anchor');
+            from = active.anchor;
+            if (seen) seen.unobserve(from);
+            from.classList.remove('hp-anchor');
           }
-          active = { owner: o, anchor: anchor, how: how };
+          active = { owner: o, anchor: anchor, how: how, pointed: how === 'pointer' };
           anchor.classList.add('hp-anchor');
           if (seen) seen.observe(anchor);
-          o.open(anchor, how);
+          o.open(anchor, how, from === anchor ? null : from);
         }
         function close() {
-          stop();
+          stopClosing();
           if (!active) return;
           var a = active;
           active = null;
@@ -4134,30 +4161,37 @@
           a.anchor.classList.remove('hp-anchor');
           a.owner.close(a.anchor);
         }
+        
+        function closeAll() {
+          stopOpening();
+          close();
+        }
 
         
         
-        function arrive(el, how, may) {
+        function arrive(el, how, may, from) {
           if (within(el)) {
+            if (how === 'pointer') active.pointed = true;
+            stopOpening();
             stopClosing();
             return;
           }
           var hit = may ? anchorOf(el) : null;
-          if (hit && (how !== 'focus' || hit.owner.focus) && (!hit.owner.when || hit.owner.when(hit.anchor))) {
-            if (active && active.owner === hit.owner) {
+          if (hit && (how !== 'focus' || hit.owner.focus) && allowed(hit.owner, hit.anchor)) {
+            if (active && active.owner === hit.owner && hit.owner.move) {
               open(hit.owner, hit.anchor, how);
-            } else if (!(wait && wait.anchor === hit.anchor)) {
-              arm(function () { open(hit.owner, hit.anchor, how); }, DWELL, { anchor: hit.anchor });
+              return;
             }
-            return;
+            if (pending !== hit.anchor) armOpen(hit, how);
+          } else {
+            stopOpening();
           }
-          if (!active) {
-            stop();
-          } else if (how === 'focus' && active.how !== 'pointer') {
-            close();
-          } else if (how === 'pointer' && !(wait && wait.closing)) {
-            var g = active.owner.grace;
-            arm(close, g === undefined ? GRACE : g, { closing: true });
+          
+          if (!active) return;
+          if (how === 'focus') {
+            if (active.how !== 'pointer' || within(from)) close();
+          } else if (active.pointed) {
+            armClose();
           }
         }
 
@@ -4173,21 +4207,21 @@
           if (!e.relatedTarget) arrive(null, 'pointer', false);
         });
         document.addEventListener('focusin', function (e) {
-          arrive(e.target, 'focus', focusVisible(e.target));
+          arrive(e.target, 'focus', focusVisible(e.target), e.relatedTarget);
         });
         document.addEventListener('pointerdown', function (e) {
-          if (active && !within(e.target)) close();
+          if (active && !within(e.target)) closeAll();
         });
         document.addEventListener('keydown', function (e) {
           if (e.key === 'Escape' && active) {
             var back = within(document.activeElement) && active.anchor;
-            close();
+            closeAll();
             if (back && back.focus) back.focus();
             e.preventDefault();
             e.stopPropagation();
           } else if (e.key === 'ArrowDown') {
             var hit = anchorOf(e.target);
-            if (hit && hit.owner.focus && (!hit.owner.when || hit.owner.when(hit.anchor))) {
+            if (hit && hit.owner.focus && allowed(hit.owner, hit.anchor)) {
               open(hit.owner, hit.anchor, 'key');
               e.preventDefault();
             }
@@ -4200,7 +4234,7 @@
           finePointer: finePointer,
           reducedMotion: reducedMotion,
           canHover: canHover,
-          close: close,
+          close: closeAll,
           show: function (panel, on) {
             panel.classList.toggle('hp-open', !!on);
           },
@@ -4403,7 +4437,9 @@
         var panel = doc.createElement('nav');
         panel.id = 'crumb-panel';
         panel.className = 'hover-panel crumb-panel';
-        doc.body.appendChild(panel);
+        
+        
+        crumbs.parentNode.insertBefore(panel, crumbs.nextSibling);
         
         var shown = 0;
 
@@ -4433,24 +4469,23 @@
             });
             return { head: 'Folders above', list: Promise.resolve(list) };
           }
-          var parent = '/', name = '';
+          
+          
+          
+          var parent = '/', here = decode(href === '/' ? location.pathname : href);
           if (href !== '/') {
             var m = /^(.*\/)([^/]+)\/$/.exec(href);
             if (!m) return null;
             parent = m[1];
-            name = decode(m[2]);
-          } else {
-            
-            var first = location.pathname.split('/').filter(Boolean)[0];
-            name = first ? decode(first) : '';
           }
           var head = parent === '/' ? (location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
           return {
             head: head,
             list: folders(parent).then(function (fs) {
               return fs && fs.map(function (f) {
-                var seg = f.name + (f.archive ? '.d' : '');
-                return { name: f.name, archive: f.archive, href: parent + encodeURIComponent(seg) + '/', current: seg === name };
+                var path = f.name + (f.archive ? '.d' : '') + '/';
+                var to = parent + path.split('/').map(encodeURIComponent).join('/');
+                return { name: f.name, archive: f.archive, href: to, current: here.indexOf(parent + path) === 0 };
               });
             }),
           };
@@ -4470,12 +4505,16 @@
         
         function place(a) {
           var r = a.getBoundingClientRect(), gutter = 12;
+          
+          
+          var cb = panel.offsetParent;
+          var base = cb && cb !== doc.body ? cb.getBoundingClientRect() : { left: -scrollX, top: -scrollY };
           var room = Math.max(160, innerHeight - r.bottom - 6 - gutter);
           panel.style.maxHeight = room + 'px';
           var w = panel.offsetWidth;
           var left = Math.max(gutter, Math.min(r.left, innerWidth - w - gutter));
-          panel.style.left = (left + scrollX) + 'px';
-          panel.style.top = (r.bottom + 6 + scrollY) + 'px';
+          panel.style.left = (left - base.left) + 'px';
+          panel.style.top = (r.bottom + 6 - base.top) + 'px';
           var cur = panel.querySelector('.current');
           if (cur) panel.scrollTop = Math.max(0, cur.offsetTop - room / 2);
         }
@@ -4486,8 +4525,11 @@
 
         var ctl = hoverPanel.attach(crumbs, 'a', {
           focus: true,
+          
+          move: true,
           panel: function () { return panel; },
-          open: function (a, how) {
+          open: function (a, how, from) {
+            if (from) collapse(from);
             var my = ++shown, what = contents(a);
             if (!what) { ctl.close(); return; }
             a.setAttribute('aria-controls', 'crumb-panel');
@@ -4503,10 +4545,16 @@
           },
           close: function (a) {
             shown++;
-            a.setAttribute('aria-expanded', 'false');
+            collapse(a);
             hoverPanel.show(panel, false);
           },
         });
+
+        
+        function collapse(a) {
+          a.removeAttribute('aria-expanded');
+          a.removeAttribute('aria-controls');
+        }
 
         
         
@@ -5099,13 +5147,15 @@
           var strip = stripOf(row), all = strip.all;
           
           
+          
           var fit = Math.max(1, Math.floor((strip.clientWidth + GAP) / (THUMB + GAP)));
           var panel = doc.createElement('span');
           panel.className = 'strip-show hover-panel';
           panel.setAttribute('aria-hidden', 'true');
           var track = doc.createElement('span');
           track.className = 'strip-track';
-          var frames = all.concat(all.slice(0, fit + 1));
+          var frames = [];
+          for (var f = 0; f < all.length + fit + 1; f++) frames.push(all[f % all.length]);
           frames.forEach(function (item) {
             var img = doc.createElement('img');
             img.alt = '';
@@ -5148,11 +5198,16 @@
           show = null;
           clearTimeout(s.timer);
           hp.show(s.panel, false);
-          Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
-          setTimeout(function () { s.panel.remove(); }, 300);
+          
+          setTimeout(function () {
+            Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
+            s.panel.remove();
+          }, 300);
         }
 
         hp.attach(doc.body, '.row.has-strip', {
+          
+          
           
           grace: 0,
           when: function (row) {
