@@ -283,7 +283,8 @@ func (ws *webServerImpl) Serve(wait func()) error {
 
 	go func() {
 		if ws.certificateFilePath != "" {
-			checkError(http.ServeTLS(httpsSocket, httpHandler, ws.certificateFilePath, ws.privateKeyFilePath))
+			// A plain HTTP request to the HTTPS port is redirected to https://.
+			checkError(http.ServeTLS(newHTTPSRedirectListener(httpsSocket, httpsSniffTimeout), httpHandler, ws.certificateFilePath, ws.privateKeyFilePath))
 		}
 	}()
 	go func() {
