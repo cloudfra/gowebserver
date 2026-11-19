@@ -51,6 +51,7 @@ internal/gowebserver/testing/  # Test utilities and embedded test archives
 
 - **config.go**: CLI flags and YAML config loading
 - **httpserver.go**: `WebServer` interface, HTTP/HTTPS listener setup, handler registration
+- **httpsredirect.go**: Wraps the HTTPS listener: a connection whose first byte starts an HTTP method (TLS starts with 0x16) gets a redirect to `https://` on the same host, port, path and query; everything else goes on to TLS untouched. Sniffed per connection under `httpsSniffTimeout`, so `Accept` never waits on a client
 - **filesystem.go**: `FileSystem` interface for content sources
 - **filesystem_*.go**: Implementations for local dirs, archives, git repos, nested archives
 - **index.go / customindex.go**: Directory listing templates (basic and custom css UI)
