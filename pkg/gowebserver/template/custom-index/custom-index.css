@@ -275,27 +275,28 @@ main {
   text-align: right;
 }
 
+/* Only the rows near the screen are built (list.js), and every row is
+   as tall as the next, a border included, so that one's place times the
+   height of a row is where it goes. */
 .row {
   position: relative;
   display: flex;
   align-items: center;
-  /* Rows off screen skip layout and paint, so a folder with tens of
-   * thousands of files stays responsive. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 60px;
+  border-top: 1px solid var(--line);
   transition: background-color 0.12s;
 }
 
-.row+.row {
-  border-top: 1px solid var(--line);
+.row.first {
+  border-top-color: transparent;
+}
+
+/* The first row's border sits under the heading's. */
+.files-body {
+  margin-top: -1px;
 }
 
 .row:hover {
   background: var(--hover);
-}
-
-.row[hidden] {
-  display: none;
 }
 
 .row-icon {

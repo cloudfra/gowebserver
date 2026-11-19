@@ -18,12 +18,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load } = require('../../harness.js');
 
-// A row of the list as the template writes it: a folder's link ends in a
-// slash, an archive's doesn't.
-function row(name, kind) {
-  const href = kind === 'folder' ? encodeURIComponent(name) + '/' : encodeURIComponent(name);
-  return '<div class="row"' + (kind === 'file' ? '' : ' data-dir') + '><a class="row-icon" href="' + href + '"><span class="chip"><svg></svg></span></a>' +
-    '<a class="row-main"><span class="name">' + name + '</span><span class="meta"><span class="size">Folder</span></span></a></div>';
+// An entry of the list as the page is sent it: [kind, url, name, icon,
+// size, date], where kind 2 is a folder and 3 an archive.
+const KINDS = { file: 0, folder: 2, archive: 3 };
+function entry(name, kind) {
+  return [KINDS[kind], encodeURIComponent(name), name, kind === 'file' ? 'text' : 'folder', 10, '2024-01-01'];
 }
 
 // The query hover-panel.js asks for a mouse or trackpad.
@@ -35,10 +34,11 @@ function setup(rows, covers, opts) {
   opts = opts || {};
   const asked = [];
   let observer = null;
-  const pg = page('<p id="summary"></p><p id="no-match" hidden></p>' + rows.map((r) => row(r[0], r[1])).join(''), {
+  const pg = page('<p id="summary"></p><p id="no-match" hidden></p><div id="files-body"></div>', {
     media: opts.media || { [FINE]: true },
     globals: {
-      GOWS: { sort: 'name', thumbs: opts.thumbs !== false, videoThumbs: opts.videoThumbs !== false, media: [], diag: '' },
+      grid: null,
+      GOWS: { sort: 'name', thumbs: opts.thumbs !== false, videoThumbs: opts.videoThumbs !== false, files: rows.map((r) => entry(r[0], r[1])), media: [], diag: '' },
       IntersectionObserver: class {
         constructor(fn) { this.fn = fn; this.rows = []; observer = this; }
         observe(el) { this.rows.push(el); }
@@ -74,13 +74,20 @@ function setup(rows, covers, opts) {
       return node;
     }
     const el = create(tag);
-    if (tag === 'span') el.clientWidth = opts.room === undefined ? 400 : opts.room;
+    // Only in the page: a strip out of it has no room, as in a browser.
+    if (tag === 'span') {
+      Object.defineProperty(el, 'clientWidth', { get: () => (el.isConnected ? (opts.room === undefined ? 400 : opts.room) : 0) });
+    }
     return el;
   };
-  load(pg, ['page-theme/hover-panel.js', 'custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js', 'custom-index/accent.js'], []);
+  const d = load(pg, ['page-theme/hover-panel.js', 'custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js',
+    'custom-index/folders.js', 'custom-index/accent.js', 'custom-index/list.js'], ['applyFilter', 'fileList']);
+  d.applyFilter('');
   const rowsEl = pg.document.querySelectorAll('.row');
   return {
-    pg, asked, rows: rowsEl,
+    pg, asked, rows: rowsEl, fileList: d.fileList,
+    // The rows as they are now, once the list has built them again.
+    current: () => pg.document.querySelectorAll('.row'),
     observed: () => observer ? observer.rows.slice() : [],
     seen: (els) => observer.fn(els.map((target) => ({ target, isIntersecting: true }))),
     settle: async () => { for (let i = 0; i < 5; i++) await pg.settle(); },
@@ -374,4 +381,80 @@ test('no slideshow for a row with no strip, or before its strip is in', async ()
   hover(u.rows[0]);
   u.pg.tick(DWELL);
   assert.equal(strip(u.rows[0]), null);
+});
+
+test('a row built again shows its strip and color at once, without asking again', async () => {
+  const t = setup([['Trip', 'folder']], COVERS, {
+    colors: { [thumb('Trip', 'a%20b.jpg')]: [255, 120, 0], [thumb('Trip', 'c.jpg')]: [255, 120, 0], [thumb('Trip', 'd.jpg')]: [255, 120, 0] },
+  });
+  t.seen([t.rows[0]]);
+  await t.settle();
+  await arriveAll(t);
+  assert.ok(t.rows[0].classList.contains('row-accent'));
+  t.fileList.relayout();
+  const row = t.current()[0];
+  assert.notEqual(row, t.rows[0], 'a new row');
+  assert.ok(strip(row), 'with its strip');
+  assert.ok(row.classList.contains('row-accent'), 'and its color');
+  assert.deepEqual(t.asked, ['Trip/?preview'], 'asked once');
+  assert.deepEqual(t.observed(), [], 'and not watched again');
+});
+
+test('a row dropped before it was asked about is asked about when built again', async () => {
+  const t = setup([['Trip', 'folder'], ['Clips', 'folder'], ['Years', 'folder']], COVERS);
+  t.seen([...t.rows]); // two asked, one waiting
+  t.fileList.relayout();
+  await t.settle();
+  assert.deepEqual(t.asked, ['Trip/?preview', 'Clips/?preview'], 'the waiting one was dropped with its row');
+  assert.deepEqual(t.observed().map((r) => r.querySelector('.name').textContent), ['Years']);
+  assert.ok(strip(t.current()[0]), 'an answer for a dropped row shows on the new one');
+});
+
+// ===== The slideshow on rows the list builds again =====
+
+test('a row the list built again plays its slideshow, from the strip it got back', async () => {
+  const t = await strips([['Big', 'folder']]);
+  t.fileList.relayout();
+  const row = t.current()[0];
+  assert.notEqual(row, t.rows[0], 'a new row');
+  hover(row.querySelector('.name'));
+  t.pg.tick(DWELL);
+  assert.ok(show(row), 'it plays');
+  assert.equal(frames(row).length, 20 + 10);
+  assert.deepEqual(t.asked, ['Big/?preview'], 'without asking the server again');
+});
+
+test('a slideshow closes when the list drops its row, and stops stepping', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  t.pg.frame();
+  const panel = show(row);
+  assert.ok(panel.classList.contains('hp-open'));
+  const track = panel.querySelector('.strip-track');
+  t.fileList.relayout(); // a filter or a jump drops the row under the pointer
+  assert.ok(!panel.classList.contains('hp-open'), 'closed');
+  assert.ok(!row.classList.contains('hp-anchor'), 'and the hover panel let go of the row');
+  t.pg.tick(STEP * 3);
+  assert.equal(track.style.transform || '', '', 'no more steps');
+  // The row built in its place opens as any other.
+  const again = t.current()[0];
+  hover(again);
+  t.pg.tick(DWELL);
+  assert.ok(show(again));
+});
+
+test('a dwell on a row the list drops before it ends opens nothing', async () => {
+  const t = await strips([['Big', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL / 2);
+  t.fileList.relayout();
+  t.pg.tick(DWELL);
+  assert.equal(show(row), null, 'nothing on the dropped row');
+  const again = t.current()[0];
+  hover(again);
+  t.pg.tick(DWELL);
+  assert.ok(show(again), 'and the new row still opens');
 });

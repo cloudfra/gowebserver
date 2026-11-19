@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -23,8 +24,10 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"facette.io/natsort"
@@ -136,6 +139,46 @@ type DirEntry struct {
 	IsArchive  bool
 	IsViewable bool
 	IconClass  string
+}
+
+// The kinds of entry in the file browser's list, as the page is sent them
+// (files in custom-index.html, read by data.js and list.js).
+const (
+	listKindFile     = 0 // a file, opened as itself
+	listKindViewable = 1 // a file opened in the text viewer (?view=rich)
+	listKindFolder   = 2
+	listKindArchive  = 3 // an archive, opened as the folder of its content
+)
+
+// ListKind returns what the file browser's list does with the entry: one
+// of the listKind constants.
+func (d *DirEntry) ListKind() int {
+	switch {
+	case d.IsArchive:
+		return listKindArchive
+	case d.IsDir:
+		return listKindFolder
+	case d.IsViewable:
+		return listKindViewable
+	}
+	return listKindFile
+}
+
+// ListJS returns the entry as the file browser's list is sent it, a
+// JavaScript array: [kind, url, name, icon, size, date], with the date as
+// the list shows it (with the time when sorted by date). json.Marshal
+// escapes <, > and &, and U+2028 and U+2029, so it is safe in a <script>.
+func (d *DirEntry) ListJS(useTimestamp bool) template.JS {
+	date := humanizeDate(d.ModTime)
+	if useTimestamp {
+		date = humanizeTimestamp(d.ModTime)
+	}
+	b, err := json.Marshal([]any{d.ListKind(), urlEncode(d.Name), d.Name, d.IconClass, d.Size, date})
+	if err != nil {
+		// Strings and numbers always marshal.
+		return "null"
+	}
+	return template.JS(b)
 }
 
 // NameForSorting returns the value for sorting this item in the template rendering.
@@ -368,19 +411,22 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	}
 
 	_, statSpan, statted := c.metrics.stage(ctx, listingStageStat)
-	statErrors := 0
-	files := newEntryList(sortBy)
+	listed := make([]fs.DirEntry, 0, len(entries))
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), nestedDirSuffix) {
 			if _, ok := actualArchiveDir[strings.TrimSuffix(entry.Name(), nestedDirSuffix)]; ok {
 				continue
 			}
 		}
-
+		listed = append(listed, entry)
+	}
+	infos := statEntries(listed)
+	statErrors := 0
+	files := newEntryList(sortBy)
+	for i, entry := range listed {
 		size := int64(0)
 		t := now
-		stat, err := entry.Info()
-		if err == nil {
+		if stat := infos[i]; stat != nil {
 			t = stat.ModTime()
 			size = stat.Size()
 		} else {
@@ -436,6 +482,45 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		return fail(err)
 	}
 	return true
+}
+
+// statParallelMin is the fewest entries worth statting on more than one
+// goroutine, and statParallelism the most goroutines that stat a folder.
+// On a local disk each Info is a system call (lstat), one at a time, and
+// a folder of tens of thousands spends most of its listing there.
+const (
+	statParallelMin = 256
+	statParallelism = 8
+)
+
+// statEntries returns each entry's Info, or nil where it failed, in
+// entries' order. A big folder's entries are statted a share per
+// goroutine.
+func statEntries(entries []fs.DirEntry) []fs.FileInfo {
+	infos := make([]fs.FileInfo, len(entries))
+	stat := func(from, to int) {
+		for i := from; i < to; i++ {
+			if info, err := entries[i].Info(); err == nil {
+				infos[i] = info
+			}
+		}
+	}
+	workers := min(statParallelism, runtime.GOMAXPROCS(0))
+	if len(entries) < statParallelMin || workers < 2 {
+		stat(0, len(entries))
+		return infos
+	}
+	var wg sync.WaitGroup
+	share := (len(entries) + workers - 1) / workers
+	for from := 0; from < len(entries); from += share {
+		wg.Add(1)
+		go func(from, to int) {
+			defer wg.Done()
+			stat(from, to)
+		}(from, min(from+share, len(entries)))
+	}
+	wg.Wait()
+	return infos
 }
 
 func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, error) {

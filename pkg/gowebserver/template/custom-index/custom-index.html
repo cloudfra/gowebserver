@@ -374,12 +374,9 @@
       {{if .HasNonMediaEntry}}
       <section class="files" id="files" aria-label="Folders and files">
         <div class="files-head" aria-hidden="true"><span>Name</span><span class="col-size">Size</span><span class="col-date">Modified</span></div>
-        {{- /* A row is one line with no space between its tags: a big folder
-               repeats it tens of thousands of times, and every gap would be
-               bytes to send and a text node to keep. */}}
-        {{- range $index, $element := $.DirEntries}}{{if eq (isMedia $element.Name) false}}
-        <div class="row"{{if $element.IsDir}} data-dir{{end}}><a class="row-icon" href="{{urlEncode $element.Name}}{{if and $element.IsDir (not $element.IsArchive)}}/{{end}}" aria-label="Open {{$element.Name}} directly"><span class="chip icon-{{$element.IconClass}}"><svg viewBox="0 0 24 24"><use href="#icon-{{$element.IconClass}}" /></svg></span></a><a class="row-main" href="{{if $element.IsViewable}}{{urlEncode $element.Name}}?view=rich{{else if $element.IsArchive}}{{urlEncode $element.Name}}.d/{{else}}{{urlEncode $element.Name}}{{if $element.IsDir}}/{{end}}{{end}}" title="{{$element.Name}}"><span class="name">{{$element.Name}}</span><span class="meta"><span class="size">{{if and $element.IsDir (not $element.IsArchive)}}Folder{{else}}{{humanizeBytes $element.Size}}{{end}}</span><span class="date">{{if $.UseTimestamp}}{{humanizeTimestamp $element.ModTime}}{{else}}{{humanizeDate $element.ModTime}}{{end}}</span></span></a></div>
-        {{- end}}{{end}}
+        {{- /* The rows are list.js's: only those near the screen are built,
+               from files below, since a folder can hold tens of thousands. */}}
+        <div class="files-body" id="files-body"></div>
       </section>
       {{end}}
 
@@ -436,6 +433,12 @@
       videoThumbs: {{.VideoThumbnails}},
       // Where diagnostics go, or "" when they're off (see diagnostics.go).
       diag: {{.Diagnostics}},
+      // The list's folders and files, in order:
+      // [kind, url, name, icon, size, date]; kind is 0 a file, 1 a file
+      // the text viewer shows, 2 a folder, 3 an archive (opened as one).
+      files: [
+        {{- range $.DirEntries}}{{if not (isMedia .Name)}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
+      ],
       // [isVideo, url, name, size, unix mtime]
       media: [
         {{- range $.DirEntries}}{{if isImage .Name}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if isVideo .Name}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
@@ -456,6 +459,8 @@
       {{include "folders.js"}}
 
       {{include "accent.js"}}
+
+      {{include "list.js"}}
 
       {{include "grid.js"}}
 

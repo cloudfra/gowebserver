@@ -8,15 +8,16 @@ function escapeHTML(s) {
 var all = CFG.media.map(function (m, i) {
   return { video: m[0] === 1, url: m[1], name: m[2], size: m[3], t: m[4], lower: m[2].toLowerCase(), pos: 0, row: -1 };
 });
-var vis = { photos: [], videos: [] };
-// The list's rows, with what filtering needs to know about each kept
-// here, so a filter pass reads nothing back from the page and only
-// touches the rows that change. Names are read on the first filter,
-// not on load.
-var rowEls = doc.querySelectorAll('.row');
-var rowDir = new Uint8Array(rowEls.length), rowHidden = new Uint8Array(rowEls.length);
-var rowNames = null, lastQuery = null;
-for (var ri = 0; ri < rowEls.length; ri++) rowDir[ri] = rowEls[ri].hasAttribute('data-dir') ? 1 : 0;
+// The list's folders and files (kind: 0 a file, 1 one the text viewer
+// shows, 2 a folder, 3 an archive). list.js builds rows only for those
+// near the screen.
+var listEntries = (CFG.files || []).map(function (f) {
+  return { kind: f[0], dir: f[0] >= 2, url: f[1], name: f[2], icon: f[3], size: f[4], date: f[5], lower: f[2].toLowerCase() };
+});
+var vis = { files: [], photos: [], videos: [] };
+var lastQuery = null;
+// The file list (list.js), when the folder has one.
+var fileList = null;
 
 function summarize(folders, files) {
   var parts = [];
@@ -25,7 +26,7 @@ function summarize(folders, files) {
   if (vis.photos.length) parts.push(plural(vis.photos.length, 'photo', 'photos'));
   if (vis.videos.length) parts.push(plural(vis.videos.length, 'video', 'videos'));
   $('summary').textContent = parts.join(', ');
-  $('no-match').hidden = !!(folders || files || vis.photos.length || vis.videos.length) || !rowEls.length && !all.length;
+  $('no-match').hidden = !!(folders || files || vis.photos.length || vis.videos.length) || !listEntries.length && !all.length;
 }
 
 function applyFilter(q) {
@@ -33,15 +34,13 @@ function applyFilter(q) {
   // The same filter again (a trailing space, say) changes nothing.
   if (q === lastQuery) return;
   lastQuery = q;
-  var i, n = rowEls.length, folders = 0, files = 0;
-  if (q && !rowNames) {
-    rowNames = new Array(n);
-    for (i = 0; i < n; i++) rowNames[i] = rowEls[i].querySelector('.name').textContent.toLowerCase();
-  }
-  for (i = 0; i < n; i++) {
-    var hide = q && rowNames[i].indexOf(q) < 0 ? 1 : 0;
-    if (hide !== rowHidden[i]) { rowHidden[i] = hide; rowEls[i].hidden = !!hide; }
-    if (!hide) { if (rowDir[i]) folders++; else files++; }
+  var i, folders = 0, files = 0;
+  vis.files = [];
+  for (i = 0; i < listEntries.length; i++) {
+    var f = listEntries[i];
+    if (q && f.lower.indexOf(q) < 0) continue;
+    if (f.dir) folders++; else files++;
+    vis.files.push(f);
   }
   vis.photos = []; vis.videos = [];
   for (i = 0; i < all.length; i++) {
@@ -52,5 +51,6 @@ function applyFilter(q) {
     list.push(it);
   }
   summarize(folders, files);
+  if (fileList) fileList.relayout();
   if (grid) grid.relayout(false);
 }

@@ -15,7 +15,10 @@
 package gowebserver
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,6 +46,94 @@ func TestDirEntryString(t *testing.T) {
 	}
 }
 
+func TestDirEntryListJS(t *testing.T) {
+	mod := time.Date(2024, 3, 5, 14, 7, 9, 0, time.Local)
+	testCases := []struct {
+		entry     DirEntry
+		timestamp bool
+		want      string
+	}{
+		{
+			DirEntry{Name: "notes.txt", Size: 12, ModTime: mod, IsViewable: true, IconClass: "text"},
+			false,
+			`[1,"notes.txt","notes.txt","text",12,"2024-03-05"]`,
+		},
+		{
+			DirEntry{Name: "tool.exe", Size: 5, ModTime: mod, IconClass: "terminal"},
+			true,
+			`[0,"tool.exe","tool.exe","terminal",5,"2024-03-05 02:07:09PM"]`,
+		},
+		{
+			DirEntry{Name: "My Docs", ModTime: mod, IsDir: true, IconClass: "folder"},
+			false,
+			`[2,"My%20Docs","My Docs","folder",0,"2024-03-05"]`,
+		},
+		{
+			DirEntry{Name: "a.zip", Size: 9, ModTime: mod, IsDir: true, IsArchive: true, IconClass: "folder"},
+			false,
+			`[3,"a.zip","a.zip","folder",9,"2024-03-05"]`,
+		},
+		// Nothing in a name can end the script it's in. (\x5c is a
+		// backslash, \xe2\x80\xa8 the line separator U+2028.)
+		{
+			DirEntry{Name: "</script><b>&\xe2\x80\xa8\"x\"", ModTime: mod, IconClass: "unknown"},
+			false,
+			"[0,\"%3C%2Fscript%3E%3Cb%3E\x5cu0026%E2%80%A8%22x%22\"," +
+				"\"\x5cu003c/script\x5cu003e\x5cu003cb\x5cu003e\x5cu0026\x5cu2028\x5c\"x\x5c\"\",\"unknown\",0,\"2024-03-05\"]",
+		},
+	}
+	for _, tc := range testCases {
+		if diff := cmp.Diff(tc.want, string(tc.entry.ListJS(tc.timestamp))); diff != "" {
+			t.Errorf("ListJS(%q) mismatch (-want +got):\n%s", tc.entry.Name, diff)
+		}
+	}
+}
+
+// statEntry is a DirEntry whose Info says its place, or fails.
+type statEntry struct {
+	fs.DirEntry
+	i    int
+	fail bool
+}
+
+func (e statEntry) Info() (fs.FileInfo, error) {
+	if e.fail {
+		return nil, errors.New("gone")
+	}
+	return statInfo(e.i), nil
+}
+
+type statInfo int
+
+func (i statInfo) Name() string       { return fmt.Sprint(int(i)) }
+func (i statInfo) Size() int64        { return int64(i) }
+func (i statInfo) Mode() fs.FileMode  { return 0 }
+func (i statInfo) ModTime() time.Time { return time.Time{} }
+func (i statInfo) IsDir() bool        { return false }
+func (i statInfo) Sys() any           { return nil }
+
+func TestStatEntries(t *testing.T) {
+	for _, n := range []int{0, 1, statParallelMin - 1, statParallelMin, 10007} {
+		entries := make([]fs.DirEntry, n)
+		for i := range entries {
+			entries[i] = statEntry{i: i, fail: i%97 == 3}
+		}
+		infos := statEntries(entries)
+		if len(infos) != n {
+			t.Fatalf("statEntries of %d gave %d", n, len(infos))
+		}
+		for i, info := range infos {
+			if i%97 == 3 {
+				if info != nil {
+					t.Errorf("n=%d: entry %d failed but has info %v", n, i, info)
+				}
+			} else if info == nil || info.Size() != int64(i) {
+				t.Errorf("n=%d: entry %d has info %v", n, i, info)
+			}
+		}
+	}
+}
+
 func TestCustomIndex(t *testing.T) {
 	nestedZipPath := gowsTesting.MustNestedZipFilePath(t)
 
@@ -63,10 +154,12 @@ func TestCustomIndex(t *testing.T) {
 	ts.StartTLS()
 	defer ts.Close()
 
-	verifyCustomIndex(t, ts.Client(), ts.URL, []string{"single-testassets.zip", "single-testassets.zip.d/", "testassets/", "testassets.zip.d/"})
-	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets", []string{"index.html", "site.js", "assets/"})
-	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/", []string{"index.html", "site.js", "assets/"})
-	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets.zip.d/", []string{"index.html", "site.js", "assets/"})
+	// The list's entries, as the page is sent them: [kind, url, name, ...],
+	// where kind 2 is a folder and 3 an archive opened as one.
+	verifyCustomIndex(t, ts.Client(), ts.URL, []string{`[3,"single-testassets.zip","single-testassets.zip",`, `[2,"testassets","testassets",`, `[3,"testassets.zip","testassets.zip",`})
+	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets", []string{"index.html", "site.js", `[2,"assets","assets",`})
+	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/", []string{"index.html", "site.js", `[2,"assets","assets",`})
+	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets.zip.d/", []string{"index.html", "site.js", `[2,"assets","assets",`})
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images", []string{"ocean.jpg", "nature.jpg"})
 	verifyCustomIndex(t, ts.Client(), ts.URL+"/testassets/assets/images/", []string{"ocean.jpg", "nature.jpg"})
 }
