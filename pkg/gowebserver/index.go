@@ -58,6 +58,7 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 		SortBy:           "name",
 		UseTimestamp:     false,
 		HasNonMediaEntry: true,
+		Assets:           customIndexAssets.pagePath("/"),
 	}
 
 	slog.Debug("newIndexHTTPHandler", "params", params)

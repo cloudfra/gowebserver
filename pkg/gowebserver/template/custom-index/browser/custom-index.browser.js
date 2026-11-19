@@ -154,6 +154,30 @@ test('the theme button switches the page and remembers', async () => {
   assert.equal(await b.page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'before the page draws');
 });
 
+test('the icons, which come in a script of their own, are drawn in the rows', async () => {
+  assert.equal(await count('#icon-folder'), 1);
+  const width = await b.page.locator('.row[data-dir] .chip use').first().evaluate((u) => u.getBBox().width);
+  assert.ok(width > 0, 'the folder icon has a size: ' + width);
+});
+
+// The styles, scripts and icons are files every folder's page links to
+// (pageassets.go), so the next folder downloads only its own page.
+test('another folder\'s page takes its styles, scripts and icons from the cache', async () => {
+  const assets = () => b.page.evaluate(() => performance.getEntriesByType('resource')
+    .filter((e) => e.name.includes('/_gows/'))
+    .map((e) => ({ url: e.name, transferSize: e.transferSize })));
+  const first = await assets();
+  assert.equal(first.length, 3, JSON.stringify(first));
+
+  await b.page.goto(srv.url + 'docs/');
+  await b.page.waitForSelector('.row');
+  const next = await assets();
+  assert.deepEqual(next.map((e) => e.url).sort(), first.map((e) => e.url).sort(), 'the same URLs from either folder');
+  for (const e of next) assert.equal(e.transferSize, 0, e.url + ' came over the network');
+  assert.equal(await count('#icon-folder'), 1);
+  assert.equal(await b.page.locator('#summary').textContent(), '1 file');
+});
+
 test('nothing went wrong along the way', () => {
   // The broken picture is the one thing meant to fail.
   assert.deepEqual(b.problems.filter((p) => p.indexOf('zz-broken.jpg') < 0), []);

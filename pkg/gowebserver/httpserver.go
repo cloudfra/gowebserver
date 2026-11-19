@@ -210,6 +210,13 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 	}()
 
+	if ws.enhancedListMode {
+		// The file browser's styles, scripts and icons, which its pages
+		// link to. Only this build's hash is routed here, so a folder of
+		// the same name stays the served filesystem's.
+		ws.addHandler(serverMux, customIndexAssets.prefix(), customIndexAssets, handlerAsset)
+	}
+
 	if len(ws.uploadHTTPPath) > 0 {
 		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath)
 		if err != nil {

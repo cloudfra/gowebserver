@@ -229,7 +229,10 @@ type customIndexReport struct {
 	VideoThumbnails bool
 	// Diagnostics is where the page sends its diagnostics events, or ""
 	// when they're off (see diagnostics.go).
-	Diagnostics           string
+	Diagnostics string
+	// Assets is the link to the directory of the page's styles, scripts
+	// and icons (pageassets.go), ending in "/".
+	Assets                string
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -411,6 +414,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		Thumbnails:            c.thumbs != nil,
 		VideoThumbnails:       c.thumbs.videos(),
 		Diagnostics:           diagPageEndpoint(r.RequestURI),
+		Assets:                customIndexAssets.pagePath(r.RequestURI),
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}

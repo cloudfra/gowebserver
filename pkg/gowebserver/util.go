@@ -102,7 +102,7 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 }
 
 // pageThemeHTML holds the templates the file browser and the file viewer
-// share (page-style, page-script); see its header.
+// share (page-style, page-script, page-script-js); see its header.
 var pageThemeHTML = mustLoadTemplate("page-theme")
 
 var validChars = map[rune]interface{}{
@@ -158,21 +158,24 @@ func nilFuncWithError() error {
 	return nil
 }
 
+// templateFuncs are the functions the page templates call.
+var templateFuncs = map[string]any{
+	"humanizeBytes":     humanize.Bytes,
+	"isImage":           isImage,
+	"isAudio":           isAudio,
+	"isVideo":           isVideo,
+	"isMedia":           isMedia,
+	"isOdd":             isOdd,
+	"isEven":            isEven,
+	"humanizeDate":      humanizeDate,
+	"humanizeTimestamp": humanizeTimestamp,
+	"stepBegin":         stepBegin,
+	"stepEnd":           stepEnd,
+	"urlEncode":         urlEncode,
+}
+
 func createTemplate(tmplText []byte) (*template.Template, error) {
-	tmpl := template.New("").Funcs(template.FuncMap{
-		"humanizeBytes":     humanize.Bytes,
-		"isImage":           isImage,
-		"isAudio":           isAudio,
-		"isVideo":           isVideo,
-		"isMedia":           isMedia,
-		"isOdd":             isOdd,
-		"isEven":            isEven,
-		"humanizeDate":      humanizeDate,
-		"humanizeTimestamp": humanizeTimestamp,
-		"stepBegin":         stepBegin,
-		"stepEnd":           stepEnd,
-		"urlEncode":         urlEncode,
-	})
+	tmpl := template.New("").Funcs(templateFuncs)
 	if _, err := tmpl.Parse(string(tmplText)); err != nil {
 		return nil, err
 	}
