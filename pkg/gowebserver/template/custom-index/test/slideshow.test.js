@@ -277,3 +277,57 @@ test('asking for full screen forgets a phone declining it', () => {
   assert.equal(t.full(), t.$('ss-frame'));
   assert.equal(FULLSCREEN_KEY in t.pg.stored, false);
 });
+
+// A pointer at y on the full-screen slideshow, as the page sees it.
+function pointerAt(t, y, type) {
+  const s = t.$('ss-stage');
+  t.$('ss-frame').rect = { top: 0, left: 0, width: s.clientWidth, height: s.clientHeight };
+  t.dlg.fire(type === 'touch' ? 'pointerdown' : 'pointermove', { clientX: 10, clientY: y, pointerType: type || 'mouse' });
+  return t.dlg.classList.contains('strip-on');
+}
+
+test('in full screen a video sits above the filmstrip, clear of its scrubber', () => {
+  const t = setup(100, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
+  t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
+  t.$('ss-full').click();
+  assert.equal(t.full(), t.$('ss-frame'));
+  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 77px 0px', 'room under each video for the strip'));
+  // The scrubber is a few dozen pixels above the video's bottom edge,
+  // inside the zone that brings the strip up over a photo.
+  assert.equal(pointerAt(t, 800 - 77 - 20), false, 'the pointer on the scrubber leaves the strip down');
+  assert.equal(pointerAt(t, 800 - 30), true, 'below the video it comes up');
+  // Out of full screen the window keeps its usual room.
+  t.$('ss-full').click();
+  t.$('ss-full').click();
+  assert.equal(t.full(), null);
+  assert.equal(t.slides()[0].style.padding, '76px 96px 104px 96px');
+});
+
+test('a photo in full screen still goes edge to edge, the strip over it', () => {
+  const t = setup(30, { stage: [1280, 800], fullscreen: true, mouse: true });
+  t.slideshow.open(t.all, 5, null, false);
+  t.$('ss-full').click();
+  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 0px 0px'));
+  assert.equal(pointerAt(t, 800 - 100), true);
+});
+
+test('a lone video keeps the whole screen: there is no strip to make room for', () => {
+  const t = setup(10, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
+  t.slideshow.open(t.all.filter((it) => it.video), 0, null, false);
+  t.$('ss-full').click();
+  assert.equal(t.slides()[0].style.padding, '0px 0px 0px 0px');
+});
+
+test('a phone shows no filmstrip over a video, only over photos', () => {
+  const t = setup(100, { stage: [844, 390], fullscreen: true, videos: true });
+  t.slideshow.open(t.all, 8, null, false);
+  assert.equal(t.full(), t.$('ss-frame'));
+  assert.equal(t.dlg.classList.contains('no-strip'), false, 'm8 is a photo');
+  t.key('ArrowRight');
+  assert.equal(t.$('ss-name').textContent, 'm9.mp4');
+  assert.equal(t.dlg.classList.contains('no-strip'), true, 'm9 is a video');
+  assert.equal(t.slides().find((d) => d.firstChild.tagName === 'VIDEO').style.padding, '0px 0px 0px 0px', 'which keeps the whole screen');
+  assert.equal(pointerAt(t, 380, 'touch'), false, 'a touch on its scrubber leaves the strip down');
+  t.key('ArrowRight');
+  assert.equal(t.dlg.classList.contains('no-strip'), false);
+});

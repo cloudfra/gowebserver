@@ -2871,6 +2871,12 @@ main {
   display: none;
 }
 
+/* A phone's video keeps the bottom edge for its own controls, the
+   scrubber above all (stripRoom in slideshow.js). */
+.ss.no-strip .ss-bottom {
+  display: none;
+}
+
 .ss-strip button {
   flex: none;
   width: 55px;
