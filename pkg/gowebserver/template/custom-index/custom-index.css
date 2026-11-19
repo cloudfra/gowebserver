@@ -429,6 +429,56 @@ main {
   }
 }
 
+/* A strip's slideshow (folders.js), opened by resting the pointer on its
+   row: a panel exactly over the strip, inside it, so the row keeps its
+   size and the strip's fade, with the folder's thumbnails stepping
+   along it toward the name. It's a picture, not a control: the pointer
+   goes through it to the row. Under the global reduced-motion rule it
+   never opens. */
+.row-strip {
+  position: relative;
+}
+
+.strip-show {
+  --hp-from: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--raised);
+  border-radius: 9px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.strip-track {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 4px;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.strip-track.jump {
+  transition: none;
+}
+
+.strip-track img {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--hover);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out);
+}
+
+.strip-track img.ready {
+  opacity: 1;
+}
+
 /* On a phone a row stacks its name over its date, so the strip goes on
    the right, beside both, with as many as fit in its share. */
 @media (max-width: 640px) {

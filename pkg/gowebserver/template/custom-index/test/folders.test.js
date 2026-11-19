@@ -26,6 +26,9 @@ function row(name, kind) {
     '<a class="row-main"><span class="name">' + name + '</span><span class="meta"><span class="size">Folder</span></span></a></div>';
 }
 
+// The query hover-panel.js asks for a mouse or trackpad.
+const FINE = '(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)';
+
 // A page listing rows, whose server answers ?preview with previews[folder].
 // seen(i) brings the i-th observed row near the screen.
 function setup(rows, covers, opts) {
@@ -33,6 +36,7 @@ function setup(rows, covers, opts) {
   const asked = [];
   let observer = null;
   const pg = page('<p id="summary"></p><p id="no-match" hidden></p>' + rows.map((r) => row(r[0], r[1])).join(''), {
+    media: opts.media || { [FINE]: true },
     globals: {
       GOWS: { sort: 'name', thumbs: opts.thumbs !== false, videoThumbs: opts.videoThumbs !== false, media: [], diag: '' },
       IntersectionObserver: class {
@@ -73,7 +77,7 @@ function setup(rows, covers, opts) {
     if (tag === 'span') el.clientWidth = opts.room === undefined ? 400 : opts.room;
     return el;
   };
-  load(pg, ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js', 'custom-index/accent.js'], []);
+  load(pg, ['page-theme/hover-panel.js', 'custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/folders.js', 'custom-index/accent.js'], []);
   const rowsEl = pg.document.querySelectorAll('.row');
   return {
     pg, asked, rows: rowsEl,
@@ -223,4 +227,110 @@ test('a folder of gray photos keeps the usual look', async () => {
   await arriveAll(t);
   assert.ok(!t.rows[0].classList.contains('row-accent'));
   assert.equal(t.rows[0].style.getPropertyValue('--row-h'), '');
+});
+
+// ===== A strip's slideshow =====
+
+const DWELL = 600, STEP = 700;
+const show = (row) => row.querySelector('.strip-show');
+const frames = (row) => show(row).querySelector('.strip-track').querySelectorAll('img');
+const shift = (row) => show(row).querySelector('.strip-track').style.transform || '';
+const hover = (el, pointerType) => el.fire('pointerover', { pointerType: pointerType || 'mouse' });
+
+// A page whose rows' strips are in, the pointer elsewhere.
+async function strips(rows, opts) {
+  const t = setup(rows, COVERS, opts);
+  t.seen([...t.rows]);
+  await t.settle();
+  return t;
+}
+
+test('resting on a folder with a strip plays its photos over the strip, after a dwell', async () => {
+  const t = await strips([['Big', 'folder']]); // 400 px: 9 fit
+  const row = t.rows[0];
+  hover(row.querySelector('.name'));
+  t.pg.tick(DWELL - 1);
+  assert.equal(show(row), null, 'not as the pointer crosses it');
+  t.pg.tick(1);
+  const panel = show(row);
+  assert.ok(panel, 'a panel');
+  assert.equal(panel.parentNode, strip(row), 'inside the strip, so it takes the strip\'s box');
+  assert.equal(panel.getAttribute('aria-hidden'), 'true');
+  t.pg.frame();
+  assert.ok(panel.classList.contains('hp-open'), 'revealed a frame later, so it transitions');
+  // Every one of the folder's twenty, then the first ones again for the loop.
+  assert.equal(frames(row).length, 20 + 10);
+  assert.equal(panel.querySelectorAll('button').length + panel.querySelectorAll('a').length, 0, 'no controls');
+  assert.equal(strip(row).querySelectorAll('img').length, 10 + 30, 'the strip itself is untouched underneath');
+});
+
+test('the slideshow steps along on its own, loads only what is about to show, and loops', async () => {
+  const t = await strips([['Big', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  const loading = () => frames(row).filter((img) => img._wanted).length;
+  assert.equal(loading(), 11, 'what fits, and the next');
+  assert.equal(frames(row)[0]._thumbURL, thumb('Big', 'p1.jpg'), 'at the strip\'s own size, from the browser\'s cache');
+  t.pg.tick(STEP);
+  assert.equal(shift(row), 'translateX(44px)');
+  assert.equal(loading(), 12);
+  t.pg.tick(STEP * 19);
+  assert.equal(shift(row), 'translateX(880px)', 'on the copy of the first');
+  t.pg.tick(STEP / 2);
+  assert.equal(shift(row), '', 'and back to the start, unseen');
+  assert.ok(show(row).querySelector('.strip-track').classList.contains('jump'));
+  t.pg.tick(STEP / 2);
+  assert.equal(shift(row), 'translateX(44px)', 'round again');
+});
+
+test('leaving the row closes the slideshow at once, leaving the strip', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  t.pg.frame();
+  hover(t.pg.document.body);
+  t.pg.tick(0);
+  assert.ok(!show(row).classList.contains('hp-open'), 'fading out');
+  t.pg.tick(STEP * 3);
+  assert.equal(show(row), null, 'and gone');
+  assert.ok(strip(row));
+});
+
+test('another row\'s dwell moves the slideshow there: only one plays', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder']]);
+  hover(t.rows[0]);
+  t.pg.tick(DWELL);
+  hover(t.rows[1]);
+  t.pg.tick(DWELL);
+  assert.ok(show(t.rows[1]), 'the second plays');
+  t.pg.tick(STEP);
+  assert.equal(show(t.rows[0]), null, 'the first is gone');
+});
+
+test('no slideshow for a finger, without a mouse, with reduced motion, or with one photo', async () => {
+  const reduced = '(prefers-reduced-motion: reduce)';
+  for (const [why, opts, name, pointer] of [
+    ['touch', {}, 'Big', 'touch'],
+    ['no fine pointer', { media: {} }, 'Big'],
+    ['reduced motion', { media: { [FINE]: true, [reduced]: true } }, 'Big'],
+    ['one photo', {}, 'Years'],
+  ]) {
+    const t = await strips([[name, 'folder']], opts);
+    hover(t.rows[0], pointer);
+    t.pg.tick(DWELL * 2);
+    assert.equal(show(t.rows[0]), null, why);
+  }
+});
+
+test('no slideshow for a row with no strip, or before its strip is in', async () => {
+  const t = setup([['Big', 'folder']], COVERS);
+  hover(t.rows[0]);
+  t.pg.tick(DWELL);
+  assert.equal(show(t.rows[0]), null, 'not before');
+  const u = await strips([['Big', 'folder']], { room: 0 });
+  hover(u.rows[0]);
+  u.pg.tick(DWELL);
+  assert.equal(strip(u.rows[0]), null);
 });

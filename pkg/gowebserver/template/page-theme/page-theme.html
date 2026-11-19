@@ -10,6 +10,8 @@
   page-script goes after each page's markup, before its own script; it
   needs #hero, #title, #crumbs, #toolbar, #tb-title and #theme. A title
   with data-from-path is named from the URL (the file browser's folder).
+  It also sets window.gowsHoverPanel, the panels that open on a dwell
+  (hover-panel.js), for the page's own script.
 */}}
 {{define "page-style"}}
     {{include "page-theme.css"}}
@@ -19,7 +21,9 @@
   <script>
     (function () {
       'use strict';
+      {{include "hover-panel.js"}}
       {{include "page-theme.js"}}
+      {{include "crumb-panel.js"}}
     })();
   </script>
 {{end}}

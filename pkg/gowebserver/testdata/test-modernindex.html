@@ -285,6 +285,103 @@
       color: var(--ink-3);
     }
 
+     
+    .crumbs a.hp-anchor {
+      background: var(--hover);
+      color: var(--ink);
+    }
+
+     
+    .hover-panel {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(var(--hp-from, -4px));
+      transition: opacity 0.2s, transform 0.25s var(--ease), visibility 0s 0.25s;
+    }
+
+    .hover-panel.hp-open {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      transition: opacity 0.2s, transform 0.25s var(--ease), visibility 0s;
+    }
+
+     
+    .crumb-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 30;
+      min-width: 200px;
+      max-width: min(360px, calc(100vw - 24px));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--raised);
+      box-shadow: var(--shadow-pop);
+      font-size: 0.875rem;
+    }
+
+    .crumb-panel .cp-head {
+      padding: 6px 10px 4px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .crumb-panel ul {
+      list-style: none;
+    }
+
+    .crumb-panel a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: var(--ink);
+      text-decoration: none;
+      transition: background-color 0.15s;
+    }
+
+    .crumb-panel a span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .crumb-panel a:hover,
+    .crumb-panel a:focus-visible {
+      background: var(--hover);
+    }
+
+    .crumb-panel a.current {
+      font-weight: 600;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+
+    .crumb-panel svg {
+      width: 16px;
+      height: 16px;
+      flex: none;
+      fill: none;
+      stroke: var(--icon-folder);
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .crumb-panel a.current svg {
+      stroke: currentColor;
+    }
+
     .title {
       margin-top: 10px;
       font-family: var(--font-display);
@@ -970,6 +1067,51 @@
       .row-strip img {
         transition: none;
       }
+    }
+
+     
+    .row-strip {
+      position: relative;
+    }
+
+    .strip-show {
+      --hp-from: 0;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: var(--raised);
+      border-radius: 9px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .strip-track {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      flex-direction: row-reverse;
+      gap: 4px;
+      transition: transform 0.35s var(--ease-out);
+    }
+
+    .strip-track.jump {
+      transition: none;
+    }
+
+    .strip-track img {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 7px;
+      object-fit: cover;
+      background: var(--hover);
+      opacity: 0;
+      transition: opacity 0.2s var(--ease-out);
+    }
+
+    .strip-track img.ready {
+      opacity: 1;
     }
 
      
@@ -3871,6 +4013,213 @@
   <script>
     (function () {
       'use strict';
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      var hoverPanel = (function () {
+        
+        
+        
+        var DWELL = 600, GRACE = 300;
+        
+        var finePointer = matchMedia('(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)');
+        var reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+        var owners = [];
+        
+        
+        var timer = 0, wait = null;
+        
+        var active = null;
+        var seen = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (!e.isIntersecting && active && e.target === active.anchor) close();
+          });
+        }) : null;
+
+        function canHover(e) {
+          return !!finePointer.matches && !(e && e.pointerType === 'touch');
+        }
+        function arm(fn, ms, what) {
+          clearTimeout(timer);
+          wait = what;
+          timer = setTimeout(function () { timer = 0; wait = null; fn(); }, ms);
+        }
+        function stop() {
+          clearTimeout(timer);
+          timer = 0;
+          wait = null;
+        }
+        function stopClosing() {
+          if (wait && wait.closing) stop();
+        }
+
+        
+        function anchorOf(el) {
+          if (!el || !el.closest) return null;
+          for (var i = 0; i < owners.length; i++) {
+            var o = owners[i], a = el.closest(o.selector);
+            if (a && o.container.contains(a)) return { owner: o, anchor: a };
+          }
+          return null;
+        }
+        function panelOf(o) {
+          return o.panel ? o.panel() : null;
+        }
+        
+        function within(el) {
+          if (!active || !el) return false;
+          if (active.anchor.contains(el)) return true;
+          var p = panelOf(active.owner);
+          return !!(p && p.contains(el));
+        }
+
+        function open(o, anchor, how) {
+          stop();
+          if (active && active.owner !== o) close();
+          if (active) {
+            if (seen) seen.unobserve(active.anchor);
+            active.anchor.classList.remove('hp-anchor');
+          }
+          active = { owner: o, anchor: anchor, how: how };
+          anchor.classList.add('hp-anchor');
+          if (seen) seen.observe(anchor);
+          o.open(anchor, how);
+        }
+        function close() {
+          stop();
+          if (!active) return;
+          var a = active;
+          active = null;
+          if (seen) seen.unobserve(a.anchor);
+          a.anchor.classList.remove('hp-anchor');
+          a.owner.close(a.anchor);
+        }
+
+        
+        
+        function arrive(el, how, may) {
+          if (within(el)) {
+            stopClosing();
+            return;
+          }
+          var hit = may ? anchorOf(el) : null;
+          if (hit && (how !== 'focus' || hit.owner.focus) && (!hit.owner.when || hit.owner.when(hit.anchor))) {
+            if (active && active.owner === hit.owner) {
+              open(hit.owner, hit.anchor, how);
+            } else if (!(wait && wait.anchor === hit.anchor)) {
+              arm(function () { open(hit.owner, hit.anchor, how); }, DWELL, { anchor: hit.anchor });
+            }
+            return;
+          }
+          if (!active) {
+            stop();
+          } else if (how === 'focus' && active.how !== 'pointer') {
+            close();
+          } else if (how === 'pointer' && !(wait && wait.closing)) {
+            var g = active.owner.grace;
+            arm(close, g === undefined ? GRACE : g, { closing: true });
+          }
+        }
+
+        function focusVisible(el) {
+          try { return el.matches(':focus-visible'); } catch (e) { return true; }
+        }
+
+        document.addEventListener('pointerover', function (e) {
+          arrive(e.target, 'pointer', canHover(e));
+        });
+        
+        document.addEventListener('pointerout', function (e) {
+          if (!e.relatedTarget) arrive(null, 'pointer', false);
+        });
+        document.addEventListener('focusin', function (e) {
+          arrive(e.target, 'focus', focusVisible(e.target));
+        });
+        document.addEventListener('pointerdown', function (e) {
+          if (active && !within(e.target)) close();
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && active) {
+            var back = within(document.activeElement) && active.anchor;
+            close();
+            if (back && back.focus) back.focus();
+            e.preventDefault();
+            e.stopPropagation();
+          } else if (e.key === 'ArrowDown') {
+            var hit = anchorOf(e.target);
+            if (hit && hit.owner.focus && (!hit.owner.when || hit.owner.when(hit.anchor))) {
+              open(hit.owner, hit.anchor, 'key');
+              e.preventDefault();
+            }
+          }
+        });
+
+        return {
+          DWELL: DWELL,
+          GRACE: GRACE,
+          finePointer: finePointer,
+          reducedMotion: reducedMotion,
+          canHover: canHover,
+          close: close,
+          show: function (panel, on) {
+            panel.classList.toggle('hp-open', !!on);
+          },
+          attach: function (container, selector, owner) {
+            var o = Object.assign({}, owner, { container: container, selector: selector });
+            owners.push(o);
+            return {
+              isOpen: function (anchor) {
+                return !!active && active.owner === o && (!anchor || active.anchor === anchor);
+              },
+              close: function () {
+                if (active && active.owner === o) close();
+              },
+            };
+          },
+        };
+      })();
+      
+      window.gowsHoverPanel = hoverPanel;
       var doc = document, root = doc.documentElement;
       function $(id) { return doc.getElementById(id); }
       function store(key, value) {
@@ -3883,7 +4232,11 @@
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
       }
-      var SEP = '<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
+      
+      
+      function decode(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
+      function label(s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; }
+      var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
 
       
       (function () {
@@ -3913,8 +4266,6 @@
       
       (function () {
         var parts = location.pathname.split('/').filter(Boolean);
-        var decode = function (s) { try { return decodeURIComponent(s); } catch (e) { return s; } };
-        var label = function (s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; };
         var crumbs = $('crumbs');
         
         
@@ -3940,6 +4291,8 @@
           ancestors.slice(hidden.length).forEach(function (a) {
             html += SEP + '<a href="' + escapeHTML(a.href) + '">' + escapeHTML(a.name) + '</a>';
           });
+          
+          hoverPanel.close();
           crumbs.innerHTML = html;
         }
         renderCrumbs();
@@ -4029,6 +4382,147 @@
         
         if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
         measure();
+      })();
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      (function () {
+        var crumbs = $('crumbs');
+        if (!crumbs || !window.fetch) return;
+        var KEEP = 5000, kept = {};
+        var sort = (/[?&]sort=([\w-]+)/.exec(location.search || '') || [])[1];
+        var FOLDER = '<svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 015.5 5h3.6l2 2h7.4A2.5 2.5 0 0121 9.5v7a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 16.5z"/></svg>';
+        var ARCHIVE = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V9M10 13h4"/></svg>';
+
+        var panel = doc.createElement('nav');
+        panel.id = 'crumb-panel';
+        panel.className = 'hover-panel crumb-panel';
+        doc.body.appendChild(panel);
+        
+        var shown = 0;
+
+        
+        function folders(url) {
+          var now = performance.now(), k = kept[url];
+          if (k && now - k.at < KEEP) return k.list;
+          var list = fetch(url + '?folders' + (sort ? '&sort=' + sort : ''), { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) { return j && j.folders || null; })
+            .catch(function () { return null; });
+          kept[url] = { at: now, list: list };
+          list.then(function (l) { if (!l) delete kept[url]; });
+          return list;
+        }
+
+        
+        
+        function contents(a) {
+          var href = a.getAttribute('href') || '/';
+          if (a.classList.contains('more')) {
+            
+            var segs = href.split('/').filter(Boolean), up = '/', list = [];
+            segs.forEach(function (s) {
+              up += s + '/';
+              list.push({ name: label(s), href: up });
+            });
+            return { head: 'Folders above', list: Promise.resolve(list) };
+          }
+          var parent = '/', name = '';
+          if (href !== '/') {
+            var m = /^(.*\/)([^/]+)\/$/.exec(href);
+            if (!m) return null;
+            parent = m[1];
+            name = decode(m[2]);
+          } else {
+            
+            var first = location.pathname.split('/').filter(Boolean)[0];
+            name = first ? decode(first) : '';
+          }
+          var head = parent === '/' ? (location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
+          return {
+            head: head,
+            list: folders(parent).then(function (fs) {
+              return fs && fs.map(function (f) {
+                var seg = f.name + (f.archive ? '.d' : '');
+                return { name: f.name, archive: f.archive, href: parent + encodeURIComponent(seg) + '/', current: seg === name };
+              });
+            }),
+          };
+        }
+
+        function render(head, list) {
+          var html = '<div class="cp-head">' + escapeHTML(head) + '</div><ul>';
+          list.forEach(function (f) {
+            html += '<li><a href="' + escapeHTML(f.href) + '"' + (f.current ? ' class="current" aria-current="true"' : '') + '>' +
+              (f.archive ? ARCHIVE : FOLDER) + '<span>' + escapeHTML(f.name) + '</span></a></li>';
+          });
+          panel.innerHTML = html + '</ul>';
+          panel.setAttribute('aria-label', head);
+        }
+
+        
+        
+        function place(a) {
+          var r = a.getBoundingClientRect(), gutter = 12;
+          var room = Math.max(160, innerHeight - r.bottom - 6 - gutter);
+          panel.style.maxHeight = room + 'px';
+          var w = panel.offsetWidth;
+          var left = Math.max(gutter, Math.min(r.left, innerWidth - w - gutter));
+          panel.style.left = (left + scrollX) + 'px';
+          panel.style.top = (r.bottom + 6 + scrollY) + 'px';
+          var cur = panel.querySelector('.current');
+          if (cur) panel.scrollTop = Math.max(0, cur.offsetTop - room / 2);
+        }
+
+        function links() {
+          return panel.querySelectorAll('a');
+        }
+
+        var ctl = hoverPanel.attach(crumbs, 'a', {
+          focus: true,
+          panel: function () { return panel; },
+          open: function (a, how) {
+            var my = ++shown, what = contents(a);
+            if (!what) { ctl.close(); return; }
+            a.setAttribute('aria-controls', 'crumb-panel');
+            a.setAttribute('aria-expanded', 'true');
+            what.list.then(function (list) {
+              if (my !== shown || !ctl.isOpen(a)) return;
+              if (!list || !list.length) { ctl.close(); return; }
+              render(what.head, list);
+              place(a);
+              hoverPanel.show(panel, true);
+              if (how === 'key') (panel.querySelector('.current') || links()[0]).focus();
+            });
+          },
+          close: function (a) {
+            shown++;
+            a.setAttribute('aria-expanded', 'false');
+            hoverPanel.show(panel, false);
+          },
+        });
+
+        
+        
+        panel.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+          var as = links(), i = Array.prototype.indexOf.call(as, e.target);
+          if (i < 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.key === 'ArrowDown') { if (as[i + 1]) as[i + 1].focus(); }
+          else if (i > 0) as[i - 1].focus();
+          else {
+            var anchor = crumbs.querySelector('.hp-anchor');
+            if (anchor) anchor.focus();
+          }
+        });
       })();
     })();
   </script>
@@ -4476,6 +4970,11 @@
           return href && href.charAt(href.length - 1) === '/' ? href : '';
         }
 
+        
+        function itemOf(url, it) {
+          return { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+        }
+
         function next() {
           while (asking < LIMIT && waiting.length) ask(waiting.shift());
         }
@@ -4510,12 +5009,14 @@
             row.classList.remove('has-strip');
             return;
           }
+          
+          strip.all = items.map(function (it) { return itemOf(url, it); });
           items = items.slice(0, Math.floor((room + GAP) / (THUMB + GAP)) + 1);
           
           if (items.length >= 3) strip.classList.add('fade');
           var settled = 0;
-          items.forEach(function (it) {
-            var item = { url: url + it.file.split('/').map(encodeURIComponent).join('/'), video: !!it.video };
+          items.forEach(function (it, i) {
+            var item = strip.all[i];
             var img = doc.createElement('img');
             img.alt = '';
             img.decoding = 'async';
@@ -4553,8 +5054,115 @@
         for (var i = 0; i < rowEls.length; i++) {
           if (rowDir[i] && folderURL(rowEls[i])) seen.observe(rowEls[i]);
         }
+        stripSlideshow();
         return {};
       })();
+
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      function stripSlideshow() {
+        var hp = window.gowsHoverPanel;
+        if (!hp) return;
+        
+        
+        var STEP = 700, THUMB = 40, GAP = 4;
+        var show = null;
+
+        function stripOf(row) {
+          return row.querySelector('.row-strip');
+        }
+
+        
+        function want(track, i) {
+          var img = track.children[i];
+          if (!img || img._wanted) return;
+          img._wanted = true;
+          thumbLoader.load(img, tileThumbURL(img._item, THUMB), function (ok) {
+            if (ok) img.classList.add('ready');
+          }, false, true);
+        }
+
+        function play(row) {
+          stop();
+          var strip = stripOf(row), all = strip.all;
+          
+          
+          var fit = Math.max(1, Math.floor((strip.clientWidth + GAP) / (THUMB + GAP)));
+          var panel = doc.createElement('span');
+          panel.className = 'strip-show hover-panel';
+          panel.setAttribute('aria-hidden', 'true');
+          var track = doc.createElement('span');
+          track.className = 'strip-track';
+          var frames = all.concat(all.slice(0, fit + 1));
+          frames.forEach(function (item) {
+            var img = doc.createElement('img');
+            img.alt = '';
+            img.decoding = 'async';
+            img.draggable = false;
+            img._item = item;
+            track.appendChild(img);
+          });
+          panel.appendChild(track);
+          strip.appendChild(panel);
+          for (var i = 0; i <= fit + 1; i++) want(track, i);
+          var s = show = { row: row, panel: panel, track: track, k: 0, timer: 0 };
+          function step() {
+            if (show !== s) return;
+            s.k++;
+            track.classList.remove('jump');
+            track.style.transform = 'translateX(' + s.k * (THUMB + GAP) + 'px)';
+            want(track, s.k + fit + 1);
+            if (s.k >= all.length) {
+              
+              s.timer = setTimeout(function () {
+                if (show !== s) return;
+                s.k = 0;
+                track.classList.add('jump');
+                track.style.transform = '';
+                s.timer = setTimeout(step, STEP / 2);
+              }, STEP / 2);
+              return;
+            }
+            s.timer = setTimeout(step, STEP);
+          }
+          s.timer = setTimeout(step, STEP);
+          
+          requestAnimationFrame(function () { if (show === s) hp.show(panel, true); });
+        }
+
+        function stop() {
+          if (!show) return;
+          var s = show;
+          show = null;
+          clearTimeout(s.timer);
+          hp.show(s.panel, false);
+          Array.prototype.forEach.call(s.track.children, function (img) { if (img._wanted) thumbLoader.cancel(img); });
+          setTimeout(function () { s.panel.remove(); }, 300);
+        }
+
+        hp.attach(doc.body, '.row.has-strip', {
+          
+          grace: 0,
+          when: function (row) {
+            var strip = stripOf(row);
+            return !hp.reducedMotion.matches && !!strip && !!strip.all && strip.all.length > 1;
+          },
+          open: play,
+          close: stop,
+        });
+      }
 
       
       
