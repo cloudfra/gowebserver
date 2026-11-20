@@ -234,7 +234,10 @@ func (c *Config) String() string {
 }
 
 // Load loads the configuration for the server from the command line,
-// os.Args, and the configuration file it names.
+// os.Args, and the configuration file it names. The flags are the
+// server's own, on a FlagSet of their own: flag.CommandLine isn't
+// parsed, so a program's flags (or those of the test binary) aren't
+// accepted, and a program that imports the package keeps only its own.
 func Load() (*Config, error) {
 	return loadArgs(os.Args[1:])
 }

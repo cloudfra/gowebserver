@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
@@ -53,8 +54,10 @@ const (
 //     a year;
 //   - any other path is the app's own route and gets its index page,
 //     with "Cache-Control: no-cache", unless it names a file (its last
-//     segment has an extension) or is under ImmutablePrefix, which is a
-//     404: a missing script must not come back as HTML;
+//     segment ends in an extension with a known media type, such as
+//     .js, .css or .png; /users/jane.doe is a route) or is under
+//     ImmutablePrefix, which is a 404: a missing script must not come
+//     back as HTML;
 //   - with no index page in fsys, those get a 503 that says so.
 //
 // It lists no folders, and the query string is the app's: nothing in it
@@ -90,13 +93,20 @@ func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if name != "" && s.serveFile(w, r, name, immutable) {
 		return
 	}
-	if immutable || path.Ext(name) != "" {
+	if immutable || isFileName(name) {
 		http.NotFound(w, r)
 		return
 	}
 	if !s.serveFile(w, r, s.o.Index, false) {
 		http.Error(w, "the app's "+s.o.Index+" is missing: it hasn't been built, or not into this folder", http.StatusServiceUnavailable)
 	}
+}
+
+// isFileName reports whether name's last segment is a file's name: it
+// ends in an extension with a known media type.
+func isFileName(name string) bool {
+	ext := path.Ext(name)
+	return ext != "" && mime.TypeByExtension(ext) != ""
 }
 
 // serveFile serves the file at name in fsys, reporting false when there

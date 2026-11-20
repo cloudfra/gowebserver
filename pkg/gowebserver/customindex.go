@@ -51,23 +51,26 @@ func isSupportedGit(filePath string) bool {
 }
 
 func newHandlerFromFS(fsSpec string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, func() error, error) {
-	return newHandlerFromFSContext(context.Background(), fsSpec, mc, pages, thumbs)
+	return newHandlerFromFSContext(context.Background(), fsSpec, "", mc, pages, thumbs)
 }
 
 // newHandlerFromFSContext serves fsSpec, a ufs URI or an http(s) URL to
-// pass requests on to. The function it returns closes what it opened.
-func newHandlerFromFSContext(ctx context.Context, fsSpec string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, func() error, error) {
+// pass requests on to, named source in the thumbnail store (fsSpec when
+// empty). The function it returns closes what it opened.
+func newHandlerFromFSContext(ctx context.Context, fsSpec, source string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, func() error, error) {
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
-		handler, err := newHTTPReverseProxy(fsSpec, mc)
-		return handler, nilFuncWithError, err
+		return newHTTPReverseProxy(fsSpec, mc)
 	}
 
 	nFS, err := ufs.New(ctx, fsSpec)
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
-	h, err := newContentHandler(nFS, fsSpec, mc, pages, thumbs)
+	if source == "" {
+		source = fsSpec
+	}
+	h, err := newContentHandler(nFS, source, mc, pages, thumbs)
 	if err != nil {
 		return nil, nilFuncWithError, errors.Join(err, nFS.Close())
 	}
@@ -95,7 +98,7 @@ func newContentHandler(fsys fs.FS, source string, mc *monitoringContext, pages p
 		// The page's events, at the handler's root (see diagLog.pageEndpoint).
 		files := h
 		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/"+diagEndpoint {
+			if rootedPath(r) == "/"+diagEndpoint {
 				setRequestHandler(r, handlerDebug)
 				d.ServeHTTP(w, r)
 				return

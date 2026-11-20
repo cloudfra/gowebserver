@@ -43,6 +43,13 @@ type Options struct {
 	// it: a folder, an archive (zip, tar, 7z, rar), a git repository, or
 	// an http(s) URL whose server requests are passed on to.
 	Path string
+	// Source names the content in the thumbnail store, which keeps each
+	// source's thumbnails apart and knows a file's by its name, size and
+	// modification time. Empty is Path, or "fs:" for FS. Give each FS
+	// that shares a Thumbnails.CachePath a name of its own, and change
+	// it when files can change without their time changing, as in an
+	// embed.FS (whose times are all zero): its build's version will do.
+	Source string
 
 	// EnhancedIndex lists folders with the file browser and gallery
 	// rather than a plain list.
@@ -71,7 +78,10 @@ type Options struct {
 	Logger *slog.Logger
 	// MeterProvider and TracerProvider receive the handler's metrics and
 	// spans (the same names and labels as the standalone server's). Nil
-	// is a no-op; the otel globals are never read or set.
+	// is a no-op; the otel globals are never read or set. Two handlers
+	// on one MeterProvider report the same series, so the thumbnail
+	// store's gauges are one handler's; give each its own provider, or
+	// a view that tells them apart, to see both.
 	MeterProvider  metric.MeterProvider
 	TracerProvider trace.TracerProvider
 }
@@ -81,7 +91,9 @@ type ThumbnailOptions struct {
 	// Disabled turns thumbnails off.
 	Disabled bool
 	// CachePath is the BoltDB file that keeps thumbnails across
-	// restarts. Empty keeps them in memory, for the life of the handler.
+	// restarts (see Options.Source). Empty keeps them in memory, for the
+	// life of the handler. One process can't open it twice: a second
+	// handler given the same file keeps its thumbnails in memory.
 	CachePath string
 }
 
@@ -170,13 +182,17 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 	pages := pageOptions{enhancedList: o.EnhancedIndex, mounted: true, title: o.Title}
 	var content http.Handler
 	if o.FS != nil {
-		content, err = newContentHandler(o.FS, "fs:", mc, pages, thumbs)
+		source := o.Source
+		if source == "" {
+			source = "fs:"
+		}
+		content, err = newContentHandler(o.FS, source, mc, pages, thumbs)
 		if err != nil {
 			return nil, fmt.Errorf("gowebserver: %w", err)
 		}
 	} else {
 		var closeFS func() error
-		content, closeFS, err = newHandlerFromFSContext(ctx, o.Path, mc, pages, thumbs)
+		content, closeFS, err = newHandlerFromFSContext(ctx, o.Path, o.Source, mc, pages, thumbs)
 		if err != nil {
 			return nil, fmt.Errorf("gowebserver: %s: %w", o.Path, err)
 		}
@@ -187,6 +203,9 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 		if o.Upload.Dir == "" {
 			return nil, errors.New("gowebserver: Options.Upload.Path is set without Upload.Dir")
 		}
+		if strings.Trim(o.Upload.Path, "/") == "" {
+			return nil, errors.New("gowebserver: Options.Upload.Path can't be the handler's root, which is the content's")
+		}
 		route := "/" + strings.Trim(o.Upload.Path, "/")
 		// The page links to itself relative to where it is, so it stays
 		// under the mount.
@@ -196,7 +215,7 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 		}
 		files := content
 		content = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == route {
+			if rootedPath(r) == route {
 				setRequestHandler(r, handlerUpload)
 				upload.ServeHTTP(w, r)
 				return
@@ -258,6 +277,15 @@ func (p pageOptions) home(r *http.Request) string {
 		return ""
 	}
 	return mountRoot(r)
+}
+
+// rootedPath is r's path with a leading slash, which http.StripPrefix
+// with a trailing slash ("/media/") leaves off.
+func rootedPath(r *http.Request) string {
+	if strings.HasPrefix(r.URL.Path, "/") {
+		return r.URL.Path
+	}
+	return "/" + r.URL.Path
 }
 
 // mountRoot is the URL of the root of the handler serving r, relative to

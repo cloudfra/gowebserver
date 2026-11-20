@@ -549,3 +549,80 @@ func TestMountRoot(t *testing.T) {
 		}
 	}
 }
+
+// Mounted with http.StripPrefix("/media/"), which leaves paths without
+// their leading slash, the optional endpoints are still found.
+func TestHandlerStripPrefixWithSlash(t *testing.T) {
+	tmp := t.TempDir()
+	h := newTestHandler(t, Options{
+		FS:          os.DirFS(mediaDir(t)),
+		Upload:      UploadOptions{Path: "upload", Dir: filepath.Join(tmp, "uploads")},
+		Diagnostics: filepath.Join(tmp, "diag.log"),
+	})
+	mux := http.NewServeMux()
+	mux.Handle("/media/", http.StripPrefix("/media/", h))
+	if rec := mountGet(t, mux, http.MethodGet, "/media/upload", nil); rec.Code != http.StatusOK {
+		t.Errorf("GET /media/upload: %d", rec.Code)
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/media/__diag", strings.NewReader(`{"ev":"page"}`)))
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("POST /media/__diag: %d", rec.Code)
+	}
+	if rec := mountGet(t, mux, http.MethodGet, "/media/notes.txt", nil); rec.Code != http.StatusOK {
+		t.Errorf("GET /media/notes.txt: %d", rec.Code)
+	}
+}
+
+// Options that can't work are errors, not a broken handler or a panic.
+func TestNewHandlerBadOptions(t *testing.T) {
+	for name, o := range map[string]Options{
+		"upload at the root": {FS: os.DirFS(t.TempDir()), Upload: UploadOptions{Path: "/", Dir: t.TempDir()}},
+		"malformed URL":      {Path: "http://[::1"},
+		"URL without a host": {Path: "http://"},
+	} {
+		h, err := NewHandler(t.Context(), o)
+		if err == nil {
+			t.Errorf("%s: no error", name)
+			if err := h.Close(); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+}
+
+// A folder whose name starts with "http" is a folder, not a server.
+func TestNewHandlerHTTPNamedFolder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "httpdocs")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mux := hostMux(t, newTestHandler(t, Options{Path: dir}))
+	if rec := mountGet(t, mux, http.MethodGet, "/media/a.txt", nil); rec.Code != http.StatusOK || rec.Body.String() != "a" {
+		t.Errorf("GET /media/a.txt: %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+// A proxying handler's connections are its own, and Close closes them.
+func TestNewHandlerProxyClose(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := io.WriteString(w, "upstream"); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer upstream.Close()
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	h, err := NewHandler(t.Context(), Options{Path: upstream.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := mountGet(t, hostMux(t, h), http.MethodGet, "/media/x", nil); rec.Body.String() != "upstream" {
+		t.Errorf("proxied: %d %q", rec.Code, rec.Body.String())
+	}
+	if err := h.Close(); err != nil {
+		t.Fatal(err)
+	}
+}

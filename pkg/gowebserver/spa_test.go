@@ -38,7 +38,7 @@ func TestSPA(t *testing.T) {
 	h := SPA(spaBuild, SPAOptions{ImmutablePrefix: "assets/"})
 	index := string(spaBuild["index.html"].Data)
 
-	for _, target := range []string{"/", "/settings", "/users/42/edit", "/users/42/", "/docs/guide/", "/index.html", "/a/../b", "/settings?tab=2&view=rich&width=64&preview&sort=size&folders"} {
+	for _, target := range []string{"/", "/settings", "/users/42/edit", "/users/42/", "/docs/guide/", "/index.html", "/a/../b", "/settings?tab=2&view=rich&width=64&preview&sort=size&folders", "/users/jane.doe", "/releases/v1.2"} {
 		rec := mountGet(t, h, http.MethodGet, target, nil)
 		if rec.Code != http.StatusOK || rec.Body.String() != index {
 			t.Errorf("GET %s: %d %q, want the app's index", target, rec.Code, rec.Body.String())

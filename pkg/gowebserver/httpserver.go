@@ -125,6 +125,15 @@ func (k *killHTTPServerHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 
 func (ws *webServerImpl) Serve(wait func()) error {
 	allCleanups := []func() error{}
+	// In reverse: the diagnostics log, opened first, is closed last, so
+	// what's closed before it can still write to it.
+	defer func() {
+		for i := len(allCleanups) - 1; i >= 0; i-- {
+			if err := allCleanups[i](); err != nil {
+				slog.Error("cleanup error", "error", err)
+			}
+		}
+	}()
 
 	displayPath := ""
 	for i, paths := range ws.fileSystemServePath {
@@ -213,14 +222,6 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		allCleanups = append(allCleanups, cleanup)
 		ws.addHandler(serverMux, "/", fsHandler, handlerFile)
 	}
-
-	defer func() {
-		for _, cleanup := range allCleanups {
-			if err := cleanup(); err != nil {
-				slog.Error("cleanup error", "error", err)
-			}
-		}
-	}()
 
 	if len(ws.uploadHTTPPath) > 0 {
 		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath)
