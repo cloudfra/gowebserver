@@ -2921,8 +2921,10 @@ main {
   display: none;
 }
 
-/* A phone's video keeps the bottom edge for its own controls, the
-   scrubber above all (stripRoom in slideshow.js). */
+/* On a stage too small to keep a band for the strip (a phone, or a
+   window that small), a video keeps the bottom edge for its own
+   controls, the scrubber above all (stripRoom in slideshow.js, which
+   takes the focus off the strip first). */
 .ss.no-strip .ss-bottom {
   display: none;
 }
