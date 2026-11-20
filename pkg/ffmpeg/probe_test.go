@@ -155,7 +155,7 @@ func TestSpriteArgs(t *testing.T) {
 		t.Fatalf("Sprite = %q, %v", out, err)
 	}
 	args := readArgs(t, argsFile)
-	for _, want := range []string{"-skip_frame nokey -i clip.mp4", "fps=fps=1/18.000:round=down,scale=w=160:h=90:flags=bilinear,tile=10x30", "-frames:v 1", "-c:v mjpeg"} {
+	for _, want := range []string{"-skip_frame nokey -i clip.mp4", "fps=fps=1/18.000:round=down:eof_action=pass,scale=w=160:h=90:flags=bilinear,format=yuvj420p,tile=10x30", "-frames:v 1", "-c:v mjpeg"} {
 		if !strings.Contains(string(args), want) {
 			t.Errorf("args %q missing %q", args, want)
 		}
@@ -205,5 +205,18 @@ func TestProbeAndSpriteReal(t *testing.T) {
 	}
 	if cfg.Width != 128 || cfg.Height != 72 {
 		t.Errorf("sprite is %dx%d, want 128x72", cfg.Width, cfg.Height)
+	}
+
+	// Under a second, in full range, as a browser records one.
+	short := filepath.Join(dir, "short.webm")
+	if out, err := exec.Command(bin, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30:duration=0.9",
+		"-c:v", "libvpx", "-pix_fmt", "yuv420p", "-color_range", "pc", short).CombinedOutput(); err != nil {
+		t.Skipf("ffmpeg can't make a full-range video: %v: %s", err, out)
+	}
+	if sheet, err = f.Sprite(t.Context(), short, nil, SpriteOptions{Interval: 5 * time.Second, Columns: 1, Rows: 1, Width: 64, Height: 36}); err != nil {
+		t.Fatalf("a short full-range video: %v", err)
+	}
+	if cfg, err = jpeg.DecodeConfig(bytes.NewReader(sheet)); err != nil || cfg.Width != 64 || cfg.Height != 36 {
+		t.Errorf("short sprite is %dx%d (%v), want 64x36", cfg.Width, cfg.Height, err)
 	}
 }

@@ -673,7 +673,7 @@ func TestListingFolderNamedLikeAVideo(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{"notes.mp4/inside.txt": "x", "notes.srt": "1\n", "talk.mp4": "x", "talk.vtt/inside.txt": "x"})
 	page := serveGet(t, videoMetaServer(t, dir, "", false), "/").Body.String()
-	if !strings.Contains(page, `<span class="name">notes.srt</span>`) {
+	if !strings.Contains(page, `"notes.srt","notes.srt"`) {
 		t.Error("notes.srt is hidden as the sidecar of a folder")
 	}
 	if regexp.MustCompile(`\[1,"talk.mp4","talk.mp4", 1 , \d+ , \d+ \]`).MatchString(page) {
