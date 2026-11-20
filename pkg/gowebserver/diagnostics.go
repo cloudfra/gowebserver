@@ -502,8 +502,7 @@ func diagPageEndpoint(requestURI string) string {
 	if !diagEnabled() {
 		return ""
 	}
-	p, _, _ := strings.Cut(requestURI, "?")
-	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0)) + diagEndpoint
+	return rootRelative(requestURI) + diagEndpoint
 }
 
 // startFailure is why ffmpeg couldn't be started, from a fixed list, or

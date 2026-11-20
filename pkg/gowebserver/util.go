@@ -102,7 +102,7 @@ func copyFile(reader io.Reader, createdTime time.Time, modifiedTime time.Time, f
 }
 
 // pageThemeHTML holds the templates the file browser and the file viewer
-// share (page-style, page-script); see its header.
+// share (page-style, page-script, page-script-js); see its header.
 var pageThemeHTML = mustLoadTemplate("page-theme")
 
 var validChars = map[rune]interface{}{
@@ -158,21 +158,24 @@ func nilFuncWithError() error {
 	return nil
 }
 
+// templateFuncs are the functions the page templates call.
+var templateFuncs = map[string]any{
+	"humanizeBytes":     humanize.Bytes,
+	"isImage":           isImage,
+	"isAudio":           isAudio,
+	"isVideo":           isVideo,
+	"isMedia":           isMedia,
+	"isOdd":             isOdd,
+	"isEven":            isEven,
+	"humanizeDate":      humanizeDate,
+	"humanizeTimestamp": humanizeTimestamp,
+	"stepBegin":         stepBegin,
+	"stepEnd":           stepEnd,
+	"urlEncode":         urlEncode,
+}
+
 func createTemplate(tmplText []byte) (*template.Template, error) {
-	tmpl := template.New("").Funcs(template.FuncMap{
-		"humanizeBytes":     humanize.Bytes,
-		"isImage":           isImage,
-		"isAudio":           isAudio,
-		"isVideo":           isVideo,
-		"isMedia":           isMedia,
-		"isOdd":             isOdd,
-		"isEven":            isEven,
-		"humanizeDate":      humanizeDate,
-		"humanizeTimestamp": humanizeTimestamp,
-		"stepBegin":         stepBegin,
-		"stepEnd":           stepEnd,
-		"urlEncode":         urlEncode,
-	})
+	tmpl := template.New("").Funcs(templateFuncs)
 	if _, err := tmpl.Parse(string(tmplText)); err != nil {
 		return nil, err
 	}
@@ -251,6 +254,26 @@ func urlEncode(u string) string {
 // The "./" keeps a name containing ':' from being read as a URL scheme.
 func relativeURL(name string) string {
 	return "./" + url.PathEscape(name)
+}
+
+// rootRelative returns the relative link from a page at urlPath up to the
+// root urlPath is under, ending in "/": "./" and a "../" for each
+// directory below it. urlPath is escaped, as the browser resolves links
+// against it, and any query is ignored.
+//
+// Which root depends on the path given. A handler's own path (after
+// http.StripPrefix, r.URL.EscapedPath()) leads to its mount's root, which
+// is where the page assets are served, so that they work wherever the
+// handler is mounted, by gowebserver or by a program it's embedded in.
+// The full request (r.RequestURI) leads to the server's root, where the
+// diagnostics endpoint is.
+func rootRelative(urlPath string) string {
+	p, _, _ := strings.Cut(urlPath, "?")
+	if !strings.HasPrefix(p, "/") {
+		// http.StripPrefix("/media/") leaves "a/b/" for /media/a/b/.
+		p = "/" + p
+	}
+	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0))
 }
 
 // redirectRelative writes a redirect to target without resolving it against

@@ -39,6 +39,7 @@ const (
 	handlerUpload    = "upload"
 	handlerProxy     = "proxy" // passed on to another server
 	handlerIndex     = "index" // the list of served paths
+	handlerAsset     = "asset" // the file browser's styles and scripts
 	handlerDebug     = "debug"
 )
 

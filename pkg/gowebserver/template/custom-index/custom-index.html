@@ -12,11 +12,11 @@
       if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     } catch (e) { }
   </script>
-  <style>
-    {{template "page-style"}}
-
-    {{include "custom-index.css"}}
-  </style>
+  {{- /* The styles and scripts are the same on every folder's page, so
+         they are files of their own that the browser keeps
+         (pageassets.go), defined at the end of this file. The icons stay
+         in the page, so that they draw without JavaScript. */}}
+  <link rel="stylesheet" href="{{.Assets}}custom-index.css">
 </head>
 
 <body>
@@ -423,7 +423,6 @@
     </div>
   </dialog>
 
-  {{template "page-script"}}
   <script>
     window.GOWS = {
       sort: {{.SortBy}},
@@ -445,7 +444,32 @@
       ]
     };
   </script>
-  <script>
+  <script src="{{.Assets}}page-theme.js"></script>
+  <script src="{{.Assets}}custom-index.js"></script>
+</body>
+
+</html>
+{{- /*
+  The page's assets, each defined under the name it is served as. They are
+  made once, with no data, so nothing in them may depend on the folder;
+  pageassets.go serves them under a hash of their content, which the
+  page's .Assets leads to, so that the browser keeps them for good.
+*/}}
+{{- define "custom-index.css"}}
+{{template "page-style"}}
+
+    {{include "custom-index.css"}}
+{{end}}
+
+{{- /* The scripts every page shares (page-theme). A file of their own,
+       so that a throw in them doesn't stop the file browser's. */}}
+{{- define "page-theme.js"}}
+{{template "page-script-js"}}
+{{end}}
+
+{{- /* The file browser's own scripts, in one function so they share a
+       scope. */}}
+{{- define "custom-index.js"}}
     (function () {
       'use strict';
 
@@ -470,7 +494,4 @@
 
       {{include "main.js"}}
     })();
-  </script>
-</body>
-
-</html>
+{{end}}

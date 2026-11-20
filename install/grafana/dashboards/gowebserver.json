@@ -468,7 +468,7 @@
     {
       "type": "timeseries",
       "title": "Requests by handler",
-      "description": "What answered: file (a file's bytes), listing (the file browser's page), thumbnail, richview (the text viewer), upload, proxy, index (the list of served paths).",
+      "description": "What answered: file (a file's bytes), listing (the file browser's page), thumbnail, richview (the text viewer), upload, proxy, index (the list of served paths), asset (the file browser's styles and scripts).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"

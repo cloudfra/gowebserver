@@ -154,7 +154,92 @@ test('the theme button switches the page and remembers', async () => {
   assert.equal(await b.page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'before the page draws');
 });
 
+// The icons are in the page, not a script, so they draw with JavaScript
+// off too. The rows are list.js's, so with it off there are none, but the
+// sort arrow draws from the page's icons, and so do the rows' once built.
+test('the icons are in the page: the sort arrow draws without JavaScript, the rows from them', async () => {
+  const ctx = await b.browser.newContext({ javaScriptEnabled: false });
+  try {
+    const pg = await ctx.newPage();
+    await pg.goto(srv.url);
+    assert.equal(await pg.locator('#icon-folder').count(), 1);
+    const width = await pg.locator('.seg [aria-current] use').first().evaluate((u) => u.getBBox().width);
+    assert.ok(width > 0, 'the sort arrow has a size: ' + width);
+  } finally {
+    await ctx.close();
+  }
+  await b.page.goto(srv.url);
+  const width = await b.page.locator('.row[data-dir] .chip use').first().evaluate((u) => u.getBBox().width);
+  assert.ok(width > 0, 'a row icon has a size: ' + width);
+});
+
+// The shared scripts are a file apart from the file browser's own, so a
+// throw in them leaves the folder working.
+test('the folder works when the shared scripts fail', async () => {
+  const ctx = await b.browser.newContext();
+  try {
+    const pg = await ctx.newPage();
+    const errors = [];
+    pg.on('pageerror', (e) => errors.push(e.message));
+    await pg.route(/\/_gows\/[0-9a-f]+\/page-theme\.js$/, (route) => route.fulfill({
+      contentType: 'text/javascript', body: 'throw new Error("shared scripts broke");',
+    }));
+    await pg.goto(srv.url);
+    await pg.waitForSelector('.tile');
+    assert.deepEqual(errors, ['shared scripts broke']);
+    assert.equal(await pg.locator('#summary').textContent(), '1 folder, 1 file, ' + (PHOTOS + 1) + ' photos');
+  } finally {
+    await ctx.close();
+  }
+});
+
+// The styles and scripts are files every folder's page links to
+// (pageassets.go), so the next folder downloads only its own page.
+test('another folder\'s page takes its styles and scripts from the cache', async () => {
+  const assets = () => b.page.evaluate(() => performance.getEntriesByType('resource')
+    .filter((e) => e.name.includes('/_gows/'))
+    .map((e) => ({ url: e.name, transferSize: e.transferSize })));
+  const first = await assets();
+  assert.equal(first.length, 3, JSON.stringify(first));
+
+  await b.page.goto(srv.url + 'docs/');
+  await b.page.waitForSelector('.row');
+  const next = await assets();
+  assert.deepEqual(next.map((e) => e.url).sort(), first.map((e) => e.url).sort(), 'the same URLs from either folder');
+  for (const e of next) assert.equal(e.transferSize, 0, e.url + ' came over the network');
+  assert.equal(await count('#icon-folder'), 1);
+  assert.equal(await b.page.locator('#summary').textContent(), '1 file');
+});
+
 test('nothing went wrong along the way', () => {
   // The broken picture is the one thing meant to fail.
   assert.deepEqual(b.problems.filter((p) => p.indexOf('zz-broken.jpg') < 0), []);
+});
+
+// Under a serve path, each folder's page takes its styles and scripts
+// from under that path (its mount's root), not the server's root, so they
+// work wherever the handler is mounted.
+test('under a serve path, the assets come from the serve path', async () => {
+  const sub = await serve({ files: { 'docs/deep/er/readme.md': '# readme\n' }, args: ['-servepath', '/media/'] });
+  const ctx = await b.browser.newContext();
+  try {
+    const pg = await ctx.newPage();
+    const bad = [];
+    pg.on('pageerror', (e) => bad.push(e.message));
+    pg.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ': ' + r.url()); });
+    for (const folder of ['media/', 'media/docs/deep/er/']) {
+      await pg.goto(sub.url + folder);
+      await pg.waitForSelector('.row');
+      const assets = await pg.evaluate(() => performance.getEntriesByType('resource')
+        .filter((e) => e.name.includes('/_gows/')).map((e) => new URL(e.name).pathname));
+      assert.equal(assets.length, 3, folder + ': ' + JSON.stringify(assets));
+      for (const a of assets) assert.match(a, /^\/media\/_gows\/[0-9a-f]{16}\//, folder);
+      // Styled: the toolbar is laid out by custom-index.css.
+      assert.equal(await pg.locator('#toolbar').evaluate((el) => getComputedStyle(el).display), 'flex');
+    }
+    assert.deepEqual(bad, []);
+  } finally {
+    await ctx.close();
+    sub.close();
+  }
 });

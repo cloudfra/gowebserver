@@ -12,18 +12,23 @@
   with data-from-path is named from the URL (the file browser's folder).
   It also sets window.gowsHoverPanel, the panels that open on a dwell
   (hover-panel.js), for the page's own script.
+  page-script-js is that script without its <script> element, for a page
+  that serves its scripts as a file of their own (pageassets.go).
 */}}
 {{define "page-style"}}
     {{include "page-theme.css"}}
 {{end}}
 
 {{define "page-script"}}
-  <script>
+  <script>{{template "page-script-js"}}
+  </script>
+{{end}}
+
+{{define "page-script-js"}}
     (function () {
       'use strict';
       {{include "hover-panel.js"}}
       {{include "page-theme.js"}}
       {{include "crumb-panel.js"}}
     })();
-  </script>
-{{end}}
+{{- end}}
