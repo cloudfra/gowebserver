@@ -30,6 +30,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -189,6 +190,9 @@ func TestHostFlags(t *testing.T) {
 		t.Skip("no go tool:", err)
 	}
 	bin := filepath.Join(t.TempDir(), "embedhost")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	build := exec.CommandContext(t.Context(), goTool, "build", "-o", bin, "github.com/cloudfra/gowebserver/internal/gowebserver/testing/embedhost")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
