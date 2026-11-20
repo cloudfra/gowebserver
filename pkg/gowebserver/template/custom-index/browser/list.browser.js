@@ -112,6 +112,21 @@ test('a folder row scrolled away and back gets its strip, and its slideshow play
   await trip().locator('.name').hover();
   await b.page.waitForSelector('#files-body .strip-show.hp-open');
   assert.equal(await trip().locator('.strip-show').count(), 1, 'on the new row');
+  // It plays as on any row: through the loop's reset and past it, every
+  // slot has a photo.
+  for (let i = 0; i < 6; i++) {
+    const gaps = await trip().locator('.strip-show').evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      const imgs = Array.from(panel.querySelectorAll('img')).map((img) => img.getBoundingClientRect());
+      let empty = 0;
+      for (let x = box.right - 20; x > box.left + 44; x -= 44) {
+        if (!imgs.some((r) => r.left <= x && x <= r.right)) empty++;
+      }
+      return empty;
+    });
+    assert.equal(gaps, 0, 'no empty slot, at step ' + i);
+    await b.page.waitForTimeout(350);
+  }
 });
 
 test('a filter that drops the row under a playing slideshow closes it', async () => {
