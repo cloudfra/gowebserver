@@ -39,15 +39,15 @@ else
 endif
 
 # Installed into TOOLCHAIN_CACHE like the Makefile_toolchain.mk tools.
-PROTOC_BIN = $(call tool_path,protoc,$(PROTOC_VERSION),$(PROTOC_PACKAGE))
+PROTOC_BIN = $(call tool_path,protoc,$(PROTOC_VERSION))
 PROTOC_GEN_GO_GO_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
-PROTOC_GEN_GO = $(call go_tool_path,protoc-gen-go,$(GOLANG_PROTOBUF_VERSION),$(PROTOC_GEN_GO_GO_PACKAGE))
+PROTOC_GEN_GO = $(call go_tool_path,protoc-gen-go,$(GOLANG_PROTOBUF_VERSION))
 PROTOC_GEN_GO_GRPC_GO_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
-PROTOC_GEN_GO_GRPC = $(call go_tool_path,protoc-gen-go-grpc,$(GOLANG_GRPC_VERSION),$(PROTOC_GEN_GO_GRPC_GO_PACKAGE))
+PROTOC_GEN_GO_GRPC = $(call go_tool_path,protoc-gen-go-grpc,$(GOLANG_GRPC_VERSION))
 PROTOC_GEN_GRPC_GATEWAY_GO_PACKAGE = github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
-PROTOC_GEN_GRPC_GATEWAY = $(call go_tool_path,protoc-gen-grpc-gateway,$(GRPC_GATEWAY_VERSION),$(PROTOC_GEN_GRPC_GATEWAY_GO_PACKAGE))
+PROTOC_GEN_GRPC_GATEWAY = $(call go_tool_path,protoc-gen-grpc-gateway,$(GRPC_GATEWAY_VERSION))
 PROTOC_GEN_OPENAPIV2_GO_PACKAGE = github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
-PROTOC_GEN_OPENAPIV2 = $(call go_tool_path,protoc-gen-openapiv2,$(GRPC_GATEWAY_VERSION),$(PROTOC_GEN_OPENAPIV2_GO_PACKAGE))
+PROTOC_GEN_OPENAPIV2 = $(call go_tool_path,protoc-gen-openapiv2,$(GRPC_GATEWAY_VERSION))
 
 PROTOC := GOPATH="$(TOOLCHAIN_DIR)" "$(PROTOC_BIN)"
 PROTOC_INCLUDE_FLAGS = -I "$(REPOSITORY_ROOT)" -I "$(THIRDPARTY_DIR)/grpc_gateway/include/" -I "$(THIRDPARTY_DIR)/google_protobuf/include/"

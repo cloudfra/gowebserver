@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
@@ -281,17 +282,45 @@ func (ws *webServerImpl) Serve(wait func()) error {
 
 	ws.setPorts(httpPort, httpsPort)
 
-	go func() {
-		if ws.certificateFilePath != "" {
-			checkError(http.ServeTLS(httpsSocket, httpHandler, ws.certificateFilePath, ws.privateKeyFilePath))
+	if ws.certificateFilePath != "" {
+		// A plain HTTP request to the HTTPS port is redirected to https://.
+		httpsListener, err := newHTTPSRedirectListener(httpsSocket, ws.monitoringCtx, httpsFirstByteTimeout, httpsRedirectTimeout)
+		if err != nil {
+			return err
 		}
-	}()
+		go func() {
+			checkError(newHTTPServer(httpHandler).ServeTLS(httpsListener, ws.certificateFilePath, ws.privateKeyFilePath))
+		}()
+	}
 	go func() {
-		checkError(http.Serve(httpSocket, httpHandler))
+		checkError(newHTTPServer(httpHandler).Serve(httpSocket))
 	}()
 
 	wait()
 	return nil
+}
+
+const (
+	// serverReadHeaderTimeout bounds a client's TLS handshake (http.Server
+	// gives the handshake the shortest of its read, write and read header
+	// timeouts) and the head of each request. A request's body and its
+	// response have no deadline, so a large upload or download takes as
+	// long as it needs.
+	serverReadHeaderTimeout = 20 * time.Second
+	// serverIdleTimeout closes a keep-alive connection (or an HTTP/2 one
+	// with no streams) left unused this long.
+	serverIdleTimeout = 2 * time.Minute
+)
+
+// newHTTPServer serves h on either port, so neither a client that stalls
+// in its TLS handshake or request head nor an idle keep-alive connection
+// holds a connection for good.
+func newHTTPServer(h http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		IdleTimeout:       serverIdleTimeout,
+	}
 }
 
 // New creates a new [WebServer] with the specified [Config].

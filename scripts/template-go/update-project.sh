@@ -28,9 +28,7 @@
 #
 # Step 2 only touches pins that hold a concrete version; a pin set to `latest`
 # is left alone. Every tool is pinned, so builds are reproducible and an
-# installed tool is only replaced when its pin moves. The exception is
-# gocover-cobertura, whose upstream has no tagged release: it is pinned to a
-# pseudo-version and has to be bumped by hand.
+# installed tool is only replaced when its pin moves.
 #
 # ANDROID_NDK_VERSION resolves from the android/ndk GitHub releases, whose tags
 # are the download-suffix the makefile builds its URL from (r28c, r29, r30).
@@ -332,7 +330,6 @@ sync_template() {
 PIN_SOURCES=(
   "ACTIONLINT:goproxy:github.com/rhysd/actionlint"
   "DOCKERCOMPOSE:github:docker/compose"
-  "GOCOVER_COBERTURA:skip"
   "GOFUMPT:goproxy:mvdan.cc/gofumpt"
   "GOLANGCI_LINT:goproxy:github.com/golangci/golangci-lint/v2"
   "REVIVE:goproxy:github.com/mgechev/revive"

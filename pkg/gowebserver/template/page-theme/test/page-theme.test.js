@@ -37,7 +37,7 @@ function setup(opts) {
   $('tb-title').computed = { fontSize: '20px' };
   $('toolbar').offsetTop = 300;
   $('hero').offsetHeight = 300;
-  load(pg, ['page-theme/page-theme.js'], []);
+  load(pg, ['page-theme/hover-panel.js', 'page-theme/page-theme.js', 'page-theme/crumb-panel.js'], []);
   return {
     pg, $, root: pg.document.documentElement,
     crumbs: () => $('crumbs').querySelectorAll('a').map((a) => [a.textContent, a.href]),

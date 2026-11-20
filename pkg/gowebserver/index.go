@@ -26,6 +26,10 @@ var templateIndexHTML = mustLoadTemplate("template-index")
 
 type indexHTTPHandler struct {
 	page []byte
+	// folders is the answer to "/?folders": the serve paths, in the
+	// order they were configured, which is the order the page lists
+	// them in.
+	folders []subfolder
 }
 
 func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, error) {
@@ -36,7 +40,9 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	w := &bytes.Buffer{}
 
 	entries := make([]*DirEntry, len(servePaths))
+	folders := make([]subfolder, len(servePaths))
 	for idx, servePath := range servePaths {
+		folders[idx] = subfolder{Name: strings.Trim(servePath, "/")}
 		entries[idx] = &DirEntry{
 			Name:      strings.Trim(servePath, "/"),
 			IsDir:     true,
@@ -60,11 +66,16 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	}
 
 	return &indexHTTPHandler{
-		page: w.Bytes(),
+		page:    w.Bytes(),
+		folders: folders,
 	}, nil
 }
 
-func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" && r.URL.Query().Has("folders") {
+		writeSubfolders(w, h.folders)
+		return
+	}
 	w.Header().Add("Content-Type", "text/html")
 	if _, err := w.Write(h.page); err != nil {
 		slog.Warn("cannot write index response", "error", err)

@@ -244,19 +244,20 @@ func TestWebServer_Serve_SpecialCharDirListing(t *testing.T) {
 	}
 	html := string(body)
 
-	expectedHrefs := []string{
-		"weird%23.txt",
-		"weird$.txt",
-		"weird%20%231.txt",
+	// The list's rows are built in the page from its files array, each
+	// entry's link (escaped for the URL) beside its name.
+	expected := []struct{ href, name string }{
+		{"weird%23.txt", "weird#.txt"},
+		{"weird$.txt", "weird$.txt"},
+		{"weird%20%231.txt", "weird #1.txt"},
 	}
 
 	t.Logf("Directory listing HTML length: %d", len(html))
-	for _, href := range expectedHrefs {
-		if !strings.Contains(html, fmt.Sprintf(`href="%s"`, href)) &&
-			!strings.Contains(html, fmt.Sprintf(`href="%s?view=rich"`, href)) {
-			t.Errorf("expected href containing %q not found in directory listing", href)
+	for _, e := range expected {
+		if want := fmt.Sprintf(`,%q,%q,`, e.href, e.name); !strings.Contains(html, want) {
+			t.Errorf("expected entry %s not found in directory listing", want)
 		} else {
-			t.Logf("Found href with %q", href)
+			t.Logf("Found entry with %q", e.href)
 		}
 	}
 }

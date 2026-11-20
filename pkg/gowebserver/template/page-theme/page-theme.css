@@ -282,6 +282,112 @@
   color: var(--ink-3);
 }
 
+/* A crumb whose panel is open stays lit, as it does under the pointer. */
+.crumbs a.hp-anchor {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* ===== Hover panels =====
+ * A panel that opens when the pointer rests on something (hover-panel.js):
+ * the breadcrumb's folders, a folder row's slideshow. It fades in and
+ * settles from a few pixels off (--hp-from), on the scrubber label's
+ * curve, and goes the same way. Hidden with visibility, so a closed
+ * panel is out of the tab order and away from screen readers; the
+ * global reduced-motion rule below cuts the motion. */
+.hover-panel {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(var(--hp-from, -4px));
+  transition: opacity 0.2s, transform 0.25s var(--ease), visibility 0s 0.25s;
+}
+
+.hover-panel.hp-open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.2s, transform 0.25s var(--ease), visibility 0s;
+}
+
+/* The breadcrumb's folders (crumb-panel.js): a floating list under the
+ * crumb, placed by the script. Above the title (21), the sticky toolbar
+ * (20) and the scrubber (25), which it overlaps. Full names wrap rather
+ * than being cut short as the crumbs are. */
+.crumb-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  min-width: 200px;
+  max-width: min(360px, calc(100vw - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  box-shadow: var(--shadow-pop);
+  font-size: 0.875rem;
+}
+
+.crumb-panel .cp-head {
+  padding: 6px 10px 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb-panel ul {
+  list-style: none;
+}
+
+.crumb-panel a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.crumb-panel a span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.crumb-panel a:hover,
+.crumb-panel a:focus-visible {
+  background: var(--hover);
+}
+
+.crumb-panel a.current {
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.crumb-panel svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--icon-folder);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.crumb-panel a.current svg {
+  stroke: currentColor;
+}
+
 .title {
   margin-top: 10px;
   font-family: var(--font-display);

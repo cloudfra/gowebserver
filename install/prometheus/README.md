@@ -55,6 +55,7 @@ Metric | Labels | What it measures
 `http_server_time_to_first_byte_seconds` | `handler` | From a request arriving to its response starting.
 `http_server_active_requests` | `handler` | Requests being served now.
 `http_server_response_body_size_bytes` | `handler`, ... | Response sizes.
+`https_port_plain_http_requests_total` | `result` (redirected, rejected) | Plain HTTP requests that reached the HTTPS port: redirected to `https://`, or rejected with a 400 (malformed, incomplete, or no usable `Host`).
 `http_client_request_duration_seconds` | `server_address`, `http_response_status_code` | Requests the reverse proxy passed on.
 `listing_stage_duration_seconds` | `stage` (open, read, stat, sort, render) | Each stage of listing a directory.
 `listing_entries` | | Entries in the directories listed.

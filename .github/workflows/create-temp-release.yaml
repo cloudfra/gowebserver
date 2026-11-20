@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Builds and publishes a temporary 1 day retained release on demand.
+# Builds a throwaway release package for the pull request that asked for it:
+# started by a '/create-temp-release' comment from a member of the organization
+# that owns the repo, or a manual run, and uploaded as an artifact retained for
+# 1 day. Unlike create-release.yaml this publishes nothing - no GitHub release
+# entry and no container images.
 name: Create Temporary Release
 
 on:
@@ -26,14 +30,27 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MAKEFLAGS: 'NICHE_PLATFORMS= LINUX_PLATFORMS=linux/amd64 WINDOWS_PLATFORMS=windows/amd64 RELEASE_PLATFORMS=linux/amd64\ windows/amd64'
+  # Folded for yamllint's 80-column rule: YAML joins these lines with a single
+  # space, which is the separator make splits MAKEFLAGS on. The `\ ` keeps
+  # RELEASE_PLATFORMS one assignment instead of two.
+  MAKEFLAGS: >-
+    NICHE_PLATFORMS=
+    LINUX_PLATFORMS=linux/amd64
+    WINDOWS_PLATFORMS=windows/amd64
+    RELEASE_PLATFORMS=linux/amd64\ windows/amd64
 
 jobs:
   build-temp-release:
-    # Only run if the comment is on a PR and matches our command keyword
+    # A comment trigger has to be on a pull request, mention the command, and
+    # come from someone in the organization that owns the repo: OWNER and
+    # MEMBER are org roles, COLLABORATOR is an outside collaborator. The job
+    # compiles that pull request's own code on a self-hosted runner.
     if: >-
-      (github.event.issue.pull_request && contains(github.event.comment.body, '/create-temp-release')) ||
-      (github.event_name == 'workflow_dispatch')
+      github.event_name == 'workflow_dispatch'
+      || (github.event.issue.pull_request
+      && contains(github.event.comment.body, '/create-temp-release')
+      && contains(fromJSON('["OWNER", "MEMBER"]'),
+      github.event.comment.author_association))
     name: "Build Temporary Release"
     runs-on: ["self-hosted", "linux"]
     timeout-minutes: 30
@@ -44,6 +61,14 @@ jobs:
       - name: Checkout code
         # https://github.com/actions/checkout
         uses: actions/checkout@v7
+        with:
+          # An issue_comment event is resolved against the default branch, so
+          # github.ref here is main; refs/pull/<n>/head is the pull request
+          # whose comment started the run.
+          ref: >-
+            ${{ github.event_name == 'issue_comment'
+            && format('refs/pull/{0}/head', github.event.issue.number)
+            || github.ref }}
       - name: Configure Toolchain Cache
         # The same runner tool directory as deploy.yaml, so the release
         # reuses the toolchain CI already installed. See TOOLCHAIN_CACHE in

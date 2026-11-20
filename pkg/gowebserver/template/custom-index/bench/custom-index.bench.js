@@ -37,19 +37,47 @@ const stubs = () => ({
   slideshow: { open() { } },
 });
 
-// Filtering: the list's rows and the media array, with no grid.
+function files(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push([i % 10 ? 0 : 2, 'file-' + i + '.txt', 'file-' + i + '.txt', 'text', 1000 + i, '2024-01-01']);
+  return out;
+}
+
+// Filtering: the list's and the media's arrays, with no grid, and the
+// list built again for what matches.
 (function () {
-  let rows = '';
-  for (let i = 0; i < N; i++) rows += '<div class="row"><span class="name">file-' + i + '.txt</span></div>';
-  const pg = page('<p id="summary"></p><p id="no-match"></p>' + rows, {
-    globals: Object.assign(stubs(), { GOWS: { sort: 'name', thumbs: true, videoThumbs: true, media: media(N) }, grid: null }),
+  const pg = page('<p id="summary"></p><p id="no-match"></p><div id="files-body"></div>', {
+    globals: Object.assign(stubs(), { GOWS: { sort: 'name', thumbs: true, videoThumbs: true, files: files(N), media: media(N) }, grid: null }),
   });
-  const { applyFilter } = load(pg, FILES, ['applyFilter']);
+  const { applyFilter } = load(pg, FILES.concat('custom-index/folders.js', 'custom-index/list.js'), ['applyFilter']);
   applyFilter('');
   let i = 0;
   // Alternates so each call is a new filter: one that hides most rows,
   // then one that brings them back.
   bench('Filter50kRows50kMedia', () => applyFilter(i++ % 2 ? '' : '49'));
+})();
+
+// The list: building its first screen, and following a scroll.
+(function () {
+  const pg = page('<p id="summary"></p><p id="no-match"></p><div id="files-body"></div>', {
+    globals: Object.assign(stubs(), { GOWS: { sort: 'name', thumbs: true, videoThumbs: true, files: files(N), media: [] }, grid: null }),
+  });
+  const body = pg.document.getElementById('files-body');
+  body.getBoundingClientRect = () => ({ top: 100 - pg.scrollY });
+  const l = load(pg, FILES.concat('custom-index/folders.js', 'custom-index/list.js'), ['fileList', 'applyFilter']);
+  l.applyFilter('');
+  bench('ListBuild50k', () => l.fileList.relayout());
+  let y = 0;
+  // A slow scroll, a row or so a frame.
+  bench('ListScrollFrame50k', () => {
+    y = (y + 60) % 2900000;
+    pg.scroll(y);
+  });
+  // A fling, a few screens a frame.
+  bench('ListFlingFrame50k', () => {
+    y = (y + 4000) % 2900000;
+    pg.scroll(y);
+  });
 })();
 
 // The grid: laying out the whole folder, and following a scroll.

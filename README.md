@@ -34,6 +34,7 @@ sc.exe start gowebserver
 * Zero-config required, hosts on port 80 or 8080 based on root and supports Cloud9's $PORT variable.
 * HTTP and HTTPs serving
 * Automatic HTTPs certificate generation
+* A plain `http://` request sent to the HTTPS port is redirected to the same URL over `https://` (302, or 307 for methods other than GET and HEAD; temporary, so browsers don't remember it once the port serves plain HTTP again) instead of failing with "Client sent an HTTP request to an HTTPS server". A request without a usable `Host` header still gets a 400.
 * Optional configuration by flags or YAML config file.
 * Host local or HTTP served static files from:
   * Local directory (current directory is default)
@@ -43,6 +44,7 @@ sc.exe start gowebserver
   * RAR
   * Git repository (HTTPS, SSH)
 * Thumbnails: add `width` and/or `height` to an image or video URL to get a resized copy (see [Thumbnails](#thumbnails)).
+* Folder previews: in the enhanced file browser, a folder's row shows a strip of its first photos and videos between its name and its size (or, when it has none, from the nearest folders below it, up to three levels down), as many as fit, fading in as they load, and the row takes their most vivid color for its icon and a faint wash. A folder's URL with `?preview` lists them as JSON.
 * Metrics export to Prometheus.
 * Prebuild binaries for all major OSes.
 

@@ -37,6 +37,18 @@ test('fmtBytes matches go-humanize, which renders the list', () => {
   for (const [n, want] of cases) assert.equal(u.fmtBytes(n), want, String(n));
 });
 
+test('fmtBytes rounds as go-humanize does, once, at the boundaries', () => {
+  const u = util();
+  // humanize.Bytes() v1.1.0, printed by Go for each.
+  const cases = [
+    [1049, '1.0 kB'], [1050, '1.1 kB'], [9949, '9.9 kB'], [9950, '10 kB'], [9999, '10 kB'], [10000, '10 kB'],
+    [10499, '10 kB'], [10500, '11 kB'], [99499, '99 kB'], [99500, '100 kB'], [99999, '100 kB'],
+    [999499, '999 kB'], [999500, '1000 kB'], [999999, '1000 kB'], [1000000, '1.0 MB'], [1234567, '1.2 MB'],
+    [9950000, '10 MB'], [3400000000, '3.4 GB'], [1e15, '1.0 PB'], [1e18 - 1, '1.0 EB'], [18446744073709551615, '18 EB'],
+  ];
+  for (const [n, want] of cases) assert.equal(u.fmtBytes(n), want, String(n));
+});
+
 test('plural picks the word and groups the digits', () => {
   const u = util();
   assert.equal(u.plural(1, 'photo', 'photos'), '1 photo');

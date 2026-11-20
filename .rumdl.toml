@@ -19,3 +19,9 @@ enabled = false
 
 [MD033]
 allowed_elements = ["img"]
+
+# Keep table columns padded to the same width, so `make lint` (rumdl check --fix)
+# re-aligns a table after a cell is edited.
+[MD060]
+enabled = true
+style = "aligned"

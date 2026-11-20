@@ -21,13 +21,19 @@ function store(key, value) {
   return null;
 }
 
-// Same output as go-humanize's Bytes(), which renders sizes in the list.
+// Same output as go-humanize's Bytes(), which the server used for sizes:
+// two significant digits, rounded once (9950 B is 10 kB, not 9.9 or
+// 10.0), with the decimal dropped when rounding carries into a digit.
 function fmtBytes(n) {
   if (n < 10) return n + ' B';
   var units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
   var e = Math.min(Math.floor(Math.log(n) / Math.log(1000)), units.length - 1);
   var v = n / Math.pow(1000, e);
-  return (v < 10 ? v.toFixed(1) : v.toFixed(0)) + ' ' + units[e];
+  var digits = function (x) { return String(Math.trunc(x)).length; };
+  var whole = digits(v), d = Math.max(2 - whole, 0), r = Math.pow(10, d);
+  v = Math.floor(v * r + 0.5) / r;
+  d = Math.max(d - Math.max(digits(v) - whole, 0), 0);
+  return v.toFixed(d) + ' ' + units[e];
 }
 
 function plural(n, one, many) {

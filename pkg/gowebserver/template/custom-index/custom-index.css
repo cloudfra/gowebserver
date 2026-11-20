@@ -255,7 +255,6 @@ main {
   align-items: center;
   gap: 16px;
   padding: 10px 20px 10px 72px;
-  border-bottom: 1px solid var(--line);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-3);
@@ -275,27 +274,35 @@ main {
   text-align: right;
 }
 
+/* Only the rows near the screen are built (list.js), and every row is
+   as tall as the next, a border included, so that one's place times the
+   height of a row is where it goes. The height is pinned, so a name in
+   a fallback font (an emoji, CJK) can't make its row taller. Each row's
+   top border is the line above it; the first one's is the line under
+   the heading. */
 .row {
   position: relative;
   display: flex;
   align-items: center;
-  /* Rows off screen skip layout and paint, so a folder with tens of
-   * thousands of files stays responsive. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 60px;
+  height: 57px;
+  border-top: 1px solid var(--line);
   transition: background-color 0.12s;
 }
 
-.row+.row {
-  border-top: 1px solid var(--line);
+/* Where list.js keeps a row that has the keyboard focus while it's out
+   of the rows built: at its place in the list. */
+.files-body {
+  position: relative;
+}
+
+.row.parked {
+  position: absolute;
+  left: 0;
+  right: 0;
 }
 
 .row:hover {
   background: var(--hover);
-}
-
-.row[hidden] {
-  display: none;
 }
 
 .row-icon {
@@ -366,6 +373,141 @@ main {
   white-space: nowrap;
 }
 
+/* A row with a strip gives its name only the room it needs, so the
+   strip reaches toward it. */
+.row.has-strip .name {
+  flex: 0 1 auto;
+}
+
+/* A folder whose strip has a vivid color (folders.js) takes it for its
+   icon, and as a faint wash from the left of its row. Lightness stays
+   the theme's (--accent-l), so any hue reads in both themes. */
+.row.row-accent .chip {
+  --c: oklch(var(--accent-l) var(--row-c) var(--row-h));
+}
+
+.row.row-accent:not(:hover) {
+  background-image: linear-gradient(to right, oklch(var(--accent-l) var(--row-c) var(--row-h) / 0.09), transparent 45%);
+}
+
+/* A folder's strip of its photos and videos (folders.js), between its
+   name and its size, filling the room between them. It runs right to left, so the folder's first
+   photos sit by the size and are the ones kept when not all fit, and a
+   strip of three or more fades out toward the name, as a filmstrip
+   would (.fade). Each thumbnail fades in as it arrives. */
+.row-strip {
+  /* All the room the name leaves, up to the size. */
+  flex: 1 1 0;
+  min-width: 0;
+  height: 40px;
+  /* Taller than the line, without making the row taller. */
+  margin: -8px 0;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.row-strip.fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+  mask-image: linear-gradient(to right, transparent, #000 44px);
+}
+
+.row-strip img {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--hover);
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.row-strip img.ready {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-strip img {
+    transition: none;
+  }
+}
+
+/* A strip's slideshow (folders.js), opened by resting the pointer on its
+   row: a panel exactly over the strip, inside it, so the row keeps its
+   size and the strip's fade, with the folder's thumbnails stepping
+   along it toward the name. It's a picture, not a control: the pointer
+   goes through it to the row. Under the global reduced-motion rule it
+   never opens. */
+.row-strip {
+  position: relative;
+}
+
+.strip-show {
+  --hp-from: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--raised);
+  border-radius: 9px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.strip-track {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 4px;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.strip-track.jump {
+  transition: none;
+}
+
+.strip-track img {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--hover);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out);
+}
+
+.strip-track img.ready {
+  opacity: 1;
+}
+
+/* On a phone a row stacks its name over its date, so the strip goes on
+   the right, beside both, with as many as fit in its share. */
+@media (max-width: 640px) {
+  .row.has-strip .row-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .row.has-strip .name,
+  .row.has-strip .meta {
+    grid-column: 1;
+  }
+
+  .row.has-strip .row-strip {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+}
+
 .row .meta {
   display: flex;
   gap: 16px;
@@ -396,6 +538,16 @@ main {
 
   .files-head {
     display: none;
+  }
+
+  /* With no heading, the first row is at the top of the box, whose own
+     border is the line above it. */
+  .row {
+    height: 66px;
+  }
+
+  .row.first {
+    border-top-color: transparent;
   }
 
   .row-icon {
@@ -2783,6 +2935,14 @@ main {
 }
 
 .ss-strip[hidden] {
+  display: none;
+}
+
+/* On a stage too small to keep a band for the strip (a phone, or a
+   window that small), a video keeps the bottom edge for its own
+   controls, the scrubber above all (stripRoom in slideshow.js, which
+   takes the focus off the strip first). */
+.ss.no-strip .ss-bottom {
   display: none;
 }
 
