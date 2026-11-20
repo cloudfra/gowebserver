@@ -18,25 +18,31 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, plain } = require('../../harness.js');
 
-const ROWS = [['docs', true], ['Photos 2024', true], ['notes.txt', false], ['Report.PDF', false], ['photo-list.csv', false]];
+// [kind, url, name, icon, size, date], as the page is sent them.
+const ROWS = [
+  [2, 'docs', 'docs', 'folder', 4096, '2024-01-01'],
+  [2, 'Photos%202024', 'Photos 2024', 'folder', 4096, '2024-01-02'],
+  [1, 'notes.txt', 'notes.txt', 'text', 12, '2024-01-03'],
+  [0, 'Report.PDF', 'Report.PDF', 'pdf', 3400, '2024-01-04'],
+  [1, 'photo-list.csv', 'photo-list.csv', 'spreadsheet', 99, '2024-01-05'],
+];
 const MEDIA = [[0, 'a%20b.jpg', 'a b.jpg', 10, 100], [1, 'clip.mp4', 'clip.mp4', 20, 200], [0, 'Photo.png', 'Photo.png', 30, 300]];
 
-function setup(rows, media) {
-  const html = '<p id="summary"></p><p id="no-match" hidden></p>' + rows.map((r) =>
-    '<div class="row"' + (r[1] ? ' data-dir' : '') + '><a class="row-main"><span class="name">' + r[0] + '</span></a></div>').join('');
+function setup(files, media) {
+  const html = '<p id="summary"></p><p id="no-match" hidden></p>';
   const relayouts = [];
   const pg = page(html, {
     globals: {
-      GOWS: { sort: 'name', thumbs: true, videoThumbs: true, media },
+      GOWS: { sort: 'name', thumbs: true, videoThumbs: true, files, media },
       grid: { relayout: (keep) => relayouts.push(keep) },
     },
   });
-  const d = load(pg, ['custom-index/util.js', 'custom-index/data.js'], ['all', 'applyFilter', 'escapeHTML']);
+  const d = load(pg, ['custom-index/util.js', 'custom-index/data.js'], ['all', 'listEntries', 'vis', 'applyFilter', 'escapeHTML']);
   return {
-    pg, relayouts, applyFilter: d.applyFilter, all: d.all, escapeHTML: d.escapeHTML,
+    pg, relayouts, applyFilter: d.applyFilter, all: d.all, entries: d.listEntries, escapeHTML: d.escapeHTML,
     summary: () => pg.document.getElementById('summary').textContent,
     noMatch: () => !pg.document.getElementById('no-match').hidden,
-    hidden: () => pg.document.querySelectorAll('.row').map((r) => r.hidden),
+    shown: () => plain(d.vis.files.map((f) => f.name)),
   };
 }
 
@@ -53,11 +59,17 @@ test('media entries are unpacked from the compact array', () => {
   assert.equal(t.all[2].lower, 'photo.png');
 });
 
+test('the list\'s entries are unpacked from the compact array', () => {
+  const t = setup(ROWS, MEDIA);
+  assert.deepEqual(plain(t.entries[1]), { kind: 2, dir: true, url: 'Photos%202024', name: 'Photos 2024', icon: 'folder', size: 4096, date: '2024-01-02', lower: 'photos 2024' });
+  assert.equal(t.entries[2].dir, false);
+});
+
 test('with no filter everything shows and is counted', () => {
   const t = setup(ROWS, MEDIA);
   t.applyFilter('');
   assert.equal(t.summary(), '2 folders, 3 files, 2 photos, 1 video');
-  assert.deepEqual(t.hidden(), [false, false, false, false, false]);
+  assert.deepEqual(t.shown(), ['docs', 'Photos 2024', 'notes.txt', 'Report.PDF', 'photo-list.csv']);
   assert.equal(t.noMatch(), false);
   assert.deepEqual(t.all.map((it) => it.pos), [0, 0, 1], 'each item knows its place among its kind');
   assert.deepEqual(t.relayouts, [false]);
@@ -66,7 +78,7 @@ test('with no filter everything shows and is counted', () => {
 test('a filter matches names anywhere, whatever the case', () => {
   const t = setup(ROWS, MEDIA);
   t.applyFilter('  PHOTO ');
-  assert.deepEqual(t.hidden(), [true, false, true, true, false]);
+  assert.deepEqual(t.shown(), ['Photos 2024', 'photo-list.csv']);
   assert.equal(t.summary(), '1 folder, 1 file, 1 photo');
   assert.equal(t.all[2].pos, 0, 'positions are among what is showing');
 });
@@ -75,7 +87,7 @@ test('clearing the filter shows the rows again', () => {
   const t = setup(ROWS, MEDIA);
   t.applyFilter('photo');
   t.applyFilter('');
-  assert.deepEqual(t.hidden(), [false, false, false, false, false]);
+  assert.deepEqual(t.shown().length, 5);
   assert.equal(t.summary(), '2 folders, 3 files, 2 photos, 1 video');
 });
 
@@ -97,18 +109,4 @@ test('the same filter again does no work', () => {
   t.applyFilter('photo');
   t.applyFilter('photo ');
   assert.equal(t.relayouts.length, 1);
-});
-
-test('a filter pass writes only the rows that change', () => {
-  const t = setup(ROWS, MEDIA);
-  t.applyFilter('');
-  const writes = [];
-  t.pg.document.querySelectorAll('.row').forEach((r, i) => {
-    let hidden = r.hidden;
-    Object.defineProperty(r, 'hidden', { get: () => hidden, set: (v) => { hidden = v; writes.push(i); } });
-  });
-  t.applyFilter('photo');
-  assert.deepEqual(writes, [0, 2, 3]);
-  t.applyFilter('photos');
-  assert.deepEqual(writes, [0, 2, 3, 4]);
 });

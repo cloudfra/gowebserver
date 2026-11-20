@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -23,8 +24,11 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"facette.io/natsort"
@@ -136,6 +140,65 @@ type DirEntry struct {
 	IsArchive  bool
 	IsViewable bool
 	IconClass  string
+}
+
+// The kinds of entry in the file browser's list, as the page is sent them
+// (files in custom-index.html, read by data.js and list.js).
+const (
+	listKindFile     = 0 // a file, opened as itself
+	listKindViewable = 1 // a file opened in the text viewer (?view=rich)
+	listKindFolder   = 2
+	listKindArchive  = 3 // an archive, opened as the folder of its content
+)
+
+// ListKind returns what the file browser's list does with the entry: one
+// of the listKind constants.
+func (d *DirEntry) ListKind() int {
+	switch {
+	case d.IsArchive:
+		return listKindArchive
+	case d.IsDir:
+		return listKindFolder
+	case d.IsViewable:
+		return listKindViewable
+	}
+	return listKindFile
+}
+
+// ListJS returns the entry as the file browser's list is sent it, a
+// JavaScript array: [kind, url, name, icon, size, date], with the date as
+// the list shows it (with the time when sorted by date). json.Marshal
+// escapes <, > and &, and U+2028 and U+2029, so it is safe in a <script>.
+func (d *DirEntry) ListJS(useTimestamp bool) template.JS {
+	date := humanizeDate(d.ModTime)
+	if useTimestamp {
+		date = humanizeTimestamp(d.ModTime)
+	}
+	b, err := json.Marshal([]any{d.ListKind(), urlEncode(d.Name), d.Name, d.IconClass, d.Size, date})
+	if err != nil {
+		// Strings and numbers always marshal.
+		return "null"
+	}
+	return template.JS(b)
+}
+
+// IsImage reports whether the entry is a photo for the grid. A folder
+// (or an archive listed as one) never is, whatever its name: 2024.jpg/
+// is a folder.
+func (d *DirEntry) IsImage() bool {
+	return !d.IsDir && isImage(d.Name)
+}
+
+// IsVideo reports whether the entry is a video for the grid; a folder
+// never is.
+func (d *DirEntry) IsVideo() bool {
+	return !d.IsDir && isVideo(d.Name)
+}
+
+// IsMedia reports whether the entry goes in the grid rather than the
+// list.
+func (d *DirEntry) IsMedia() bool {
+	return d.IsImage() || d.IsVideo()
 }
 
 // NameForSorting returns the value for sorting this item in the template rendering.
@@ -368,19 +431,26 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	}
 
 	_, statSpan, statted := c.metrics.stage(ctx, listingStageStat)
-	statErrors := 0
-	files := newEntryList(sortBy)
+	listed := make([]fs.DirEntry, 0, len(entries))
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), nestedDirSuffix) {
 			if _, ok := actualArchiveDir[strings.TrimSuffix(entry.Name(), nestedDirSuffix)]; ok {
 				continue
 			}
 		}
-
+		listed = append(listed, entry)
+	}
+	infos, err := statEntries(ctx, listed)
+	if err != nil {
+		// The client has gone.
+		return fail(err)
+	}
+	statErrors := 0
+	files := newEntryList(sortBy)
+	for i, entry := range listed {
 		size := int64(0)
 		t := now
-		stat, err := entry.Info()
-		if err == nil {
+		if stat := infos[i]; stat != nil {
 			t = stat.ModTime()
 			size = stat.Size()
 		} else {
@@ -418,13 +488,13 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	for _, name := range files.EntryOrder {
 		entry := files.Entries[name]
 		params.DirEntries = append(params.DirEntries, entry)
-		if !isMedia(entry.Name) {
+		if !entry.IsMedia() {
 			hasNonMediaEntry = true
 		}
-		if isImage(entry.Name) {
+		if entry.IsImage() {
 			hasImage = true
 		}
-		if isVideo(entry.Name) {
+		if entry.IsVideo() {
 			hasVideo = true
 		}
 	}
@@ -436,6 +506,65 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		return fail(err)
 	}
 	return true
+}
+
+// statParallelMin is the fewest entries worth statting on more than one
+// goroutine, statParallelism the most goroutines that stat a folder, and
+// statChunk how many entries a goroutine takes at a time. On a local disk
+// each Info is a system call (lstat), one at a time, and a folder of tens
+// of thousands spends much of its listing there.
+const (
+	statParallelMin = 256
+	statParallelism = 8
+	statChunk       = 64
+)
+
+// statHelpers are the goroutines that help stat big folders, shared by
+// every listing at once: however many folders are listed together, no
+// more than statParallelism of them are at work beside the listings' own.
+var statHelpers = make(chan struct{}, statParallelism)
+
+// statEntries returns each entry's Info, or nil where it failed, in
+// entries' order. A big folder's entries are statted by its listing and
+// whichever helpers are free (statHelpers). It stops when ctx is done,
+// and returns ctx's error then.
+func statEntries(ctx context.Context, entries []fs.DirEntry) ([]fs.FileInfo, error) {
+	infos := make([]fs.FileInfo, len(entries))
+	var next atomic.Int64
+	work := func() {
+		for ctx.Err() == nil {
+			from := int(next.Add(statChunk)) - statChunk
+			if from >= len(entries) {
+				return
+			}
+			for i := from; i < min(from+statChunk, len(entries)); i++ {
+				if info, err := entries[i].Info(); err == nil {
+					infos[i] = info
+				}
+			}
+		}
+	}
+	var wg sync.WaitGroup
+	if len(entries) >= statParallelMin {
+	helpers:
+		for range min(statParallelism, runtime.GOMAXPROCS(0)) - 1 {
+			select {
+			case statHelpers <- struct{}{}:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					defer func() { <-statHelpers }()
+					work()
+				}()
+			default:
+				// Every helper is busy with another folder.
+				break helpers
+			}
+		}
+	}
+	work()
+	wg.Wait()
+	return infos, ctx.Err()
 }
 
 func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, error) {

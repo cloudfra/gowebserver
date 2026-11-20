@@ -255,7 +255,6 @@ main {
   align-items: center;
   gap: 16px;
   padding: 10px 20px 10px 72px;
-  border-bottom: 1px solid var(--line);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-3);
@@ -275,27 +274,35 @@ main {
   text-align: right;
 }
 
+/* Only the rows near the screen are built (list.js), and every row is
+   as tall as the next, a border included, so that one's place times the
+   height of a row is where it goes. The height is pinned, so a name in
+   a fallback font (an emoji, CJK) can't make its row taller. Each row's
+   top border is the line above it; the first one's is the line under
+   the heading. */
 .row {
   position: relative;
   display: flex;
   align-items: center;
-  /* Rows off screen skip layout and paint, so a folder with tens of
-   * thousands of files stays responsive. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 60px;
+  height: 57px;
+  border-top: 1px solid var(--line);
   transition: background-color 0.12s;
 }
 
-.row+.row {
-  border-top: 1px solid var(--line);
+/* Where list.js keeps a row that has the keyboard focus while it's out
+   of the rows built: at its place in the list. */
+.files-body {
+  position: relative;
+}
+
+.row.parked {
+  position: absolute;
+  left: 0;
+  right: 0;
 }
 
 .row:hover {
   background: var(--hover);
-}
-
-.row[hidden] {
-  display: none;
 }
 
 .row-icon {
@@ -531,6 +538,16 @@ main {
 
   .files-head {
     display: none;
+  }
+
+  /* With no heading, the first row is at the top of the box, whose own
+     border is the line above it. */
+  .row {
+    height: 66px;
+  }
+
+  .row.first {
+    border-top-color: transparent;
   }
 
   .row-icon {
