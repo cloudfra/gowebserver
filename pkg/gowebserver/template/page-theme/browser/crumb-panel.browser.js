@@ -19,6 +19,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { serve, open } = require('../../browser.js');
 
 let srv, b;
@@ -95,6 +98,44 @@ test('the keyboard: ArrowDown on a crumb opens it on its own folder', async () =
   assert.deepEqual((await entries()).map((e) => e[0]), ['Music', 'Trips']);
 });
 
+test('moving along the crumbs leaves no crumb marked as having the panel but its own', async () => {
+  await b.page.goto(srv.url + 'Trips/2024/Rome/');
+  await crumb('2024').hover();
+  await b.page.waitForSelector('#crumb-panel.hp-open');
+  await crumb('Trips').hover();
+  await b.page.waitForFunction(() => document.querySelector('#crumb-panel a.current').textContent === 'Trips');
+  const expanded = await b.page.locator('#crumbs a[aria-expanded]').evaluateAll((as) => as.map((a) => a.textContent));
+  assert.deepEqual(expanded, ['Trips']);
+});
+
+test('a panel opened from the keyboard stays while the mouse moves, and Tab out of it closes it', async () => {
+  await b.page.goto(srv.url + 'Trips/2024/Rome/');
+  await crumb('2024').focus();
+  await b.page.keyboard.press('ArrowDown');
+  await b.page.waitForSelector('#crumb-panel.hp-open');
+  await b.page.mouse.move(600, 600);
+  await b.page.mouse.move(700, 650);
+  await b.page.waitForTimeout(600);
+  assert.equal(await isOpen(), true, 'the mouse never went near it');
+  // Down to the last folder, then Tab on out.
+  await b.page.keyboard.press('ArrowDown');
+  await b.page.keyboard.press('Tab');
+  assert.equal(await isOpen(), false);
+  assert.equal(await b.page.evaluate(() => !!document.activeElement.closest('#crumb-panel')), false);
+});
+
+test('Shift+Tab from the panel goes back to the crumbs', async () => {
+  await b.page.goto(srv.url + 'Trips/2024/Rome/');
+  await crumb('2024').focus();
+  await b.page.keyboard.press('ArrowDown');
+  await b.page.waitForSelector('#crumb-panel.hp-open');
+  // From its own folder up to the first.
+  await b.page.keyboard.press('ArrowUp');
+  assert.equal(await b.page.evaluate(() => document.activeElement.textContent), '2023');
+  await b.page.keyboard.press('Shift+Tab');
+  assert.equal(await b.page.evaluate(() => !!document.activeElement.closest('#crumbs')), true);
+});
+
 test('the text viewer has it too', async () => {
   await b.page.goto(srv.url + 'Trips/2024/Rome/notes.txt?view=rich');
   await crumb('2024').hover();
@@ -104,4 +145,24 @@ test('the text viewer has it too', async () => {
 
 test('nothing went wrong along the way', () => {
   assert.deepEqual(b.problems, []);
+});
+
+test('serve paths of more than one segment are listed and marked by the home crumb', async () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'gows-mounts-'));
+  for (const d of ['ab/x', 'c']) fs.mkdirSync(path.join(base, d), { recursive: true });
+  const mounts = await serve({ dir: base, args: ['-path', path.join(base, 'ab') + ',' + path.join(base, 'c'), '-servepath', '/a/b,/c'] });
+  const m = await open();
+  try {
+    await m.page.goto(mounts.url + 'a/b/x/');
+    await m.page.locator('#crumbs a').first().hover();
+    await m.page.waitForSelector('#crumb-panel.hp-open');
+    const got = await m.page.locator('#crumb-panel a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href'), a.classList.contains('current')]));
+    assert.deepEqual(got, [['a/b', '/a/b/', true], ['c', '/c/', false]]);
+    await Promise.all([m.page.waitForURL(mounts.url + 'c/'), m.page.locator('#crumb-panel a', { hasText: 'c' }).click()]);
+    assert.deepEqual(m.problems, []);
+  } finally {
+    await m.close();
+    mounts.close();
+    fs.rmSync(base, { recursive: true, force: true });
+  }
 });

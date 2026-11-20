@@ -298,15 +298,56 @@ test('leaving the row closes the slideshow at once, leaving the strip', async ()
   assert.ok(strip(row));
 });
 
-test('another row\'s dwell moves the slideshow there: only one plays', async () => {
-  const t = await strips([['Big', 'folder'], ['Trip', 'folder']]);
+test('the next row waits out its own dwell: a sweep down the list plays nothing', async () => {
+  const t = await strips([['Big', 'folder'], ['Trip', 'folder'], ['Mixed', 'folder']]);
   hover(t.rows[0]);
   t.pg.tick(DWELL);
+  const asked = t.pg.requests.length;
+  // Rows touch: the pointer goes straight from one to the next.
   hover(t.rows[1]);
-  t.pg.tick(DWELL);
-  assert.ok(show(t.rows[1]), 'the second plays');
+  t.pg.tick(0);
+  assert.equal(show(t.rows[1]), null, 'not at once');
+  t.pg.tick(DWELL / 3);
+  hover(t.rows[2]);
+  t.pg.tick(DWELL - 1);
+  assert.equal(show(t.rows[1]), null, 'passed over');
+  assert.equal(show(t.rows[2]), null);
+  assert.equal(t.pg.requests.length, asked, 'and nothing was fetched for them');
+  t.pg.tick(1);
+  assert.ok(show(t.rows[2]), 'the one it rests on plays');
   t.pg.tick(STEP);
-  assert.equal(show(t.rows[0]), null, 'the first is gone');
+  assert.equal(show(t.rows[0]), null, 'the first is long gone');
+});
+
+test('a folder of fewer photos than fit fills every slot, all the way round the loop', async () => {
+  const t = await strips([['Trip', 'folder']]); // 3 photos, 9 slots
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  const fr = frames(row);
+  assert.ok(fr.length >= 3 + 9 + 1, 'the slots, and one more, wherever the loop is: ' + fr.length);
+  fr.forEach((img, i) => assert.equal(img._item.url, ['Trip/a%20b.jpg', 'Trip/c.jpg', 'Trip/d.jpg'][i % 3], 'frame ' + i));
+  t.pg.tick(STEP * 3);
+  assert.equal(shift(row), 'translateX(132px)', 'on the copy of the start');
+  t.pg.tick(STEP / 2);
+  assert.equal(shift(row), '', 'and back, seen in the same place');
+});
+
+test('closing fades the slideshow out with its pictures in place', async () => {
+  const t = await strips([['Trip', 'folder']]);
+  const row = t.rows[0];
+  hover(row);
+  t.pg.tick(DWELL);
+  const fr = frames(row);
+  await arriveAll(t);
+  const loaded = fr.filter((img) => img.classList.contains('ready'));
+  assert.ok(loaded.length > 0);
+  hover(t.pg.document.body);
+  t.pg.tick(0);
+  assert.ok(loaded.every((img) => img.src), 'still showing as it fades');
+  t.pg.tick(300);
+  assert.equal(show(row), null, 'then gone');
+  assert.ok(fr.every((img) => !img._thumb || img._thumb === ''), 'and nothing left loading');
 });
 
 test('no slideshow for a finger, without a mouse, with reduced motion, or with one photo', async () => {

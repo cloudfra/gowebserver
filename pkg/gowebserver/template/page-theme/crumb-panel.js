@@ -18,7 +18,9 @@
   var panel = doc.createElement('nav');
   panel.id = 'crumb-panel';
   panel.className = 'hover-panel crumb-panel';
-  doc.body.appendChild(panel);
+  // Right after the crumbs, so Tab goes from a crumb into its folders and
+  // on out of them in the page's order.
+  crumbs.parentNode.insertBefore(panel, crumbs.nextSibling);
   // Each opening gets a number; an answer for an older one is dropped.
   var shown = 0;
 
@@ -48,24 +50,23 @@
       });
       return { head: 'Folders above', list: Promise.resolve(list) };
     }
-    var parent = '/', name = '';
+    // The folder to mark is the one on the way to this page: for the
+    // home crumb, the top folder this page is in, which can be more than
+    // one segment (a serve path like /a/b).
+    var parent = '/', here = decode(href === '/' ? location.pathname : href);
     if (href !== '/') {
       var m = /^(.*\/)([^/]+)\/$/.exec(href);
       if (!m) return null;
       parent = m[1];
-      name = decode(m[2]);
-    } else {
-      // The top level: this page's own folder there is the one to mark.
-      var first = location.pathname.split('/').filter(Boolean)[0];
-      name = first ? decode(first) : '';
     }
     var head = parent === '/' ? (location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
     return {
       head: head,
       list: folders(parent).then(function (fs) {
         return fs && fs.map(function (f) {
-          var seg = f.name + (f.archive ? '.d' : '');
-          return { name: f.name, archive: f.archive, href: parent + encodeURIComponent(seg) + '/', current: seg === name };
+          var path = f.name + (f.archive ? '.d' : '') + '/';
+          var to = parent + path.split('/').map(encodeURIComponent).join('/');
+          return { name: f.name, archive: f.archive, href: to, current: here.indexOf(parent + path) === 0 };
         });
       }),
     };
@@ -85,12 +86,16 @@
   // window, as tall as the room below allows (it scrolls past that).
   function place(a) {
     var r = a.getBoundingClientRect(), gutter = 12;
+    // Placed in its containing block: the page, unless something around
+    // it is positioned.
+    var cb = panel.offsetParent;
+    var base = cb && cb !== doc.body ? cb.getBoundingClientRect() : { left: -scrollX, top: -scrollY };
     var room = Math.max(160, innerHeight - r.bottom - 6 - gutter);
     panel.style.maxHeight = room + 'px';
     var w = panel.offsetWidth;
     var left = Math.max(gutter, Math.min(r.left, innerWidth - w - gutter));
-    panel.style.left = (left + scrollX) + 'px';
-    panel.style.top = (r.bottom + 6 + scrollY) + 'px';
+    panel.style.left = (left - base.left) + 'px';
+    panel.style.top = (r.bottom + 6 - base.top) + 'px';
     var cur = panel.querySelector('.current');
     if (cur) panel.scrollTop = Math.max(0, cur.offsetTop - room / 2);
   }
@@ -101,8 +106,11 @@
 
   var ctl = hoverPanel.attach(crumbs, 'a', {
     focus: true,
+    // Along the crumbs it moves at once, as a menu bar's menus do.
+    move: true,
     panel: function () { return panel; },
-    open: function (a, how) {
+    open: function (a, how, from) {
+      if (from) collapse(from);
       var my = ++shown, what = contents(a);
       if (!what) { ctl.close(); return; }
       a.setAttribute('aria-controls', 'crumb-panel');
@@ -118,10 +126,16 @@
     },
     close: function (a) {
       shown++;
-      a.setAttribute('aria-expanded', 'false');
+      collapse(a);
       hoverPanel.show(panel, false);
     },
   });
+
+  // Crumb a no longer has the panel.
+  function collapse(a) {
+    a.removeAttribute('aria-expanded');
+    a.removeAttribute('aria-controls');
+  }
 
   // Up and down move along the folders; up from the first goes back to
   // the crumb. Tab moves through them as the links they are.

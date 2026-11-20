@@ -154,7 +154,7 @@ test('no panel for a finger, without a mouse, or when the folder can\'t be liste
   gone.pg.tick(DWELL);
   await gone.settle();
   assert.equal(gone.open(), false);
-  assert.equal(gone.crumb('2024').getAttribute('aria-expanded'), 'false');
+  assert.equal(gone.crumb('2024').getAttribute('aria-expanded'), null);
 });
 
 test('passing over a crumb on the way elsewhere opens nothing', () => {
@@ -181,7 +181,8 @@ test('it stays while the pointer moves into it, and closes after it leaves both'
   assert.ok(t.open(), 'a moment\'s grace');
   t.pg.tick(1);
   assert.equal(t.open(), false);
-  assert.equal(t.crumb('2024').getAttribute('aria-expanded'), 'false');
+  assert.equal(t.crumb('2024').getAttribute('aria-expanded'), null);
+  assert.equal(t.crumb('2024').getAttribute('aria-controls'), null);
   assert.ok(!t.crumb('2024').classList.contains('hp-anchor'));
 });
 
@@ -276,12 +277,11 @@ test('panels share one dwell and one timer: another owner\'s panel replaces this
   await t.settle();
   assert.ok(t.open());
   t.hover(row);
-  t.pg.tick(DWELL - 1);
-  assert.deepEqual(log, [], 'its own dwell, which put off the crumb panel\'s grace');
-  assert.ok(t.open());
-  t.pg.tick(1);
+  t.pg.tick(GRACE);
+  assert.equal(t.open(), false, 'the crumb panel closes after its grace, while the other waits out its dwell');
+  assert.deepEqual(log, []);
+  t.pg.tick(DWELL - GRACE);
   assert.deepEqual(log, ['open away pointer']);
-  assert.equal(t.open(), false, 'only one is ever open');
   assert.ok(ctl.isOpen(row));
   t.hover(t.$('title'));
   t.pg.tick(0);
@@ -296,4 +296,56 @@ test('the crumbs being rebuilt (a change of screen width) close it', async () =>
   await t.settle();
   t.pg.gowsHoverPanel.close();
   assert.equal(t.open(), false);
+});
+
+test('moving along the crumbs takes the panel\'s state off the crumb it leaves', async () => {
+  const t = setup();
+  t.hover(t.crumb('2024'));
+  t.pg.tick(DWELL);
+  await t.settle();
+  t.hover(t.crumb('Photos'));
+  await t.settle();
+  assert.equal(t.crumb('2024').getAttribute('aria-expanded'), null);
+  assert.equal(t.crumb('2024').getAttribute('aria-controls'), null);
+  assert.equal(t.crumb('Photos').getAttribute('aria-expanded'), 'true');
+});
+
+test('a panel opened from the keyboard stays while the mouse moves elsewhere', async () => {
+  const t = setup();
+  const crumb = t.crumb('2024');
+  crumb.focus();
+  crumb.fire('keydown', { key: 'ArrowDown' });
+  await t.settle();
+  assert.ok(t.open());
+  t.hover(t.$('away'));
+  t.pg.tick(GRACE * 3);
+  assert.ok(t.open(), 'the mouse was never on it');
+  // Once the pointer has been on it, leaving closes it as usual.
+  t.hover(t.panel.querySelector('a'));
+  t.hover(t.$('away'));
+  t.pg.tick(GRACE);
+  assert.equal(t.open(), false);
+});
+
+test('the panel follows the crumbs in the page, and Tab out of it closes it', async () => {
+  const t = setup();
+  assert.equal(t.$('crumbs').nextSibling, t.panel, 'right after the crumbs, for Tab');
+  t.hover(t.crumb('2024'));
+  t.pg.tick(DWELL);
+  await t.settle();
+  const last = t.panel.querySelectorAll('a').pop();
+  last.focus();
+  last.fire('focusin');
+  assert.ok(t.open(), 'Tab into it keeps it');
+  t.$('theme').fire('focusin', { relatedTarget: last });
+  assert.equal(t.open(), false, 'Tab out of it closes it, though the pointer opened it');
+});
+
+test('a serve path of more than one segment links and marks as the page does', async () => {
+  const t = setup({ pathname: '/a/b/x/', dirs: { '/': [{ name: 'a/b' }, { name: 'c d' }] } });
+  t.hover(t.crumb('example.test'));
+  t.pg.tick(DWELL);
+  await t.settle();
+  assert.deepEqual(t.entries(), [['a/b', '/a/b/'], ['c d', '/c%20d/']]);
+  assert.deepEqual(t.current(), ['a/b']);
 });

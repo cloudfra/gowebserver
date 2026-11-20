@@ -25,11 +25,12 @@ let srv, b;
 
 test.before(async () => {
   const files = { 'Solo/only.png': png(64, 64, 200, 40, 40) };
+  for (let i = 0; i < 3; i++) files['Few/f' + i + '.png'] = png(96, 96, 40 + i * 70, 120, 200 - i * 60);
   for (let i = 0; i < 14; i++) files['Trip/p' + String(i).padStart(2, '0') + '.png'] = png(96, 96, i * 47, i * 83, i * 29);
   srv = await serve({ files });
   b = await open();
   await b.page.goto(srv.url);
-  await b.page.waitForFunction(() => document.querySelectorAll('.row.has-strip').length === 2);
+  await b.page.waitForFunction(() => document.querySelectorAll('.row.has-strip').length === 3);
 });
 
 test.after(async () => {
@@ -64,6 +65,40 @@ test('moving off the row closes it, leaving the strip', async () => {
   await b.page.mouse.move(5, 5);
   await b.page.waitForFunction(() => !document.querySelector('.strip-show'));
   assert.ok(await row('Trip').locator('.row-strip img.ready').count() > 0);
+});
+
+test('a folder of fewer photos than fit fills every slot as it plays', async () => {
+  await b.page.mouse.move(5, 5);
+  await row('Few').locator('.name').hover();
+  await b.page.waitForSelector('.strip-show.hp-open');
+  // Through the loop's reset, and past it.
+  for (let i = 0; i < 6; i++) {
+    const gaps = await row('Few').locator('.strip-show').evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      // Every slot of the panel's width, but the edge the strip fades out at.
+      const imgs = Array.from(panel.querySelectorAll('img')).map((img) => img.getBoundingClientRect());
+      let empty = 0;
+      for (let x = box.right - 20; x > box.left + 44; x -= 44) {
+        if (!imgs.some((r) => r.left <= x && x <= r.right)) empty++;
+      }
+      return empty;
+    });
+    assert.equal(gaps, 0, 'no empty slot, at step ' + i);
+    await b.page.waitForTimeout(350);
+  }
+});
+
+test('the next row waits out its own dwell', async () => {
+  await b.page.mouse.move(5, 5);
+  await row('Few').locator('.name').hover();
+  await b.page.waitForSelector('.strip-show.hp-open');
+  // Rows touch: straight down onto the next one.
+  await row('Solo').locator('.name').hover();
+  await row('Trip').locator('.name').hover();
+  await b.page.waitForTimeout(200);
+  assert.equal(await b.page.locator('.strip-show.hp-open').count(), 0, 'the one left is closed, the next not open yet');
+  await b.page.waitForSelector('.strip-show.hp-open');
+  assert.equal(await row('Trip').locator('.strip-show').count(), 1);
 });
 
 test('a folder of one photo has nothing to play', async () => {

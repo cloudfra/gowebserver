@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 )
@@ -27,8 +26,9 @@ var templateIndexHTML = mustLoadTemplate("template-index")
 
 type indexHTTPHandler struct {
 	page []byte
-	// folders is the answer to "/?folders": the serve paths, as the
-	// page lists them.
+	// folders is the answer to "/?folders": the serve paths, in the
+	// order they were configured, which is the order the page lists
+	// them in.
 	folders []subfolder
 }
 
@@ -40,9 +40,9 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 	w := &bytes.Buffer{}
 
 	entries := make([]*DirEntry, len(servePaths))
-	folders := newEntryList("name")
+	folders := make([]subfolder, len(servePaths))
 	for idx, servePath := range servePaths {
-		folders.add(&DirEntry{Name: strings.Trim(servePath, "/"), IsDir: true})
+		folders[idx] = subfolder{Name: strings.Trim(servePath, "/")}
 		entries[idx] = &DirEntry{
 			Name:      strings.Trim(servePath, "/"),
 			IsDir:     true,
@@ -65,15 +65,9 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 		return nil, err
 	}
 
-	sort.Sort(folders)
-	list := make([]subfolder, 0, folders.Len())
-	for _, name := range folders.EntryOrder {
-		list = append(list, subfolder{Name: name})
-	}
-
 	return &indexHTTPHandler{
 		page:    w.Bytes(),
-		folders: list,
+		folders: folders,
 	}, nil
 }
 
