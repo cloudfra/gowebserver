@@ -36,6 +36,7 @@ const (
 	handlerListing   = "listing"   // the file browser's page for a directory
 	handlerThumbnail = "thumbnail" // a resized image or video frame
 	handlerRichView  = "richview"  // the text viewer
+	handlerVideoMeta = "videometa" // a video's metadata, preview sprite or subtitles as WebVTT (videometa.go)
 	handlerUpload    = "upload"
 	handlerProxy     = "proxy" // passed on to another server
 	handlerIndex     = "index" // the list of served paths
@@ -95,7 +96,7 @@ func newRequestMetrics(mc *monitoringContext) (*requestMetrics, error) {
 		return nil, err
 	}
 	if rm.firstByte, err = m.Float64Histogram("http_server_time_to_first_byte_seconds",
-		metric.WithDescription("From a request arriving to the first byte of its response, by handler (file, listing, thumbnail, richview, upload, proxy, index, debug)."),
+		metric.WithDescription("From a request arriving to the first byte of its response, by handler (file, listing, thumbnail, videometa, richview, upload, proxy, index, debug)."),
 		metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(durationSeconds...)); err != nil {
 		return nil, err
 	}

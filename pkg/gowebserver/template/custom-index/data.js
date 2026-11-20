@@ -6,7 +6,7 @@ function escapeHTML(s) {
 
 // ===== Data =====
 var all = CFG.media.map(function (m, i) {
-  return { video: m[0] === 1, url: m[1], name: m[2], size: m[3], t: m[4], lower: m[2].toLowerCase(), pos: 0, row: -1 };
+  return { video: m[0] === 1, url: m[1], name: m[2], size: m[3], t: m[4], side: m[5] || 0, lower: m[2].toLowerCase(), pos: 0, row: -1 };
 });
 // The list's folders and files (kind: 0 a file, 1 one the text viewer
 // shows, 2 a folder, 3 an archive). list.js builds rows only for those

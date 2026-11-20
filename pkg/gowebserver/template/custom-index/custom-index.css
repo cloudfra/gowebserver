@@ -2279,6 +2279,12 @@ main {
   opacity: 1;
 }
 
+/* Over a video the dock's own scrim is the bottom's: the shade, above
+   the slides, would dim the dock and its preview. */
+.ss.on-video .ss-shade {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 24%);
+}
+
 .ss.is-fs .slide {
   overflow: hidden;
 }
@@ -3071,6 +3077,732 @@ main {
      that turns that off and gives up the one it can do without. */
   .ss-btn.opt:not(#ss-full) {
     display: none;
+  }
+}
+
+/* ===== A video's sidecars on its tile =====
+ * Subtitles, chapters and markers beside a video aren't listed as files
+ * (videometa.go): its tile says it has them. */
+.side-badges {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.side-badge {
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0.02em;
+}
+
+@supports (-webkit-hyphens: none) {
+  .side-badge {
+    background: rgba(0, 0, 0, 0.62);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ===== Video dock (player.js) =====
+ * Laid over the current video, where the browser's own controls would
+ * be, on a scrim that fades up from the bottom edge. The timeline runs
+ * the video's width: chapters as segments with gaps, markers as pins
+ * that read over any picture, played in the accent. Under it, the one
+ * solid control, play, then the time; the rest are quieter, in groups
+ * (markers, chapters, settings) at the right. The controls fade while
+ * the video plays and nothing is touched; never while it's paused, a
+ * menu is open or the timeline is held. The slideshow is dark in either
+ * theme, and so is the dock. */
+.vdock {
+  --vd-ink: #f6f7f9;
+  --vd-ink-2: rgba(246, 247, 249, 0.74);
+  --vd-ink-3: rgba(246, 247, 249, 0.5);
+  --vd-glass: rgba(22, 24, 30, 0.9);
+  --vd-line: rgba(255, 255, 255, 0.12);
+  --vd-played: var(--accent);
+  --vd-track: rgba(255, 255, 255, 0.26);
+  --vd-buffered: rgba(255, 255, 255, 0.44);
+  --vd-hover: rgba(255, 255, 255, 0.3);
+  --vd-rail: 4px;
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: var(--vd-ink);
+  font: 500 0.8125rem/1.2 var(--font-ui);
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.vdock[hidden],
+.vdock [hidden] {
+  display: none !important;
+}
+
+.vd-panel {
+  padding: 48px 10px 6px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(to top, rgba(5, 6, 9, 0.84) 0%, rgba(5, 6, 9, 0.56) 46%, rgba(5, 6, 9, 0.18) 80%, rgba(5, 6, 9, 0) 100%);
+  pointer-events: auto;
+  transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
+}
+
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open) .vd-panel {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+/* ---- Timeline ---- */
+.vd-tl {
+  position: relative;
+  height: 26px;
+  margin: 0 10px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.vd-tl:focus-visible {
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.vd-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--vd-rail);
+  transform: translateY(-50%);
+  transition: height 0.16s var(--ease);
+}
+
+.vd-tl:hover,
+.vdock.scrubbing .vd-tl,
+.vd-tl:focus-visible {
+  --vd-rail: 7px;
+}
+
+.vd-segs,
+.vd-bands,
+.vd-ticks {
+  position: absolute;
+  inset: 0;
+}
+
+.vd-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--vd-track);
+}
+
+/* Between chapters, a clear gap: each segment's own transparent edge. */
+.vd-segs.chaptered .vd-seg:not(:last-child) {
+  border-right: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* A stretch of time: a band in its group's color, a little taller than
+   the track. */
+.vd-band {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  border-radius: 3px;
+  background: var(--c, #fff);
+  opacity: 0.42;
+}
+
+/* A moment: a pin through the track, outlined so it reads over a bright
+   picture as well as a dark one. */
+.vd-tick {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: calc(var(--vd-rail) + 9px);
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--c, #fff);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.5);
+  transform: translateY(-50%);
+  transition: height 0.16s var(--ease);
+  pointer-events: none;
+}
+
+.vd-head {
+  position: absolute;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  margin: -7.5px 0 0 -7.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 38%, transparent), 0 2px 6px rgba(0, 0, 0, 0.55);
+  transform: scale(0);
+  transition: transform 0.16s var(--ease);
+  pointer-events: none;
+}
+
+.vd-tl:hover .vd-head,
+.vd-tl:focus-visible .vd-head,
+.vdock.scrubbing .vd-head,
+.vdock.paused .vd-head {
+  transform: scale(1);
+}
+
+/* ---- The preview over the timeline ---- */
+.vd-pop {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.vd-pop-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #0c0d10;
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.vd-pop-img {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+
+.vd-pop-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.vd-pop-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 240px;
+  padding: 5px 10px 6px;
+  border-radius: 9px;
+  background: var(--vd-glass);
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.7);
+}
+
+.vd-pop-label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--vd-ink-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vd-pop-time {
+  font-size: 0.875rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* ---- The row of controls ---- */
+.vd-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 52px;
+}
+
+.vd-btn {
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--vd-ink-2);
+  font: 650 0.8125rem/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, transform 0.18s var(--ease);
+}
+
+.vd-btn:hover,
+.vd-btn[aria-expanded="true"] {
+  color: var(--vd-ink);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vd-btn:active {
+  transform: scale(0.92);
+}
+
+.vd-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.vd-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Play is the one solid control. */
+.vd-play {
+  width: 44px;
+  height: 44px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0d0f14;
+  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+}
+
+.vd-play:hover {
+  background: #fff;
+  color: #0d0f14;
+  transform: scale(1.05);
+}
+
+.vd-play:active {
+  transform: scale(0.94);
+}
+
+.vd-play svg {
+  width: 22px;
+  height: 22px;
+}
+
+.vd-time {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.vd-sep {
+  color: var(--vd-ink-3);
+  font-weight: 500;
+}
+
+.vd-dur {
+  color: var(--vd-ink-2);
+  font-weight: 500;
+}
+
+.vd-chap {
+  min-width: 0;
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+  color: var(--vd-ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vd-chap:empty {
+  display: none;
+}
+
+.vd-gap {
+  flex: 1;
+  min-width: 8px;
+}
+
+.vd-group,
+.vd-vol {
+  flex: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* A hairline between two groups that show, not before the first. */
+.vd-group {
+  margin-left: 11px;
+}
+
+.vd-group:not([hidden]) ~ .vd-group::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 1px;
+  height: 20px;
+  margin-top: -10px;
+  background: var(--vd-line);
+}
+
+.vd-full {
+  margin-left: 2px;
+}
+
+.vd-rate {
+  width: auto;
+  min-width: 44px;
+  padding: 0 9px;
+}
+
+.vd-more {
+  display: none;
+}
+
+.vd-cc[aria-pressed="true"] {
+  color: var(--vd-ink);
+}
+
+.vd-cc[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* Volume: the slider slides out of the mute button. */
+.vd-vol-slide {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.22s var(--ease), opacity 0.18s;
+}
+
+.vd-vol:hover .vd-vol-slide,
+.vd-vol:focus-within .vd-vol-slide {
+  width: 88px;
+  opacity: 1;
+}
+
+.vd-volume {
+  --vol: 100%;
+  display: block;
+  width: 76px;
+  height: 24px;
+  margin: 0 8px 0 4px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.vd-volume:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.vd-volume::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+}
+
+.vd-volume::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.vd-volume::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+}
+
+.vd-volume::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Tooltip: the button's name and its key ---- */
+.vd-tip {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px 6px 10px;
+  border-radius: 8px;
+  background: var(--vd-glass);
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.7);
+  color: var(--vd-ink);
+  font: 500 0.75rem/1.2 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.12s, transform 0.16s var(--ease);
+}
+
+.vd-tip.on {
+  opacity: 1;
+  transform: none;
+}
+
+.vd-tip-key {
+  padding: 3px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--vd-ink-2);
+  font: 600 0.6875rem/1 var(--font-ui);
+}
+
+/* ---- Menus ---- */
+.vd-menu {
+  position: absolute;
+  z-index: 4;
+  min-width: 212px;
+  max-height: min(70vh, 440px);
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(24, 26, 32, 0.9);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  transform-origin: bottom right;
+  transition: opacity 0.14s var(--ease-out), transform 0.2s var(--ease);
+}
+
+.vd-menu.open {
+  opacity: 1;
+  transform: none;
+}
+
+.vd-menu-title {
+  padding: 6px 10px 6px;
+  color: var(--vd-ink-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.vd-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.vd-menu-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--vd-ink);
+  font: 500 0.875rem/1 var(--font-ui);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.vd-menu-list button:hover,
+.vd-menu-list button:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.vd-menu-list svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  visibility: hidden;
+}
+
+.vd-menu-list [aria-checked="true"] svg {
+  visibility: visible;
+}
+
+.vd-menu-list [role="menuitem"] svg {
+  display: none;
+}
+
+.vd-menu-list [role="menuitem"] {
+  padding-left: 14px;
+}
+
+.vd-menu-hint {
+  margin-left: auto;
+  padding-left: 18px;
+  color: var(--vd-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.vd-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Subtitles, and what a key did ---- */
+.vd-cap {
+  align-self: center;
+  max-width: 86%;
+  margin-bottom: 10px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.vd-cap > span {
+  display: table;
+  margin: 3px auto;
+  padding: 3px 12px 4px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.74);
+  font-size: clamp(0.9375rem, 2.2vw, 1.5rem);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.vd-flash {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  padding: 9px 16px;
+  border-radius: 12px;
+  background: var(--vd-glass);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.vd-flash.on {
+  animation: vd-flash 0.9s var(--ease-out);
+}
+
+@keyframes vd-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+
+  15%,
+  65% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ---- A narrow video, or a touch screen ----
+ * The row keeps play, the time, subtitles and full screen, and puts the
+ * rest in More. Touch targets stay 44px. */
+.vdock.compact .vd-panel {
+  padding: 40px 6px 4px;
+}
+
+.vdock.compact .vd-tl {
+  margin: 0 8px;
+}
+
+.vdock.compact :is(.vd-mk, .vd-ch, .vd-vol, .vd-rate, .vd-chap) {
+  display: none;
+}
+
+.vdock.compact .vd-more {
+  display: grid;
+}
+
+.vdock.compact .vd-set {
+  margin-left: 0;
+}
+
+.vdock.compact .vd-set::before {
+  display: none;
+}
+
+.vdock.compact .vd-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.vdock.compact .vd-play {
+  width: 42px;
+  height: 42px;
+  margin-right: 4px;
+}
+
+.vdock.tiny .vd-cc {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .vd-tl {
+    height: 32px;
   }
 }
 

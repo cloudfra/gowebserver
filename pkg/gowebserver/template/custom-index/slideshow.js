@@ -19,6 +19,99 @@ var slideshow = (function () {
     return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
   }
 
+  // ---- A video's dock (player.js) ----
+  // The current slide's video plays with the dock over it. Where each
+  // video was left is kept for the session (POS_KEY), and the page's
+  // address says which video is on and where (vpHash), so it can be
+  // shared and reopened there (openFromHash).
+  var dock = VideoDock({
+    fullscreen: function () {
+      if (!fullscreenEnabled) return;
+      if (isFullscreen()) { exitFullscreen(); autoFs = false; } else toggleFullscreen();
+    },
+    isFullscreen: isFullscreen,
+    slide: function (d) { step(d); },
+    time: function (it, t, final) {
+      savePos(it, t);
+      if (!final) setHash(it, t);
+    },
+    activity: function () { showChrome(); }
+  });
+  var pendingAt = null, POS_KEY = 'gows-pos:';
+
+  function posKey(it) {
+    return POS_KEY + location.pathname + '\n' + it.url;
+  }
+  function savePos(it, t) {
+    try {
+      var v = dock.current(), dur = v && isFinite(v.duration) ? v.duration : 0;
+      // A video watched to its end starts over next time.
+      if (t > 5 && !(dur && t > dur - 5)) sessionStorage.setItem(posKey(it), String(Math.round(t * 10) / 10));
+      else sessionStorage.removeItem(posKey(it));
+    } catch (e) { }
+  }
+  function resumeAt(it) {
+    try {
+      var t = parseFloat(sessionStorage.getItem(posKey(it)));
+      return t > 0 ? t : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  // Only the fragment changes: the path and query are the page's own.
+  function setHash(it, t) {
+    if (!isOpen || closing) return;
+    try { if (history.replaceState) history.replaceState(history.state, '', vpHash(it.name, t)); } catch (e) { }
+  }
+  function clearHash() {
+    if (!/^#v=/.test(location.hash || '')) return;
+    try { if (history.replaceState) history.replaceState(history.state, '', String(location.href).split('#')[0]); } catch (e) { }
+  }
+
+  // The current slide's video gets the dock; any other slide leaves it.
+  function attachDock() {
+    var it = list[idx], div = slides.get(idx), m = div && div.firstChild;
+    dlg.classList.toggle('on-video', !!(it && it.video));
+    if (!it || !it.video || !m || m.tagName !== 'VIDEO') {
+      dock.detach();
+      clearHash();
+      return;
+    }
+    if (dock.current() !== m) {
+      var at = pendingAt != null ? pendingAt : resumeAt(it);
+      dock.attach(m, it, div, at);
+      setHash(it, at || 0);
+    }
+    pendingAt = null;
+    placeDock();
+  }
+
+  // The dock covers the current video: its box in the slide, as the
+  // slide's padding centers it, cut to the slide's room when the video
+  // is larger (filling the screen).
+  function placeDock() {
+    var div = slides.get(idx), m = div && div.firstChild;
+    if (!m || dock.current() !== m) return;
+    var p = insets(true);
+    var w = parseFloat(m.style.width) || 0, h = parseFloat(m.style.height) || 0;
+    var x = p.l + (W - p.l - p.r - w) / 2, y = p.t + (H - p.t - p.b - h) / 2;
+    var x0 = Math.max(x, p.l), y0 = Math.max(y, p.t);
+    var x1 = Math.min(x + w, W - p.r), y1 = Math.min(y + h, H - p.b);
+    dock.place({ x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) });
+  }
+
+  // Opens the slideshow on the video the address names (vpHash), at its
+  // time, as a shared link asks. False when it names none in the folder.
+  function openFromHash() {
+    var h = vpParseHash(location.hash);
+    if (!h) return false;
+    var it = null;
+    vis.videos.forEach(function (x) { if (!it && x.name === h.v) it = x; });
+    if (!it) return false;
+    open(vis.videos, it.pos, null, false, h.t);
+    return true;
+  }
+
   // Must run inside a click or key press; browsers only grant
   // fullscreen during a user gesture. A refusal leaves the slideshow
   // open in the window. The frame goes fullscreen, not the dialog:
@@ -197,11 +290,13 @@ var slideshow = (function () {
     div.style.padding = p.t + 'px ' + p.r + 'px ' + p.b + 'px ' + p.l + 'px';
     if (it.video) {
       var v = doc.createElement('video');
-      v.controls = true;
+      // The dock is its controls (attachDock).
+      v.controls = false;
       v.playsInline = true;
       v.preload = 'metadata';
       v.addEventListener('loadedmetadata', function () {
         sizeMedia(v);
+        placeDock();
         if (auto && list[idx] === it) v.play().catch(function () { });
       });
       v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
@@ -362,6 +457,7 @@ var slideshow = (function () {
     // queue ahead of its neighbors'.
     if (m && m.tagName === 'IMG') m.fetchPriority = 'high';
     if (m && m.tagName === 'VIDEO' && m.readyState >= 2) ambient.show(m);
+    attachDock();
   }
 
   function loadVideo(v) {
@@ -612,6 +708,7 @@ var slideshow = (function () {
 
   stage.addEventListener('pointerdown', function (e) {
     if (e.target.tagName === 'VIDEO' && e.pointerType === 'mouse') return;
+    if (e.target.closest && e.target.closest('.vdock')) return;
     if (e.button > 0) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
@@ -714,6 +811,14 @@ var slideshow = (function () {
     if (lastTap && now - lastTap.t < 300 && Math.hypot(x - lastTap.x, y - lastTap.y) < 30) {
       clearTimeout(tapTimer);
       lastTap = null;
+      // On a video, a double tap skips back or on by ten seconds,
+      // after the side it's on.
+      var m = currentMedia();
+      if (m && m.tagName === 'VIDEO' && dock.current() === m) {
+        var r = m.getBoundingClientRect();
+        dock.act(x < r.left + r.width / 2 ? 'seek:-10' : 'seek:10');
+        return;
+      }
       if (zoom.z > 1) resetZoom(true); else zoomAt(2.5, x, y, null, true);
       return;
     }
@@ -733,6 +838,7 @@ var slideshow = (function () {
   var WHEEL_GESTURE_GAP = 200;
   var wheelAcc = 0, wheelSpent = false, wheelIdle = 0;
   stage.addEventListener('wheel', function (e) {
+    if (e.target.closest && e.target.closest('.vdock')) return;
     e.preventDefault();
     showChrome();
     if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) && zoom.z === 1) {
@@ -756,7 +862,9 @@ var slideshow = (function () {
     dlg.classList.remove('chrome-off');
     clearTimeout(chromeTimer);
     chromeTimer = setTimeout(function () {
-      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover')) dlg.classList.add('chrome-off');
+      // A paused video, an open menu or a held timeline keeps them.
+      if (dock.holdsChrome()) return;
+      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover')) dlg.classList.add('chrome-off');
     }, 2800);
   }
 
@@ -878,8 +986,11 @@ var slideshow = (function () {
   }
 
   // ---- Open / close ----
-  function open(items, start, tile, autoplay) {
+  // at, for a video, is the time to start it at (a link to it), in
+  // seconds; otherwise it starts where it was left this session.
+  function open(items, start, tile, autoplay, at) {
     if (!items.length || isOpen) return;
+    pendingAt = at > 0 ? at : null;
     list = items;
     idx = Math.max(0, Math.min(start, list.length - 1));
     isOpen = true;
@@ -930,6 +1041,8 @@ var slideshow = (function () {
     // back from where it is on screen.
     var box = m && m.getBoundingClientRect();
     if (m && m.tagName === 'VIDEO') m.pause();
+    dock.detach();
+    clearHash();
     exitFullscreen();
     dlg.querySelector('.ss-bg').style.opacity = '0';
     dlg.classList.remove('open');
@@ -960,6 +1073,14 @@ var slideshow = (function () {
 
   dlg.addEventListener('keydown', function (e) {
     if (!isOpen) return;
+    // A video's keys are the dock's (vpKey); the rest are the
+    // slideshow's.
+    var m = currentMedia();
+    if (m && m.tagName === 'VIDEO' && dock.current() === m && dock.key(e)) {
+      showChrome();
+      e.preventDefault();
+      return;
+    }
     if (e.target.tagName === 'VIDEO' && (e.key === ' ' || e.key.indexOf('Arrow') === 0)) return;
     if (e.key === ' ' && e.target !== dlg) return;
     showChrome();
@@ -985,8 +1106,10 @@ var slideshow = (function () {
     });
     resetZoom(false);
     position(0);
+    placeDock();
+    dock.syncFull();
   }
   addEventListener('resize', function () { if (isOpen) { relayoutSlides(); renderStrip(); } });
 
-  return { open: open };
+  return { open: open, openFromHash: openFromHash, dock: dock };
 })();

@@ -33,6 +33,7 @@ import (
 
 	"facette.io/natsort"
 	"github.com/cloudfra/gowebserver/internal"
+	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -49,7 +50,10 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
+// newHandlerFromFS serves the content at fsSpec: the file browser, the
+// text viewer, thumbnails (when thumbs is set) and videos' metadata (with
+// ff, which may be nil, for what needs ffmpeg).
+func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer, ff *ffmpeg.FFmpeg) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
@@ -70,10 +74,11 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
-	if thumbs == nil {
-		return rv, nFS.Close, nil
+	var h http.Handler = rv
+	if thumbs != nil {
+		h = thumbs.handler(rv, nFS, fsSpec)
 	}
-	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
+	return newVideoMetaHandler(h, nFS, fsSpec, thumbs, ff), nFS.Close, nil
 }
 
 func cleanPath(path string) string {
@@ -140,6 +145,12 @@ type DirEntry struct {
 	IsArchive  bool
 	IsViewable bool
 	IconClass  string
+	// Sidecar is a file of a video's metadata (see videometa.go) whose
+	// video is in the same folder: it's listed under the video, as one
+	// of its Badges, not as a file of its own.
+	Sidecar bool
+	// Badges are what a video has beside it (badgeSubtitles and so on).
+	Badges int
 }
 
 // The kinds of entry in the file browser's list, as the page is sent them
@@ -417,7 +428,12 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 
 	allFiles := map[string]any{}
 	archiveDirs := map[string]fs.DirEntry{}
+	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
+		// Only files are videos or their sidecars, as findSidecars has it.
+		if !entry.IsDir() {
+			names = append(names, entry.Name())
+		}
 		if strings.HasSuffix(entry.Name(), nestedDirSuffix) {
 			archiveDirs[entry.Name()] = entry
 		}
@@ -429,6 +445,8 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 			actualArchiveDir[name] = archiveDir
 		}
 	}
+
+	sidecars, badges := listingSidecars(names)
 
 	_, statSpan, statted := c.metrics.stage(ctx, listingStageStat)
 	listed := make([]fs.DirEntry, 0, len(entries))
@@ -468,6 +486,10 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 			IsArchive:  isArchive,
 			IsViewable: !isDir && isRichViewable(iconClass),
 			IconClass:  iconClass,
+			Sidecar:    !isDir && sidecars[entry.Name()],
+		}
+		if !isDir && isMetaVideo(entry.Name()) {
+			newEntry.Badges = badges[strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))]
 		}
 		files.add(newEntry)
 	}
@@ -488,7 +510,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	for _, name := range files.EntryOrder {
 		entry := files.Entries[name]
 		params.DirEntries = append(params.DirEntries, entry)
-		if !entry.IsMedia() {
+		if !entry.IsMedia() && !entry.Sidecar {
 			hasNonMediaEntry = true
 		}
 		if entry.IsImage() {

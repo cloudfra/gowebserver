@@ -222,7 +222,7 @@ func TestGzipHandlerListing(t *testing.T) {
 		}
 	}
 	mc, _, _ := testMonitoring()
-	h, closeFS, err := newHandlerFromFS(dir, mc, true, nil)
+	h, closeFS, err := newHandlerFromFS(dir, mc, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

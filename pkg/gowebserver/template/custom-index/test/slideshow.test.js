@@ -18,7 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, markup } = require('../../harness.js');
 
-const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/slideshow.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/player.js', 'custom-index/slideshow.js'];
 
 // util.js's question about the input device, spelled as it asks it.
 const FINE_POINTER = '(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)';
@@ -192,7 +192,7 @@ test('the neighbors load anyway if the current video is slow to show', () => {
 test('stepping to a neighbor loads it now', () => {
   const t = setup(100, { videos: true });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
-  t.key('ArrowRight');
+  t.key('PageDown'); // on a video the arrows seek
   const cur = t.slides().map((d) => d.firstChild).find((v) => v.src === 'm49');
   assert.ok(cur, 'm49 is loading as soon as it is current');
 });
@@ -406,7 +406,7 @@ test('a small stage shows no filmstrip over a video, only over photos', () => {
   assert.equal(t.dlg.classList.contains('no-strip'), true, 'm9 is a video');
   assert.equal(t.slides().find((d) => d.firstChild.tagName === 'VIDEO').style.padding, '0px 0px 0px 0px', 'which keeps the whole screen');
   assert.equal(pointerAt(t, 380, 'touch'), false, 'a touch on its scrubber leaves the strip down');
-  t.key('ArrowRight');
+  t.key('PageDown'); // the arrows seek a video
   assert.equal(t.dlg.classList.contains('no-strip'), false);
 });
 

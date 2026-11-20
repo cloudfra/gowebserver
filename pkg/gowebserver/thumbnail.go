@@ -222,9 +222,13 @@ type thumbnailer struct {
 	ffmpeg *ffmpeg.FFmpeg // nil when video thumbnails are unavailable
 	// Decoding a large photo takes a lot of memory, so at most one
 	// thumbnail per CPU is made at a time.
-	sem     chan struct{}
-	tp      trace.TracerProvider
-	metrics *thumbnailMetrics
+	sem chan struct{}
+	// spriteSem is the one slot for making video preview sprites
+	// (videometa.go), each of which can take minutes: they never hold up
+	// thumbnails.
+	spriteSem chan struct{}
+	tp        trace.TracerProvider
+	metrics   *thumbnailMetrics
 
 	mu      sync.Mutex
 	renders map[string]*render // by store key, while being made
@@ -383,6 +387,7 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 		tp:          mc.getTraceProvider(),
 		metrics:     metrics,
 		renders:     map[string]*render{},
+		spriteSem:   make(chan struct{}, 1),
 		probed:      make(chan struct{}),
 		firstProbe:  make(chan struct{}),
 	}

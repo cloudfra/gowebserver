@@ -26,7 +26,7 @@ Alert | Fires when | Severity
 GowebserverDown | The server can't be scraped for 2 minutes. | critical
 GowebserverRestarting | It restarted more than twice in 30 minutes. | warning
 GowebserverServerErrors | More than 5% of requests got a 5xx response for 10 minutes. | warning
-GowebserverSlowResponses | For a handler other than thumbnail, upload and proxy, the slowest 5% of requests waited more than 1 second for the response to start, for 10 minutes. | warning
+GowebserverSlowResponses | For a handler other than thumbnail, videometa, upload and proxy, the slowest 5% of requests waited more than 1 second for the response to start, for 10 minutes. | warning
 GowebserverSlowProxyUpstream | The slowest 5% of proxied requests took more than 5 seconds, for 10 minutes. | warning
 GowebserverProxyUpstreamErrors | More than 10% of proxied requests failed or got a 5xx response for 10 minutes. | warning
 GowebserverThumbnailBacklog | The slowest 5% of thumbnails waited more than 5 seconds for a render slot, for 10 minutes. | warning
@@ -73,5 +73,5 @@ Metric | Labels | What it measures
 `thumbnail_store_lookup_duration_seconds` | `result` (hit, miss) | Asking the store for a thumbnail.
 `thumbnail_stored_bytes_total` | `kind` | Bytes of thumbnails put in the store.
 `thumbnail_store_size_bytes` | | Size of the store's database file.
-`thumbnail_ffmpeg_duration_seconds` | `operation` (frame, duration, photo, encode), `input` (file, pipe), `outcome` | Each run of ffmpeg: a video's frame, its length, a photo, or a thumbnail made in Go written as WebP. A frame or photo run can make the whole thumbnail, which is then all of its decode stage.
+`thumbnail_ffmpeg_duration_seconds` | `operation` (frame, duration, photo, encode, probe, sprite), `input` (file, pipe), `outcome` | Each run of ffmpeg: a video's frame, its length, a photo, or a thumbnail made in Go written as WebP. A frame or photo run can make the whole thumbnail, which is then all of its decode stage. probe reads a video's length, size and chapters for its metadata (`?meta`), and sprite makes its scrub preview sprite (`?sprite`), which may run for up to 5 minutes.
 `thumbnail_video_copy_bytes_total` | | Videos copied out of archives for ffmpeg.

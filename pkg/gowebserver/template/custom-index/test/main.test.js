@@ -21,7 +21,7 @@ const { page, load } = require('../../harness.js');
 function setup(value) {
   const html = '<p id="summary"></p><p id="no-match"></p><input id="filter" value="' + (value || '') + '">';
   const files = ['alpha', 'beta'].map((n) => [0, n, n, 'unknown', 1, '2024-01-01']);
-  const pg = page(html, { globals: { grid: null, GOWS: { sort: 'name', thumbs: false, videoThumbs: false, files, media: [] } } });
+  const pg = page(html, { globals: { grid: null, slideshow: { openFromHash() { } }, GOWS: { sort: 'name', thumbs: false, videoThumbs: false, files, media: [] } } });
   const input = pg.document.getElementById('filter');
   input.value = value || '';
   load(pg, ['custom-index/util.js', 'custom-index/data.js', 'custom-index/main.js'], []);

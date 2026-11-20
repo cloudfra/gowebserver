@@ -342,6 +342,66 @@
       <symbol id="ui-play" viewBox="0 0 24 24">
         <path d="M7 4.5v15a1 1 0 001.5.86l12.5-7.5a1 1 0 000-1.72L8.5 3.64A1 1 0 007 4.5z" />
       </symbol>
+      <!-- The video dock's (player.js): drawn like the icons above, a
+           24 grid with the button's 1.8 stroke; play and pause are solid. -->
+      <symbol id="vd-play" viewBox="0 0 24 24">
+        <path fill="currentColor" stroke="none" d="M7.5 5.2v13.6a1.1 1.1 0 001.66.94l11.1-6.8a1.1 1.1 0 000-1.88l-11.1-6.8A1.1 1.1 0 007.5 5.2z" />
+      </symbol>
+      <symbol id="vd-pause" viewBox="0 0 24 24">
+        <rect fill="currentColor" stroke="none" x="6.2" y="4.8" width="4" height="14.4" rx="1.3" />
+        <rect fill="currentColor" stroke="none" x="13.8" y="4.8" width="4" height="14.4" rx="1.3" />
+      </symbol>
+      <symbol id="vd-prev-ch" viewBox="0 0 24 24">
+        <path d="M6 5.5v13" />
+        <path d="M18 6.8v10.4a.8.8 0 01-1.24.67l-7.5-5.2a.8.8 0 010-1.33l7.5-5.2A.8.8 0 0118 6.8z" />
+      </symbol>
+      <symbol id="vd-next-ch" viewBox="0 0 24 24">
+        <path d="M18 5.5v13" />
+        <path d="M6 6.8v10.4a.8.8 0 001.24.67l7.5-5.2a.8.8 0 000-1.33l-7.5-5.2A.8.8 0 006 6.8z" />
+      </symbol>
+      <symbol id="vd-prev-mk" viewBox="0 0 24 24">
+        <path d="M10.5 7l-5 5 5 5" />
+        <path d="M17 8.5l3.5 3.5-3.5 3.5-3.5-3.5z" />
+      </symbol>
+      <symbol id="vd-next-mk" viewBox="0 0 24 24">
+        <path d="M13.5 7l5 5-5 5" />
+        <path d="M7 8.5l3.5 3.5L7 15.5 3.5 12z" />
+      </symbol>
+      <symbol id="vd-markers" viewBox="0 0 24 24">
+        <path d="M4 7h8M4 12h5M4 17h8" />
+        <path d="M17 8.5l3.5 3.5-3.5 3.5-3.5-3.5z" />
+      </symbol>
+      <symbol id="vd-vol" viewBox="0 0 24 24">
+        <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
+        <path d="M15.2 9.2a4 4 0 010 5.6" />
+        <path d="M17.8 6.6a7.6 7.6 0 010 10.8" />
+      </symbol>
+      <symbol id="vd-vol-low" viewBox="0 0 24 24">
+        <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
+        <path d="M15.2 9.2a4 4 0 010 5.6" />
+      </symbol>
+      <symbol id="vd-mute" viewBox="0 0 24 24">
+        <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
+        <path d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+      </symbol>
+      <symbol id="vd-cc" viewBox="0 0 24 24">
+        <rect x="3" y="5.5" width="18" height="13" rx="3" />
+        <path d="M10.6 10.3a2.1 2.1 0 100 3.4M16.6 10.3a2.1 2.1 0 100 3.4" />
+      </symbol>
+      <symbol id="vd-full" viewBox="0 0 24 24">
+        <path d="M4.5 9V5.5a1 1 0 011-1H9M15 4.5h3.5a1 1 0 011 1V9M19.5 15v3.5a1 1 0 01-1 1H15M9 19.5H5.5a1 1 0 01-1-1V15" />
+      </symbol>
+      <symbol id="vd-exit-full" viewBox="0 0 24 24">
+        <path d="M9 4.5V8a1 1 0 01-1 1H4.5M19.5 9H16a1 1 0 01-1-1V4.5M15 19.5V16a1 1 0 011-1h3.5M4.5 15H8a1 1 0 011 1v3.5" />
+      </symbol>
+      <symbol id="vd-more" viewBox="0 0 24 24">
+        <circle fill="currentColor" stroke="none" cx="6" cy="12" r="1.7" />
+        <circle fill="currentColor" stroke="none" cx="12" cy="12" r="1.7" />
+        <circle fill="currentColor" stroke="none" cx="18" cy="12" r="1.7" />
+      </symbol>
+      <symbol id="vd-check" viewBox="0 0 24 24">
+        <path d="M5.5 12.5l4.2 4.2L18.5 7.8" />
+      </symbol>
     </defs>
   </svg>
 
@@ -437,11 +497,11 @@
       // [kind, url, name, icon, size, date]; kind is 0 a file, 1 a file
       // the text viewer shows, 2 a folder, 3 an archive (opened as one).
       files: [
-        {{- range $.DirEntries}}{{if not .IsMedia}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
+        {{- range $.DirEntries}}{{if and (not .IsMedia) (not .Sidecar)}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
       ],
-      // [isVideo, url, name, size, unix mtime]
+      // [isVideo, url, name, size, unix mtime, a video's sidecars (badges, see videometa.go)]
       media: [
-        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
+        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}{{if .Badges}},{{.Badges}}{{end}}],{{end}}{{end -}}
       ]
     };
   </script>
@@ -465,6 +525,8 @@
       {{include "grid.js"}}
 
       {{include "scrubber.js"}}
+
+      {{include "player.js"}}
 
       {{include "slideshow.js"}}
 

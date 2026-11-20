@@ -177,7 +177,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler, handlerIndex)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs, ws.ffmpeg)
 			if err != nil {
 				return err
 			}
@@ -194,7 +194,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs, ws.ffmpeg)
 		if err != nil {
 			return err
 		}

@@ -168,7 +168,7 @@ func newThumbnailMetrics(mc *monitoringContext) (*thumbnailMetrics, error) {
 		return nil, err
 	}
 	if tm.ffmpegDuration, err = m.Float64Histogram("thumbnail_ffmpeg_duration_seconds",
-		metric.WithDescription("How long each run of ffmpeg took, by operation (frame, duration, photo, encode), input (file, pipe) and outcome (ok, nothing, timeout, canceled, error)."),
+		metric.WithDescription("How long each run of ffmpeg took, by operation (frame, duration, photo, encode, probe, sprite), input (file, pipe) and outcome (ok, nothing, timeout, canceled, error)."),
 		metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(thumbnailSeconds...)); err != nil {
 		return nil, err
 	}

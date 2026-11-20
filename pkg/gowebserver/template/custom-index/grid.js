@@ -109,7 +109,8 @@ function createGrid(el) {
         a.innerHTML = (!it.video ? '<img alt="" decoding="async" draggable="false">' :
           CFG.videoThumbs ? '<img class="vthumb" alt="" decoding="async" draggable="false">' : '') +
           '<span class="cap">' + escapeHTML(it.name) + '</span>' +
-          (it.video ? '<span class="badge">' + svgUse('ui-play') + '<span class="dur">' + (it.dur ? fmtDuration(it.dur) : '') + '</span></span>' : '');
+          (it.video ? '<span class="badge">' + svgUse('ui-play') + '<span class="dur">' + (it.dur ? fmtDuration(it.dur) : '') + '</span></span>' : '') +
+          (it.side ? sideBadges(it.side) : '');
         div.appendChild(a);
       });
     }
@@ -399,6 +400,18 @@ function unquicken() {
 // once.
 // Either way the video is torn down when its row scrolls away.
 var videoQueue = [], videoActive = 0, VIDEO_CONCURRENCY = 3;
+
+// What a video has in files beside it (side, bits from the server's
+// badges in videometa.go), as small labels on its tile: the files
+// themselves aren't listed, the slideshow plays the video with them.
+var SIDE_BADGES = [[1, 'CC', 'Subtitles'], [2, 'Chapters', 'Chapters'], [4, 'Markers', 'Markers'], [8, 'Previews', 'Scrub previews']];
+function sideBadges(side) {
+  var out = '';
+  SIDE_BADGES.forEach(function (b) {
+    if (side & b[0]) out += '<span class="side-badge" title="' + b[2] + '">' + b[1] + '</span>';
+  });
+  return out ? '<span class="side-badges">' + out + '</span>' : '';
+}
 
 function fmtDuration(sec) {
   var t = Math.floor(sec), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
