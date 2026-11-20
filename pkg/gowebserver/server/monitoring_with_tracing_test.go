@@ -14,7 +14,7 @@
 
 //go:build !(plan9 || js || aix)
 
-package gowebserver
+package server
 
 import (
 	"context"
@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -41,7 +43,7 @@ func fakeOTLPServer(t *testing.T) (*httptest.Server, <-chan struct{}) {
 }
 
 func TestNewTraceProvider_NoURI(t *testing.T) {
-	tp, err := newTraceProvider(Monitoring{}, resource.Default(), nil)
+	tp, err := newTraceProvider(gowebserver.Monitoring{}, resource.Default(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +56,7 @@ func TestNewTraceProvider_ExportsSpans(t *testing.T) {
 	ctx := t.Context()
 	srv, received := fakeOTLPServer(t)
 
-	m := Monitoring{Trace: Trace{URI: srv.URL}}
+	m := gowebserver.Monitoring{Trace: gowebserver.Trace{URI: srv.URL}}
 	tp, err := newTraceProvider(m, resource.Default(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +95,7 @@ func TestNewTraceProvider_SpanProcessorRegistered(t *testing.T) {
 	srv, _ := fakeOTLPServer(t)
 
 	recorder := tracetest.NewSpanRecorder()
-	m := Monitoring{Trace: Trace{URI: srv.URL}}
+	m := gowebserver.Monitoring{Trace: gowebserver.Trace{URI: srv.URL}}
 	tp, err := newTraceProvider(m, resource.Default(), recorder)
 	if err != nil {
 		t.Fatal(err)
@@ -128,8 +130,8 @@ func TestSetupMonitoring_WithTrace(t *testing.T) {
 	ctx := t.Context()
 	srv, _ := fakeOTLPServer(t)
 
-	m := Monitoring{
-		Trace: Trace{
+	m := gowebserver.Monitoring{
+		Trace: gowebserver.Trace{
 			Enabled: true,
 			URI:     srv.URL,
 		},
@@ -172,8 +174,8 @@ func TestSetupMonitoring_NilSpanProcessorWhenNoDebugEndpoint(t *testing.T) {
 	ctx := t.Context()
 	srv, _ := fakeOTLPServer(t)
 
-	m := Monitoring{
-		Trace: Trace{
+	m := gowebserver.Monitoring{
+		Trace: gowebserver.Trace{
 			Enabled: true,
 			URI:     srv.URL,
 		},

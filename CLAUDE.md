@@ -42,26 +42,34 @@ cmd/                      # CLI entry points
 
 pkg/                      # Public libraries
 ├── ffmpeg/               # Runs ffmpeg; finds or downloads (on demand, after license acceptance) the binary
-└── gowebserver/          # Core server implementation
+└── gowebserver/          # The handlers: what a program that embeds gowebserver links (NewHandler, SPA, Compress, Mount), and WebServer
+    └── server/           # The standalone server: Run, Load (flags, YAML), logging (zap), certificates, Prometheus/OTLP exporters, pprof, CORS, every ufs driver
 
 internal/gowebserver/testing/  # Test utilities and embedded test archives
 └── embedhost/                 # A host program embedding NewHandler, for the browser tests
 ```
 
+### The two packages
+
+`pkg/gowebserver` is all a program that embeds gowebserver links, so it must stay lean: it imports no exporter, no zap, no CORS, no certificate tooling, nothing that registers on `http.DefaultServeMux` (`net/http/pprof`, `expvar`), and of ufs's drivers only `drivers/core` (local folders and archives). The rest is opt-in by import: the program adds `drivers/gitfs`, `drivers/gcsfs` or `drivers/all` for other `Path`s and `drivers/boltfs` for a thumbnail cache file. `deps_test.go` builds `testdata/embedfs` (an `fs.FS`) and `testdata/embedpath` (a local `Path`) and fails if they link any of that; keep the list there current. `pkg/gowebserver/server` is the standalone server, built on `NewInstrumented` with an `Instrumentation` (its providers, `/metrics`, pprof and tracez routes, CORS); `cmd/gowebserver` calls `server.Run()`.
+
 ### Core Components (pkg/gowebserver/)
 
-- **config.go**: CLI flags and YAML config loading. Flags are registered on a `flag.FlagSet` that `Load` makes (`registerFlags`), never on `flag.CommandLine`, and nothing happens at import time: a program that embeds the package keeps its own flags
+- **config.go**: The configuration's types (`Config` and the rest), which `server.Load` fills from flags and YAML
+- **instrumentation.go**: `Instrumentation`, what the standalone server adds to a `WebServer`, and `monitoringContext`, where the handlers report (meters, tracers, logger, diagnostics)
+- **server/config.go**: CLI flags and YAML config loading. Flags are registered on a `flag.FlagSet` that `Load` makes (`registerFlags`), never on `flag.CommandLine`, and nothing happens at import time: a program that embeds the package keeps its own flags
+- **server/gowebserver.go**: `Run`, `New` (the standalone `WebServer`), logging and certificates
+- **server/monitoring.go**: Prometheus metrics, OpenTelemetry tracing, zpages; **server/pprof.go**: the pprof endpoints
 - **handler.go**: `NewHandler`, `Options`, `Handler.Close`: one content source's handlers as an `http.Handler` for another Go program to mount (behind `http.StripPrefix`). It must have no global side effects: no flags, routes, listeners or `os.Exit`, never the otel/zap globals or slog's default logger (logs, meters and tracers come from `Options`, nil being discard/no-op, through `monitoringContext`), no goroutine that outlives `Close`. Everything it serves or links to stays under its mount: links are relative to the page (`mountRoot`, `relativeURL`), never from `/`, and optional endpoints (upload, `__diag`) are inside the handler, off unless asked for. The standalone server (`Serve`) is built from the same pieces (`newContentHandler`, `newThumbnailer`, `startDiagnostics`)
 - **spa.go**: `SPA`: a built single-page app from an `fs.FS`; its index for every route that isn't a file, `immutable` on its hashed assets
 - **gzip.go**: `gzipHandler` and the exported `Compress`/`CompressWith`; a body without a Content-Length is held until it's `minSize` long before deciding; nested, only the outermost compresses
-- **pprof.go**: the standalone server's pprof endpoints from `runtime/pprof`. Never import `net/http/pprof` (or `expvar`) where the embedding API can reach it: its `init` registers on `http.DefaultServeMux`, which a host may serve
+- **server/pprof.go**: the standalone server's pprof endpoints from `runtime/pprof`. Never import `net/http/pprof` (or `expvar`) in `pkg/gowebserver`: its `init` registers on `http.DefaultServeMux`, which a host may serve. (`/debug/vars` still comes with ufs's archive support, through `bodgit/sevenzip` and `go4.org/readerutil`; `deps_test.go` checks that's the only way)
 - Logging on a request's path: Debug at most, and never a file or folder name (log `errCategory(err)`, not the error, whose text names paths); answer filesystem errors with `fsError` (404/403/500 with a generic body)
 - **httpserver.go**: `WebServer` interface, HTTP/HTTPS listener setup, handler registration
 - **httpsredirect.go**: Wraps the HTTPS listener: a connection whose first byte starts an HTTP method (TLS starts with 0x16) gets a redirect to `https://` on the same host, port, path and query; everything else goes on to TLS untouched. Sniffed per connection under `httpsFirstByteTimeout`, then `httpsRedirectTimeout` for a plain request, so `Accept` never waits on a client. Both ports serve through `newHTTPServer` (httpserver.go), whose `ReadHeaderTimeout` also bounds the TLS handshake; it sets no read or write timeout, which would cut off large uploads and downloads
 - **filesystem.go**: `FileSystem` interface for content sources
 - **filesystem_*.go**: Implementations for local dirs, archives, git repos, nested archives
 - **index.go / customindex.go**: Directory listing templates (basic and custom css UI)
-- **monitoring.go**: Prometheus metrics, OpenTelemetry tracing, pprof endpoints
 - **upload.go**: Multi-file upload with MD5 token validation
 - **richview.go**: Syntax-highlighted text viewer (`?view=rich`)
 - **thumbnail.go**: Resized images and video frames (`?width=`/`?height=`), made once and stored
@@ -99,8 +107,8 @@ Filesystem handlers are mounted with `http.StripPrefix`, so `r.URL.Path` lacks t
 
 ### Request Flow
 
-1. `cmd/gowebserver/gowebserver.go` calls `gowebserver.Run()`
-2. `Run()` loads config, initializes logging, creates `WebServer`
+1. `cmd/gowebserver/gowebserver.go` calls `server.Run()`
+2. `Run()` loads config, initializes logging, creates `WebServer` (`server.New`, which is `gowebserver.NewInstrumented` with its exporters and CORS)
 3. `WebServer.Serve()` sets up handlers and listens on configured ports
 
 ## Testing

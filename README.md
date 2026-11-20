@@ -188,18 +188,18 @@ cmd/                      # CLI entry points
 └── gowebserver/          # Main web server binary
 
 pkg/                      # Public libraries
-└── gowebserver/          # Core server implementation
+└── gowebserver/          # The handlers, what a program that embeds gowebserver links
+    └── server/           # The standalone server: flags, YAML, logging, certificates, exporters, pprof, CORS, every driver
 
 internal/gowebserver/testing/  # Test utilities and embedded test archives
 ```
 
 The core server implementation lives in `pkg/gowebserver/`:
 
-* `config.go` — CLI flags and YAML config loading.
+* `server/` — the standalone server: `Run`, `Load` (CLI flags and YAML config loading), certificates, Prometheus/OTLP exporters, pprof.
 * `httpserver.go` — `WebServer` interface, HTTP/HTTPS listener setup, handler registration.
 * `filesystem.go` and `filesystem_*.go` — `FileSystem` interface and its implementations for local directories, archives, git repositories, and nested archives.
 * `index.go` / `customindex.go` — directory listing templates (basic and custom CSS UI).
-* `monitoring.go` — Prometheus metrics, OpenTelemetry tracing, and pprof endpoints.
 * `upload.go` — multi-file upload with MD5 token validation.
 * `handler.go` — `NewHandler`: the server's handlers as one `http.Handler` to embed in another program.
 * `spa.go` — `SPA`: a single-page app's build, served with its index for every route.
@@ -232,5 +232,7 @@ gowebserver.Mount(mux, "/media", media) // /media/ behind StripPrefix; /media re
 mux.Handle("/", gowebserver.SPA(dist, gowebserver.SPAOptions{ImmutablePrefix: "assets/"}))
 srv := &http.Server{Handler: gowebserver.Compress(mux)}
 ```
+
+A program that embeds the handlers links only what they need: no exporters, no zap, no CORS or certificate tooling, and of ufs's drivers only the one for local folders and archives (`pkg/gowebserver/deps_test.go` checks). Other sources are opt-in by import: `_ "github.com/cloudfra/ufs/drivers/gitfs"` for git repositories, `drivers/gcsfs` for `gs://`, `drivers/all` for every one, and `_ "github.com/cloudfra/ufs/drivers/boltfs"` for a thumbnail cache file (`Thumbnails.CachePath`). The standalone server is `pkg/gowebserver/server`.
 
 `ExampleNewHandler` in `pkg/gowebserver/example_test.go` runs it, and `internal/gowebserver/testing/embedhost` is a whole host program, which the browser tests use.

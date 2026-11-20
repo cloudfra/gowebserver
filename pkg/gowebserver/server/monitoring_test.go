@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gowebserver
+package server
 
 import (
 	"testing"
+
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 
 	"github.com/prometheus/client_golang/prometheus"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
@@ -67,11 +69,11 @@ func TestMonitoringContext(t *testing.T) {
 func TestSetupMonitoring(t *testing.T) {
 	testCases := []struct {
 		name string
-		m    Monitoring
+		m    gowebserver.Monitoring
 	}{
 		{
 			name: "empty",
-			m:    Monitoring{},
+			m:    gowebserver.Monitoring{},
 		},
 	}
 

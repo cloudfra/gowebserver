@@ -83,8 +83,8 @@ func TestThumbnailMetrics(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	spans := tracetest.NewSpanRecorder()
 	mc := &monitoringContext{
-		promProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
-		tp:           sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)),
+		meterProvider:  sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+		tracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)),
 	}
 	th, err := newThumbnailer(Thumbnails{Enabled: true, CachePath: thumbnailCacheMemory}, nil, mc)
 	if err != nil {
@@ -209,8 +209,8 @@ func testMonitoring() (*monitoringContext, *sdkmetric.ManualReader, *tracetest.S
 	reader := sdkmetric.NewManualReader()
 	spans := tracetest.NewSpanRecorder()
 	return &monitoringContext{
-		promProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
-		tp:           sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)),
+		meterProvider:  sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+		tracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)),
 	}, reader, spans
 }
 

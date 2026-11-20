@@ -47,8 +47,6 @@ import (
 	"github.com/cloudfra/ufs"
 	"github.com/cloudfra/ufs/drivers/types"
 
-	// Registers the bolt: filesystem that stores thumbnails.
-	_ "github.com/cloudfra/ufs/drivers/boltfs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -1699,6 +1697,11 @@ func defaultThumbnailCachePath() string {
 	return filepath.Join(dir, "gowebserver", "thumbnails.db")
 }
 
+// errBoltDriver is a thumbnail cache file asked for in a program that
+// doesn't link ufs's bolt driver, which this package leaves to the
+// program (the standalone server links every driver).
+var errBoltDriver = errors.New(`thumbnail cache: a cache file needs ufs's bolt driver: import _ "github.com/cloudfra/ufs/drivers/boltfs"`)
+
 // newThumbnailStore opens the bolt database at dbPath, creating it if
 // needed. When dbPath is empty or can't be opened (for example because
 // another server holds its lock), thumbnails are kept in memory instead.
@@ -1708,6 +1711,11 @@ func newThumbnailStore(dbPath string, log *slog.Logger) (*thumbnailStore, error)
 		if err == nil {
 			log.Info("thumbnails are cached", "path", dbPath)
 			return s, nil
+		}
+		if msg := err.Error(); strings.Contains(msg, "cannot find a ufs file system driver") || strings.Contains(msg, `with driver "local"`) {
+			// Not the file's fault: the program left the bolt driver out,
+			// and "bolt:..." went to another driver, or none.
+			return nil, fmt.Errorf("%w: %w", errBoltDriver, err)
 		}
 		log.Warn("cannot open the thumbnail cache; keeping thumbnails in memory", "path", dbPath, "error", err)
 	}

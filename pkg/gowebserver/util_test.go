@@ -19,7 +19,6 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -110,14 +109,6 @@ func mustTempDir(tb testing.TB) string {
 	}
 	tb.Cleanup(cleanup)
 	return dir
-}
-
-func mustFile(tb testing.TB, path string) []byte {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		tb.Fatalf("cannot read file '%s', %s", path, err)
-	}
-	return data
 }
 
 var (
