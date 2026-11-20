@@ -70,10 +70,16 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
-	if thumbs == nil {
-		return rv, nFS.Close, nil
+	var h http.Handler = rv
+	if thumbs != nil {
+		h = thumbs.handler(rv, nFS, fsSpec)
 	}
-	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
+	if enhancedList {
+		// The file browser's styles and scripts, under this mount's own
+		// root, where its pages link to them (pageassets.go).
+		h = customIndexAssets.handler(h)
+	}
+	return h, nFS.Close, nil
 }
 
 func cleanPath(path string) string {
@@ -414,7 +420,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		Thumbnails:            c.thumbs != nil,
 		VideoThumbnails:       c.thumbs.videos(),
 		Diagnostics:           diagPageEndpoint(r.RequestURI),
-		Assets:                customIndexAssets.pagePath(r.RequestURI),
+		Assets:                customIndexAssets.pagePath(r.URL.EscapedPath()),
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}

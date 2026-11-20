@@ -256,15 +256,23 @@ func relativeURL(name string) string {
 	return "./" + url.PathEscape(name)
 }
 
-// rootRelative returns the relative link from a page at requestURI (the
-// path the browser asked for, with any query) up to the server root,
-// ending in "/": "./" and a "../" for each directory below it. It's for
-// what the server serves once, under its root, for every page (the
-// diagnostics endpoint, the page assets), whatever serve path or proxy
-// prefix the page is under: relative links resolve against the path the
-// browser actually requested (see relativeURL).
-func rootRelative(requestURI string) string {
-	p, _, _ := strings.Cut(requestURI, "?")
+// rootRelative returns the relative link from a page at urlPath up to the
+// root urlPath is under, ending in "/": "./" and a "../" for each
+// directory below it. urlPath is escaped, as the browser resolves links
+// against it, and any query is ignored.
+//
+// Which root depends on the path given. A handler's own path (after
+// http.StripPrefix, r.URL.EscapedPath()) leads to its mount's root, which
+// is where the page assets are served, so that they work wherever the
+// handler is mounted, by gowebserver or by a program it's embedded in.
+// The full request (r.RequestURI) leads to the server's root, where the
+// diagnostics endpoint is.
+func rootRelative(urlPath string) string {
+	p, _, _ := strings.Cut(urlPath, "?")
+	if !strings.HasPrefix(p, "/") {
+		// http.StripPrefix("/media/") leaves "a/b/" for /media/a/b/.
+		p = "/" + p
+	}
 	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0))
 }
 

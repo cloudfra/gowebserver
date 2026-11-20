@@ -27,13 +27,13 @@ import (
 	"time"
 )
 
-// pageAssetsDir is where, under the server root, a page's assets are
-// served: /_gows/HASH/NAME, HASH being of their content.
+// pageAssetsDir is where, under the root of each mount of a served
+// filesystem (and of the list of served paths), a page's assets are
+// served: _gows/HASH/NAME, HASH being of their content. Each mount answers
+// them itself, rather than a route on the server, so they work wherever
+// the handler is mounted, by gowebserver or by a program it's embedded
+// in. Two mounts each have their own copy in the browser's cache.
 const pageAssetsDir = "_gows"
-
-// pageAssetsPattern is what the server routes to the assets: the same in
-// every build, so the route and span names don't change with the hash.
-const pageAssetsPattern = "/" + pageAssetsDir + "/{hash}/{name}"
 
 // customIndexAssets are the file browser's styles and scripts: the same
 // for every folder, so each folder's page links to them rather than
@@ -126,16 +126,18 @@ func newPageAssets(page, theme []byte, names ...string) (*pageAssets, error) {
 	return a, nil
 }
 
-// prefix is the path the assets are served under, from the server root.
+// prefix is the path the assets are served under, from a mount's root.
 func (a *pageAssets) prefix() string {
 	return "/" + pageAssetsDir + "/" + a.hash + "/"
 }
 
-// pagePath is the link to the assets' directory from a page at
-// requestURI: up to the server root (see rootRelative), which makes it
-// the same URL, and so the same cached file, from every folder.
-func (a *pageAssets) pagePath(requestURI string) string {
-	return rootRelative(requestURI) + pageAssetsDir + "/" + a.hash + "/"
+// pagePath is the link to the assets' directory from a page at urlPath,
+// the escaped path its handler sees (r.URL.EscapedPath(), after
+// http.StripPrefix): up to the mount's root (see rootRelative), which
+// makes it the same URL, and so the same cached file, from every folder of
+// the mount.
+func (a *pageAssets) pagePath(urlPath string) string {
+	return rootRelative(urlPath) + pageAssetsDir + "/" + a.hash + "/"
 }
 
 // isAssetsHash reports whether s is shaped like the assets' hash: 16
@@ -152,40 +154,50 @@ func isAssetsHash(s string) bool {
 	return true
 }
 
-// handler answers the requests routed to it as pageAssetsPattern. One
-// that isn't for an asset is passed on to next, which answers as nextKind
-// (see setRequestHandler), so a served folder named like the assets'
-// directory stays reachable.
+// handler answers the requests for the assets under the root of the
+// mount it's in, and passes everything else on to next, so a served
+// folder named like the assets' directory stays reachable. It's the
+// mount's own route, the same in every build, so the route and span
+// names don't change with the hash; requests it answers are labeled
+// handler="asset" (see setRequestHandler).
+func (a *pageAssets) handler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !a.serve(w, r) {
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+// serve answers r if it's for an asset, _gows/HASH/NAME under the
+// handler's root, and reports whether it was.
 //
 // An asset under this build's hash is cached for good (immutable): its
 // URL names its content. One under another hash comes from a page another
 // build made, such as another replica's during a rolling update. It gets
 // this build's file, which is likely close, but not to be cached, so the
 // browser asks again until its page is this build's too.
-func (a *pageAssets) handler(next http.Handler, nextKind string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rest, ok := strings.CutPrefix(r.URL.Path, "/"+pageAssetsDir+"/")
-		hash, name, _ := strings.Cut(rest, "/")
-		f, known := a.files[name]
-		if !ok || !known || !isAssetsHash(hash) {
-			if next == nil {
-				http.NotFound(w, r)
-				return
-			}
-			setRequestHandler(r, nextKind)
-			next.ServeHTTP(w, r)
-			return
-		}
-		h := w.Header()
-		h.Set("Content-Type", f.contentType)
-		if hash == a.hash {
-			h.Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			h.Set("Cache-Control", "no-cache")
-		}
-		// This build's ETag either way: a page from another build that
-		// asks again gets this build's file once it differs.
-		h.Set("ETag", `"`+a.hash+`"`)
-		http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(f.body))
-	})
+func (a *pageAssets) serve(w http.ResponseWriter, r *http.Request) bool {
+	p := r.URL.Path
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	rest, ok := strings.CutPrefix(p, "/"+pageAssetsDir+"/")
+	hash, name, _ := strings.Cut(rest, "/")
+	f, known := a.files[name]
+	if !ok || !known || !isAssetsHash(hash) {
+		return false
+	}
+	setRequestHandler(r, handlerAsset)
+	h := w.Header()
+	h.Set("Content-Type", f.contentType)
+	if hash == a.hash {
+		h.Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		h.Set("Cache-Control", "no-cache")
+	}
+	// This build's ETag either way: a page from another build that asks
+	// again gets this build's file once it differs.
+	h.Set("ETag", `"`+a.hash+`"`)
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(f.body))
+	return true
 }

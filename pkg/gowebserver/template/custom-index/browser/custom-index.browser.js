@@ -215,3 +215,31 @@ test('nothing went wrong along the way', () => {
   // The broken picture is the one thing meant to fail.
   assert.deepEqual(b.problems.filter((p) => p.indexOf('zz-broken.jpg') < 0), []);
 });
+
+// Under a serve path, each folder's page takes its styles and scripts
+// from under that path (its mount's root), not the server's root, so they
+// work wherever the handler is mounted.
+test('under a serve path, the assets come from the serve path', async () => {
+  const sub = await serve({ files: { 'docs/deep/er/readme.md': '# readme\n' }, args: ['-servepath', '/media/'] });
+  const ctx = await b.browser.newContext();
+  try {
+    const pg = await ctx.newPage();
+    const bad = [];
+    pg.on('pageerror', (e) => bad.push(e.message));
+    pg.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ': ' + r.url()); });
+    for (const folder of ['media/', 'media/docs/deep/er/']) {
+      await pg.goto(sub.url + folder);
+      await pg.waitForSelector('.row');
+      const assets = await pg.evaluate(() => performance.getEntriesByType('resource')
+        .filter((e) => e.name.includes('/_gows/')).map((e) => new URL(e.name).pathname));
+      assert.equal(assets.length, 3, folder + ': ' + JSON.stringify(assets));
+      for (const a of assets) assert.match(a, /^\/media\/_gows\/[0-9a-f]{16}\//, folder);
+      // Styled: the toolbar is laid out by custom-index.css.
+      assert.equal(await pg.locator('#toolbar').evaluate((el) => getComputedStyle(el).display), 'flex');
+    }
+    assert.deepEqual(bad, []);
+  } finally {
+    await ctx.close();
+    sub.close();
+  }
+});

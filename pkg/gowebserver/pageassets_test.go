@@ -213,45 +213,49 @@ func TestPageAssetsLineEndings(t *testing.T) {
 func TestPageAssetsPagePath(t *testing.T) {
 	a := &pageAssets{hash: "0123456789abcdef"}
 	for _, tc := range []struct {
-		requestURI string
-		want       string
+		urlPath string // as the handler sees it, under its mount
+		mount   string // where the handler is mounted
+		want    string
 	}{
-		{"/", "./_gows/0123456789abcdef/"},
-		{"/?sort=date", "./_gows/0123456789abcdef/"},
-		{"/a/", "./../_gows/0123456789abcdef/"},
-		{"/e/a/b/", "./../../../_gows/0123456789abcdef/"},
-		{"/e/a/b/?sort=size&x=/y/", "./../../../_gows/0123456789abcdef/"},
-		{"/e/a%2Fb/", "./../../_gows/0123456789abcdef/"},
+		{"/", "", "./_gows/0123456789abcdef/"},
+		{"/?sort=date", "", "./_gows/0123456789abcdef/"},
+		{"/a/", "", "./../_gows/0123456789abcdef/"},
+		{"/a/b/", "/e", "./../../_gows/0123456789abcdef/"},
+		{"/a%2Fb/", "/e", "./../_gows/0123456789abcdef/"},
+		{"/a/b/c/", "/media", "./../../../_gows/0123456789abcdef/"},
+		// http.StripPrefix("/media/") leaves no leading slash.
+		{"a/b/", "/media/", "./../../_gows/0123456789abcdef/"},
+		{"", "/media/", "./_gows/0123456789abcdef/"},
 	} {
-		if got := a.pagePath(tc.requestURI); got != tc.want {
-			t.Errorf("pagePath(%q) = %q, want %q", tc.requestURI, got, tc.want)
+		if got := a.pagePath(tc.urlPath); got != tc.want {
+			t.Errorf("pagePath(%q) = %q, want %q", tc.urlPath, got, tc.want)
 		}
-		// Resolved against the page, it is the same URL from everywhere.
-		base, err := url.Parse("http://host" + tc.requestURI)
+		// Resolved against the page, it is the mount's assets from
+		// every folder.
+		page, _, _ := strings.Cut(tc.urlPath, "?")
+		page = strings.TrimSuffix(tc.mount, "/") + "/" + strings.TrimPrefix(page, "/")
+		base, err := url.Parse("http://host" + page)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ref, err := url.Parse(a.pagePath(tc.requestURI) + "x.css")
+		ref, err := url.Parse(a.pagePath(tc.urlPath) + "x.css")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, want := base.ResolveReference(ref).Path, a.prefix()+"x.css"; got != want {
-			t.Errorf("pagePath(%q) resolves to %q, want %q", tc.requestURI, got, want)
+		if got, want := base.ResolveReference(ref).Path, strings.TrimSuffix(tc.mount, "/")+a.prefix()+"x.css"; got != want {
+			t.Errorf("pagePath(%q) from %s resolves to %q, want %q", tc.urlPath, page, got, want)
 		}
 	}
 }
 
 func TestPageAssetsServeHTTP(t *testing.T) {
 	a := customIndexAssets
-	if strings.Contains(pageAssetsPattern, a.hash) {
-		t.Errorf("the route %q holds the hash, so it changes with every build", pageAssetsPattern)
-	}
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if _, err := io.WriteString(w, "next"); err != nil {
 			t.Error(err)
 		}
 	})
-	h := a.handler(next, handlerFile)
+	h := a.handler(next)
 	get := func(target string, header http.Header) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, target, nil)
 		for k, v := range header {
@@ -310,148 +314,198 @@ func TestPageAssetsServeHTTP(t *testing.T) {
 		"/" + pageAssetsDir + "/sub/custom-index.css",
 		"/" + pageAssetsDir + "/0123456789ABCDEF/custom-index.css",
 		"/" + pageAssetsDir + "/mine.txt",
+		"/a" + a.prefix() + "custom-index.css",
+		"/",
 	} {
 		if w := get(target, nil); w.Body.String() != "next" {
 			t.Errorf("GET %s = %d %q, want it passed on", target, w.Code, w.Body.String())
 		}
 	}
-	w = httptest.NewRecorder()
-	a.handler(nil, "").ServeHTTP(w, httptest.NewRequest(http.MethodGet, a.prefix()+"missing.js", nil))
-	if w.Code != http.StatusNotFound {
-		t.Errorf("GET missing.js with nothing to pass it on to = %d, want 404", w.Code)
-	}
 }
 
 // TestIndexAssetLinks checks the list of served paths, which also
 // answers every path nothing else does: its links to the assets lead to
-// them from whatever path it was asked for.
+// them from whatever path it was asked for, and it serves them.
 func TestIndexAssetLinks(t *testing.T) {
 	h, err := newIndexHTTPHandler([]string{"/e", "/f"}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
 	for _, p := range []string{"/", "/typo", "/typo/sub/", "/typo/sub/deeper/?sort=date"} {
-		r := httptest.NewRequest(http.MethodGet, p, nil)
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		links := assetLinks.FindAllStringSubmatch(w.Body.String(), -1)
-		if len(links) != len(customIndexAssets.files) {
-			t.Fatalf("GET %s: %d asset links, want %d", p, len(links), len(customIndexAssets.files))
-		}
-		base, err := url.Parse("http://host" + p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, link := range links {
-			ref, err := url.Parse(link[1])
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := base.ResolveReference(ref).Path; !strings.HasPrefix(got, customIndexAssets.prefix()) {
-				t.Errorf("GET %s: %s resolves to %s, outside %s", p, link[1], got, customIndexAssets.prefix())
-			}
-		}
+		checkAssetLinks(t, srv.URL+p, "/")
 	}
 }
 
 // assetLinks are the links to the assets in a page.
 var assetLinks = regexp.MustCompile(`(?:href|src)="([^"]*` + pageAssetsDir + `/[0-9a-f]{16}/[^"]*)"`)
 
-// TestPageAssetsServed loads folder pages from a server, at the root and
-// under a serve path, and fetches the assets they link to the way a
-// browser would: resolved against the page.
-func TestPageAssetsServed(t *testing.T) {
+// checkAssetLinks loads the page at pageURL and fetches the assets it
+// links to the way a browser would, resolved against the page: each must
+// be under mount (the root of the handler that made the page), load, and
+// be cached for good. It returns their paths.
+func checkAssetLinks(t *testing.T, pageURL, mount string) []string {
+	t.Helper()
+	u, err := url.Parse(pageURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, resp := httpGet(t, pageURL)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET %s = %d", pageURL, resp.StatusCode)
+	}
+	links := assetLinks.FindAllStringSubmatch(body, -1)
+	if len(links) != len(customIndexAssets.files) {
+		t.Errorf("GET %s: %d asset links, want %d", u.Path, len(links), len(customIndexAssets.files))
+	}
+	want := strings.TrimSuffix(mount, "/") + customIndexAssets.prefix()
+	paths := make([]string, 0, len(links))
+	for _, link := range links {
+		ref, err := url.Parse(link[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := u.ResolveReference(ref)
+		if !strings.HasPrefix(a.Path, want) {
+			t.Errorf("GET %s: %s resolves to %s, outside %s", u.Path, link[1], a.Path, want)
+		}
+		paths = append(paths, a.Path)
+		got, resp := httpGet(t, a.String())
+		if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Cache-Control"), "immutable") {
+			t.Errorf("GET %s (from %s) = %d, Cache-Control %q; want 200, immutable", a.Path, u.Path, resp.StatusCode, resp.Header.Get("Cache-Control"))
+		}
+		if name := path.Base(a.Path); got != string(customIndexAssets.files[name].body) {
+			t.Errorf("GET %s (from %s): not the asset %s", a.Path, u.Path, name)
+		}
+	}
+	return paths
+}
+
+// httpGet returns the body and response of a GET of target.
+func httpGet(t *testing.T, target string) (string, *http.Response) {
+	t.Helper()
+	resp, err := http.Get(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	gowsTesting.DeferClose(t, resp.Body)()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body), resp
+}
+
+// assetsTestDir is a folder to serve, three folders deep, with folders
+// named like the assets' directory.
+func assetsTestDir(t *testing.T) string {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "a", "b"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, pageAssetsDir), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	gowsTesting.MustFile(t, filepath.Join(dir, pageAssetsDir, "mine.txt"), []byte("mine"))
 	if err := os.MkdirAll(filepath.Join(dir, pageAssetsDir, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	gowsTesting.MustFile(t, filepath.Join(dir, pageAssetsDir, "mine.txt"), []byte("mine"))
 	gowsTesting.MustFile(t, filepath.Join(dir, pageAssetsDir, "sub", "mine.txt"), []byte("mine too"))
+	return dir
+}
 
+// TestPageAssetsServed loads folder pages from a server, at the root, and
+// under a serve path next to the list of served paths, and fetches the
+// assets they link to.
+func TestPageAssetsServed(t *testing.T) {
+	dir := assetsTestDir(t)
+	type page struct{ path, mount string }
 	for _, tc := range []struct {
 		name     string
 		endpoint string
-		pages    []string
+		pages    []page
 	}{
-		{name: "root", endpoint: "/", pages: []string{"/", "/a/", "/a/b/?sort=date"}},
+		{name: "root", endpoint: "/", pages: []page{{"/", "/"}, {"/a/", "/"}, {"/a/b/c/?sort=date", "/"}}},
 		// With no root, "/" is the list of served paths, which also
 		// answers a path nothing is served at.
-		{name: "serve path", endpoint: "/e", pages: []string{"/", "/e/", "/e/a/", "/e/a/b/", "/typo/sub/"}},
+		{name: "serve path", endpoint: "/e", pages: []page{{"/", "/"}, {"/typo/sub/", "/"}, {"/e/", "/e"}, {"/e/a/", "/e"}, {"/e/a/b/c/", "/e"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &Config{EnhancedList: true, Serve: []Serve{{Source: dir, Endpoint: tc.endpoint}}}
 			baseURL, closer := serveAsync(t, cfg)
 			defer closer()
 
-			fetched := map[string]bool{}
+			// Every folder of a mount links to the same URLs, so they're
+			// cached once for it.
+			perMount := map[string]map[string]bool{}
 			for _, p := range tc.pages {
-				pageURL, err := url.Parse(baseURL + p)
-				if err != nil {
-					t.Fatal(err)
+				if perMount[p.mount] == nil {
+					perMount[p.mount] = map[string]bool{}
 				}
-				resp, err := http.Get(pageURL.String())
-				if err != nil {
-					t.Fatal(err)
-				}
-				body, err := io.ReadAll(resp.Body)
-				gowsTesting.DeferClose(t, resp.Body)()
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resp.StatusCode != http.StatusOK {
-					t.Fatalf("GET %s = %d", p, resp.StatusCode)
-				}
-				links := assetLinks.FindAllStringSubmatch(string(body), -1)
-				if len(links) != len(customIndexAssets.files) {
-					t.Errorf("GET %s: %d asset links, want %d", p, len(links), len(customIndexAssets.files))
-				}
-				for _, link := range links {
-					ref, err := url.Parse(link[1])
-					if err != nil {
-						t.Fatal(err)
-					}
-					u := pageURL.ResolveReference(ref)
-					if !strings.HasPrefix(u.Path, customIndexAssets.prefix()) {
-						t.Errorf("GET %s: %s resolves to %s, outside %s", p, link[1], u.Path, customIndexAssets.prefix())
-					}
-					fetched[u.Path] = true
-					resp, err := http.Get(u.String())
-					if err != nil {
-						t.Fatal(err)
-					}
-					gowsTesting.DeferClose(t, resp.Body)()
-					if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Cache-Control"), "immutable") {
-						t.Errorf("GET %s (from %s) = %d, Cache-Control %q; want 200, immutable", u.Path, p, resp.StatusCode, resp.Header.Get("Cache-Control"))
-					}
+				for _, a := range checkAssetLinks(t, baseURL+p.path, p.mount) {
+					perMount[p.mount][a] = true
 				}
 			}
-			// Every folder links to the same URLs, so they're cached once.
-			if len(fetched) != len(customIndexAssets.files) {
-				t.Errorf("the pages link to %d different asset URLs, want %d: %v", len(fetched), len(customIndexAssets.files), fetched)
+			for mount, urls := range perMount {
+				if len(urls) != len(customIndexAssets.files) {
+					t.Errorf("the pages of %s link to %d different asset URLs, want %d: %v", mount, len(urls), len(customIndexAssets.files), urls)
+				}
 			}
 
 			// A folder named like the assets' directory is still the
 			// served folder's, at either depth.
-			if tc.endpoint == "/" {
-				for file, want := range map[string]string{"mine.txt": "mine", "sub/mine.txt": "mine too"} {
-					resp, err := http.Get(baseURL + "/" + pageAssetsDir + "/" + file)
-					if err != nil {
-						t.Fatal(err)
-					}
-					got, err := io.ReadAll(resp.Body)
-					gowsTesting.DeferClose(t, resp.Body)()
-					if err != nil {
-						t.Fatal(err)
-					}
-					if string(got) != want {
-						t.Errorf("GET /%s/%s = %q, want the served file", pageAssetsDir, file, got)
-					}
+			prefix := strings.TrimSuffix(tc.endpoint, "/")
+			for file, want := range map[string]string{"mine.txt": "mine", "sub/mine.txt": "mine too"} {
+				if got, _ := httpGet(t, baseURL+prefix+"/"+pageAssetsDir+"/"+file); got != want {
+					t.Errorf("GET %s/%s/%s = %q, want the served file", prefix, pageAssetsDir, file, got)
+				}
+			}
+		})
+	}
+}
+
+// TestPageAssetsEmbedded mounts a served folder's handler in another
+// program's server, under /media/, the way a program embedding
+// gowebserver would: its pages' assets are under /media/ too, and the
+// program's own routes are left alone.
+func TestPageAssetsEmbedded(t *testing.T) {
+	h, closeFS, err := newHandlerFromFS(assetsTestDir(t), &monitoringContext{}, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := closeFS(); err != nil {
+			t.Error(err)
+		}
+	}()
+	for _, strip := range []string{"/media", "/media/"} {
+		t.Run("StripPrefix "+strip, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+				if _, err := io.WriteString(w, "host"); err != nil {
+					t.Error(err)
+				}
+			})
+			mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
+				if _, err := io.WriteString(w, "api"); err != nil {
+					t.Error(err)
+				}
+			})
+			mux.Handle("/media/", http.StripPrefix(strip, h))
+			srv := httptest.NewServer(mux)
+			defer srv.Close()
+
+			for _, p := range []string{"/media/", "/media/a/", "/media/a/b/c/"} {
+				checkAssetLinks(t, srv.URL+p, "/media/")
+			}
+			for p, want := range map[string]string{
+				"/":        "host",
+				"/_gows/x": "host",
+				customIndexAssets.prefix() + "custom-index.css": "host",
+				"/api/x":                    "api",
+				"/media/_gows/mine.txt":     "mine",
+				"/media/_gows/sub/mine.txt": "mine too",
+			} {
+				if got, _ := httpGet(t, srv.URL+p); got != want {
+					t.Errorf("GET %s = %q, want %q", p, got, want)
 				}
 			}
 		})
