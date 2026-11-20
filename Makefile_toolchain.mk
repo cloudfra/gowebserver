@@ -17,7 +17,7 @@ include Makefile_core.mk
 # https://github.com/rhysd/actionlint/releases
 ACTIONLINT_VERSION = 1.7.12
 # https://github.com/docker/compose/releases
-DOCKERCOMPOSE_VERSION = 5.7.1
+DOCKERCOMPOSE_VERSION = 5.8.0
 # https://developer.hashicorp.com/terraform/install
 TERRAFORM_VERSION = 1.17.2
 # https://github.com/cloudfra/certtool/releases
@@ -29,11 +29,11 @@ GOFUMPT_VERSION = 0.12.0
 # https://github.com/golangci/golangci-lint/releases
 GOLANGCI_LINT_VERSION = 2.15.0
 # https://github.com/golang/vuln/releases
-GOVULNCHECK_VERSION = 1.9.0
+GOVULNCHECK_VERSION = 1.10.0
 # https://github.com/mgechev/revive/releases
 REVIVE_VERSION = 1.17.1
 # https://github.com/rvben/rumdl/releases
-RUMDL_VERSION = 0.3.4
+RUMDL_VERSION = 0.3.5
 # https://github.com/koalaman/shellcheck/releases
 SHELLCHECK_VERSION = 0.11.0
 # https://github.com/terraform-linters/tflint/releases
