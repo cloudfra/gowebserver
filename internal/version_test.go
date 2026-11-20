@@ -14,7 +14,10 @@
 
 package internal
 
-import "testing"
+import (
+	"runtime/debug"
+	"testing"
+)
 
 func TestVersion(t *testing.T) {
 	if Version() == "" {
@@ -25,5 +28,30 @@ func TestVersion(t *testing.T) {
 func TestBuildstamp(t *testing.T) {
 	if Buildstamp() == "" {
 		t.Errorf("Buildstamp() is empty, %q", Buildstamp())
+	}
+}
+
+// Embedded in another program, the version is this module's there.
+func TestModuleVersion(t *testing.T) {
+	for name, tc := range map[string]struct {
+		bi   *debug.BuildInfo
+		want string
+	}{
+		"no build information":               {nil, ""},
+		"this module, built from a checkout": {&debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "(devel)"}}, ""},
+		"this module, installed":             {&debug.BuildInfo{Main: debug.Module{Path: modulePath, Version: "v1.2.3"}}, "v1.2.3"},
+		"another program's dependency": {&debug.BuildInfo{
+			Main: debug.Module{Path: "example.com/host"},
+			Deps: []*debug.Module{{Path: "example.com/other", Version: "v9.9.9"}, {Path: modulePath, Version: "v1.4.0"}},
+		}, "v1.4.0"},
+		"replaced": {&debug.BuildInfo{
+			Main: debug.Module{Path: "example.com/host"},
+			Deps: []*debug.Module{{Path: modulePath, Version: "v1.4.0", Replace: &debug.Module{Path: "../gowebserver", Version: "v1.4.1"}}},
+		}, "v1.4.1"},
+		"not linked": {&debug.BuildInfo{Main: debug.Module{Path: "example.com/host"}}, ""},
+	} {
+		if got := moduleVersion(tc.bi, tc.bi != nil); got != tc.want {
+			t.Errorf("%s: %q, want %q", name, got, tc.want)
+		}
 	}
 }

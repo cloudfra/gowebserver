@@ -510,7 +510,7 @@
   }
 
   /* Breadcrumb home: the house hops. */
-  .crumbs a:first-child:hover svg {
+  .crumbs a.home:hover svg {
     transform-origin: 50% 100%;
     animation: ic-hop 0.7s var(--ease-out);
   }

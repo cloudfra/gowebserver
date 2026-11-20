@@ -53,6 +53,8 @@ type uploadHTTPHandler struct {
 	// How long an upload request took, by result.
 	requestDuration metric.Float64Histogram
 	tmpl            *template.Template
+	log             *slog.Logger
+	chrome          pageChrome
 }
 
 type uploadResponse struct {
@@ -80,13 +82,13 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := uploadTracer.Start(r.Context(), r.Method)
 	defer span.End()
 
-	logger := slog.With("url", r.URL)
+	logger := uh.log
 
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := sha256.New()
 		if _, err := io.WriteString(h, strconv.FormatInt(crutime, 10)); err != nil {
-			slog.Error("failed to write upload token seed to hash", "crutime", crutime, "error", err)
+			logger.Error("failed to write upload token seed to hash", "crutime", crutime, "error", err)
 		}
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
@@ -95,7 +97,8 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			UploadToken        string
 			UploadFileFormName string
 			ApplicationVersion string
-		}{uh.uploadHTTPPath, token, uploadFileFormName, internal.Version()}
+			Chrome             pageChrome
+		}{uh.uploadHTTPPath, token, uploadFileFormName, internal.Version(), uh.chrome}
 
 		if err := uh.tmpl.Execute(w, params); err != nil {
 			logger.Error("cannot execute upload.html template.", "error", err)
@@ -143,7 +146,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			defer func() {
 				if err := file.Close(); err != nil {
-					slog.Error("failed to close uploaded multipart file", "fileName", fileName, "error", err)
+					logger.Error("failed to close uploaded multipart file", "error", errCategory(err))
 				}
 			}()
 
@@ -163,7 +166,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			defer func() {
 				if err := f.Close(); err != nil {
-					slog.Error("failed to close uploaded destination file", "localPath", localPath, "error", err)
+					logger.Error("failed to close uploaded destination file", "error", errCategory(err))
 				}
 			}()
 			bytesWritten, err := io.Copy(f, file)
@@ -175,7 +178,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			childSpan.SetAttributes(attribute.Int64("bytesWritten", bytesWritten))
 			uh.uploadedBytesTotal.Add(ctx, bytesWritten)
 			uh.uploadedFilesTotal.Add(ctx, 1)
-			logger.Info("Upload Complete", "fileName", fileName, "localPath", localPath)
+			logger.Debug("upload complete", "bytes", bytesWritten)
 		}
 
 		result = uploadOK
@@ -184,7 +187,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func newUploadHandler(mc *monitoringContext, uploadHTTPPath string, uploadDirectory string) (http.Handler, error) {
+func newUploadHandler(mc *monitoringContext, uploadHTTPPath string, uploadDirectory string, chrome pageChrome) (http.Handler, error) {
 	m := mc.getMeterProvider().Meter("upload")
 
 	uploadedBytesTotal, err := m.Int64Counter("uploaded_bytes_total", metric.WithDescription("Number of bytes uploaded."), metric.WithUnit("bytes"))
@@ -213,6 +216,8 @@ func newUploadHandler(mc *monitoringContext, uploadHTTPPath string, uploadDirect
 		uploadedBytesTotal: uploadedBytesTotal,
 		uploadedFilesTotal: uploadedFilesTotal,
 		tmpl:               tmpl,
+		log:                mc.log(),
+		chrome:             chrome,
 	}, nil
 }
 
@@ -236,7 +241,7 @@ func isSameOrigin(r *http.Request) bool {
 
 func writeUploadResponse(w http.ResponseWriter, resp uploadResponse, statusCode int, logger *slog.Logger, span trace.Span) {
 	if resp.Error != nil {
-		logger.Warn("Upload error", "error", resp.Error)
+		logger.Warn("upload failed", "error", errCategory(resp.Error))
 		span.RecordError(resp.Error)
 	} else {
 		logger.Debug("Upload Successful")

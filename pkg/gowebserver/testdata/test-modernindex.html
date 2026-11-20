@@ -492,7 +492,7 @@
       }
 
        
-      .crumbs a:first-child:hover svg {
+      .crumbs a.home:hover svg {
         transform-origin: 50% 100%;
         animation: ic-hop 0.7s var(--ease-out);
       }
@@ -3986,7 +3986,6 @@
       
       <p class="empty" id="no-match" hidden><strong>No matches</strong>Nothing in this folder matches your filter.</p>
     </main>
-
     <div class="footer">Go Web Server , </div>
   </div>
 
@@ -4281,6 +4280,26 @@
       function decode(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
       function label(s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; }
       var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
+      
+      
+      
+      
+      
+      var HOME = (function () {
+        var nav = $('crumbs'), rel = nav && nav.getAttribute('data-home');
+        if (!rel) return '/';
+        var up = (rel.match(/\.\.\//g) || []).length;
+        var segs = location.pathname.replace(/[^/]*$/, '').split('/');
+        segs.splice(Math.max(1, segs.length - 1 - up), up);
+        return segs.join('/') || '/';
+      })();
+      var HOME_TITLE = ($('crumbs') && $('crumbs').getAttribute('data-title')) || '';
+      
+      
+      var HOST = (function () {
+        var nav = $('crumbs'), href = nav && nav.getAttribute('data-host-href');
+        return href ? { href: href, label: nav.getAttribute('data-host-label') || 'Home' } : null;
+      })();
 
       
       (function () {
@@ -4309,7 +4328,7 @@
 
       
       (function () {
-        var parts = location.pathname.split('/').filter(Boolean);
+        var parts = location.pathname.slice(HOME.length).split('/').filter(Boolean);
         var crumbs = $('crumbs');
         
         
@@ -4318,14 +4337,15 @@
         var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
         function renderCrumbs() {
           var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
-          var ancestors = [], href = '/';
+          var ancestors = [], href = HOME;
           parts.slice(0, -1).forEach(function (p) {
             href += p + '/';
             ancestors.push({ href: href, name: label(p) });
           });
-          var html = '<a href="/">' +
+          var html = (HOST ? '<a class="host" href="' + escapeHTML(HOST.href) + '">' + escapeHTML(HOST.label) + '</a>' + SEP : '') +
+            '<a class="home" href="' + escapeHTML(HOME) + '">' +
             '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-            '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
+            '<span>' + escapeHTML(HOME_TITLE || location.host || 'Home') + '</span></a>';
           var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
           if (hidden.length) {
             var path = hidden.map(function (a) { return a.name; }).join(' / ');
@@ -4347,7 +4367,7 @@
         
         
         if ($('title').hasAttribute('data-from-path')) {
-          var name = parts.length ? label(parts[parts.length - 1]) : (location.host || '/');
+          var name = parts.length ? label(parts[parts.length - 1]) : (HOME_TITLE || location.host || '/');
           $('title').textContent = name;
           $('tb-title').textContent = name;
           doc.title = name;
@@ -4469,10 +4489,12 @@
         
         
         function contents(a) {
-          var href = a.getAttribute('href') || '/';
+          
+          if (a.classList.contains('host')) return null;
+          var href = a.getAttribute('href') || HOME;
           if (a.classList.contains('more')) {
             
-            var segs = href.split('/').filter(Boolean), up = '/', list = [];
+            var segs = href.slice(HOME.length).split('/').filter(Boolean), up = HOME, list = [];
             segs.forEach(function (s) {
               up += s + '/';
               list.push({ name: label(s), href: up });
@@ -4482,20 +4504,20 @@
           
           
           
-          var parent = '/', here = decode(href === '/' ? location.pathname : href);
-          if (href !== '/') {
+          var parent = HOME, here = decode(href === HOME ? location.pathname : href);
+          if (href !== HOME) {
             var m = /^(.*\/)([^/]+)\/$/.exec(href);
             if (!m) return null;
             parent = m[1];
           }
-          var head = parent === '/' ? (location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
+          var head = parent === HOME ? (HOME_TITLE || location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
           return {
             head: head,
             list: folders(parent).then(function (fs) {
               return fs && fs.map(function (f) {
                 var path = f.name + (f.archive ? '.d' : '') + '/';
                 var to = parent + path.split('/').map(encodeURIComponent).join('/');
-                return { name: f.name, archive: f.archive, href: to, current: here.indexOf(parent + path) === 0 };
+                return { name: f.name, archive: f.archive, href: to, current: here.indexOf(decode(parent) + path) === 0 };
               });
             }),
           };

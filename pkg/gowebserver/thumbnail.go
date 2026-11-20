@@ -225,9 +225,13 @@ type thumbnailer struct {
 	sem     chan struct{}
 	tp      trace.TracerProvider
 	metrics *thumbnailMetrics
+	log     *slog.Logger
+	diag    *diagLog
 
 	mu      sync.Mutex
 	renders map[string]*render // by store key, while being made
+	running sync.WaitGroup     // the renders' goroutines, for close
+	closed  bool               // guarded by mu: no more renders start
 
 	// What ffmpeg can do for photos (see photoTools), once known.
 	toolsMu    sync.Mutex
@@ -288,10 +292,15 @@ type render struct {
 func (t *thumbnailer) shared(ctx context.Context, key string, mk func(context.Context) (*thumbnail, error)) (*thumbnail, error) {
 	t.mu.Lock()
 	r := t.renders[key]
+	if t.closed {
+		t.mu.Unlock()
+		return nil, errThumbnailerClosed
+	}
 	if r == nil || r.abandoned {
 		rctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 		r = &render{done: make(chan struct{}), cancel: cancel}
 		t.renders[key] = r
+		t.running.Add(1)
 		go t.run(rctx, key, r, mk)
 	}
 	r.waiters++
@@ -320,13 +329,14 @@ func (t *thumbnailer) shared(ctx context.Context, key string, mk func(context.Co
 // run makes and stores r's thumbnail, then hands it to the waiting
 // requests.
 func (t *thumbnailer) run(ctx context.Context, key string, r *render, mk func(context.Context) (*thumbnail, error)) {
+	defer t.running.Done()
 	defer r.cancel()
 	r.th, r.err = mk(ctx)
 	if r.err == nil {
 		_, span, end := t.metrics.stage(ctx, r.th.kind, thumbnailStageStore, &r.th.timing)
 		span.SetAttributes(attribute.Int("bytes", len(r.th.data)))
 		if err := t.store.put(key, r.th); err != nil {
-			slog.Warn("failed to store thumbnail", "path", key, "error", err)
+			t.log.Warn("failed to store thumbnail", "error", errCategory(err))
 		} else {
 			t.metrics.storedBytes.Add(ctx, int64(len(r.th.data)), metric.WithAttributes(kindAttr(r.th.kind)))
 		}
@@ -352,7 +362,7 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 		return nil, nil
 	}
 	if ff == nil {
-		slog.Info("video thumbnails are disabled because ffmpeg is unavailable")
+		mc.log().Info("video thumbnails are disabled because ffmpeg is unavailable")
 	}
 	cachePath := conf.CachePath
 	switch cachePath {
@@ -365,7 +375,7 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 	if err != nil {
 		return nil, err
 	}
-	store, err := newThumbnailStore(cachePath)
+	store, err := newThumbnailStore(cachePath, mc.log())
 	if err != nil {
 		return nil, err
 	}
@@ -382,6 +392,8 @@ func newThumbnailer(conf Thumbnails, ff *ffmpeg.FFmpeg, mc *monitoringContext) (
 		sem:         make(chan struct{}, slots),
 		tp:          mc.getTraceProvider(),
 		metrics:     metrics,
+		log:         mc.log(),
+		diag:        mc.diagnostics(),
 		renders:     map[string]*render{},
 		probed:      make(chan struct{}),
 		firstProbe:  make(chan struct{}),
@@ -435,18 +447,23 @@ func (t *thumbnailer) probe() {
 		return // closed
 	}
 	if err != nil {
-		slog.Warn("photo thumbnails are made without ffmpeg", "error", err, "retry after", thumbnailProbeRetry)
+		t.log.Warn("photo thumbnails are made without ffmpeg", "error", err, "retry after", thumbnailProbeRetry)
 		t.probeAgain = time.Now().Add(thumbnailProbeRetry)
 		return
 	}
 	t.tools = &photoTools{jpeg: true, webp: encoders["libwebp"]}
 	if !t.tools.webp {
-		slog.Info("thumbnails are JPEG and PNG, not WebP: ffmpeg has no libwebp encoder")
+		t.log.Info("thumbnails are JPEG and PNG, not WebP: ffmpeg has no libwebp encoder")
 	}
 	close(t.probed)
 }
 
-// close releases the thumbnail store. It's safe on a nil thumbnailer.
+// errThumbnailerClosed is a thumbnail asked for after close.
+var errThumbnailerClosed = errors.New("thumbnail: closed")
+
+// close stops the thumbnails being made and the look at ffmpeg, waits
+// for them, and releases the thumbnail store and the metrics' callbacks.
+// It's safe on a nil thumbnailer.
 func (t *thumbnailer) close() error {
 	if t == nil {
 		return nil
@@ -454,8 +471,15 @@ func (t *thumbnailer) close() error {
 	t.toolsMu.Lock()
 	t.probeCancel()
 	t.toolsMu.Unlock()
+	t.mu.Lock()
+	t.closed = true
+	for _, r := range t.renders {
+		r.cancel()
+	}
+	t.mu.Unlock()
 	t.probes.Wait()
-	return t.store.close()
+	t.running.Wait()
+	return errors.Join(t.metrics.unregister(), t.store.close())
 }
 
 // videos reports whether video thumbnails are available: there is an
@@ -480,7 +504,7 @@ func (t *thumbnailer) ffmpegFailed(err error) {
 		return
 	}
 	t.downUntil = time.Now().Add(thumbnailProbeRetry)
-	slog.Warn("video thumbnails are off: ffmpeg can't be started", "source", t.ffmpeg.Source(), "error", err, "retry after", thumbnailProbeRetry)
+	t.log.Warn("video thumbnails are off: ffmpeg can't be started", "source", t.ffmpeg.Source(), "error", err, "retry after", thumbnailProbeRetry)
 }
 
 // unsupportedKey names a version of a file for rememberUnsupported.
@@ -578,9 +602,9 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		span.SetAttributes(attribute.String("result", result))
 		h.t.metrics.request(ctx, kind, result, start)
-		if diagEnabled() {
-			diagEvent("server", "thumbnail", map[string]any{
-				"file": anon(path.Base(name)), "dir": anonDir(path.Dir(name)), "spec": spec.key(), "kind": kind,
+		if d := h.t.diag; d.enabled() {
+			d.event("server", "thumbnail", map[string]any{
+				"file": d.anon(path.Base(name)), "dir": d.anonDir(path.Dir(name)), "spec": spec.key(), "kind": kind,
 				"result": result, "ms": time.Since(start).Milliseconds(), "err": errCategory(renderErr),
 			})
 		}
@@ -627,7 +651,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		default:
 			result = thumbnailFailed
-			slog.Warn("thumbnail failed", "path", name, "error", err)
+			h.t.log.Warn("thumbnail failed", "error", errCategory(err))
 			th = &thumbnail{}
 		}
 	}
@@ -815,7 +839,7 @@ func (h *thumbnailHandler) decodeImage(ctx context.Context, name string, spec *t
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			slog.Error("failed to close image after thumbnailing", "path", name, "error", err)
+			h.t.log.Error("failed to close image after thumbnailing", "error", errCategory(err))
 		}
 	}()
 	// A file on disk is read by ffmpeg itself, so only its header is
@@ -844,7 +868,7 @@ func (h *thumbnailHandler) decodeImage(ctx context.Context, name string, spec *t
 		case ctx.Err() != nil, errors.Is(err, errThumbnailUnsupported):
 			return nil, 0, nil, err
 		}
-		slog.Debug("ffmpeg could not read a photo; decoding it in Go", "path", name, "error", err)
+		h.t.log.Debug("ffmpeg could not read a photo; decoding it in Go", "error", errCategory(err))
 	}
 	if local {
 		rest, err := io.ReadAll(io.LimitReader(f, thumbnailMaxFileBytes+1-int64(len(data))))
@@ -1017,7 +1041,7 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 	info, statErr := f.Stat()
 	localPath, local := localFilePath(f, info)
 	if err := f.Close(); err != nil {
-		slog.Error("failed to close video after thumbnailing", "path", name, "error", err)
+		h.t.log.Error("failed to close video after thumbnailing", "error", errCategory(err))
 	}
 	if local {
 		fr, err := h.ffmpegFrames(ctx, localPath, "", grab)
@@ -1039,7 +1063,7 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 	}
 	defer func() {
 		if err := os.Remove(tmp); err != nil {
-			slog.Error("failed to remove temporary video copy", "path", tmp, "error", err)
+			h.t.log.Error("failed to remove temporary video copy", "error", errCategory(err))
 		}
 	}()
 	fr, err = h.ffmpegFrames(ctx, tmp, "", grab)
@@ -1081,7 +1105,7 @@ func (h *thumbnailHandler) copyToTemp(ctx context.Context, name string) (string,
 	}
 	defer func() {
 		if err := src.Close(); err != nil {
-			slog.Error("failed to close video after copying", "path", name, "error", err)
+			h.t.log.Error("failed to close video after copying", "error", errCategory(err))
 		}
 	}()
 	tmp, err := os.CreateTemp("", "gowebserver-video-*"+path.Ext(name))
@@ -1131,9 +1155,9 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			}
 			return err
 		})
-		if diagEnabled() {
-			diagEvent("server", "ffmpeg-frame", map[string]any{
-				"file": diagFile(input, pipe), "piped": pipe != "", "at_s": at.Seconds(),
+		if d := h.t.diag; d.enabled() {
+			d.event("server", "ffmpeg-frame", map[string]any{
+				"file": d.file(input, pipe), "piped": pipe != "", "at_s": at.Seconds(),
 				"ms": time.Since(started).Milliseconds(), "err": errCategory(err), "luma": int(fr.luma),
 			})
 		}
@@ -1159,9 +1183,9 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 			dur, err = h.t.ffmpeg.Duration(ctx, input, stdin)
 			return err
 		})
-		if diagEnabled() {
-			diagEvent("server", "ffmpeg-duration", map[string]any{
-				"file": diagFile(input, pipe), "piped": pipe != "", "dur_s": dur.Seconds(), "err": errCategory(durErr),
+		if d := h.t.diag; d.enabled() {
+			d.event("server", "ffmpeg-duration", map[string]any{
+				"file": d.file(input, pipe), "piped": pipe != "", "dur_s": dur.Seconds(), "err": errCategory(durErr),
 			})
 		}
 		if errors.Is(durErr, ffmpeg.ErrNotStarted) {
@@ -1214,7 +1238,7 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		}
 		last = err
 	}
-	slog.Debug("ffmpeg could not read a frame", "input", input, "error", last)
+	h.t.log.Debug("ffmpeg could not read a frame", "error", errCategory(last))
 	if timedOut {
 		return videoFrame{}, fmt.Errorf("thumbnail: ffmpeg ran out of time: %w", context.DeadlineExceeded)
 	}
@@ -1294,7 +1318,7 @@ func (h *thumbnailHandler) withVideo(ctx context.Context, operation, pipe string
 		}
 		defer func() {
 			if err := f.Close(); err != nil {
-				slog.Error("failed to close video after thumbnailing", "path", pipe, "error", err)
+				h.t.log.Error("failed to close video after thumbnailing", "error", errCategory(err))
 			}
 		}()
 		return fn(ctx, f)
@@ -1678,14 +1702,14 @@ func defaultThumbnailCachePath() string {
 // newThumbnailStore opens the bolt database at dbPath, creating it if
 // needed. When dbPath is empty or can't be opened (for example because
 // another server holds its lock), thumbnails are kept in memory instead.
-func newThumbnailStore(dbPath string) (*thumbnailStore, error) {
+func newThumbnailStore(dbPath string, log *slog.Logger) (*thumbnailStore, error) {
 	if dbPath != "" {
 		s, err := openBoltThumbnailStore(dbPath)
 		if err == nil {
-			slog.Info("thumbnails are cached", "path", dbPath)
+			log.Info("thumbnails are cached", "path", dbPath)
 			return s, nil
 		}
-		slog.Warn("cannot open the thumbnail cache; keeping thumbnails in memory", "path", dbPath, "error", err)
+		log.Warn("cannot open the thumbnail cache; keeping thumbnails in memory", "path", dbPath, "error", err)
 	}
 	return openThumbnailStore(thumbnailCacheMemory)
 }

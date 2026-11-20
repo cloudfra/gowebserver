@@ -18,7 +18,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"net/http/pprof"
 	"time"
 
 	"github.com/cloudfra/gowebserver/internal"
@@ -43,11 +42,9 @@ func setupMonitoring(m Monitoring, debugEndpoint string) (*monitoringContext, er
 	}
 
 	if len(debugEndpoint) > 0 {
-		mc.handlers[debugEndpoint+"/pprof/"] = http.HandlerFunc(pprof.Index)
-		mc.handlers[debugEndpoint+"/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
-		mc.handlers[debugEndpoint+"/pprof/profile"] = http.HandlerFunc(pprof.Profile)
-		mc.handlers[debugEndpoint+"/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
-		mc.handlers[debugEndpoint+"/pprof/trace"] = http.HandlerFunc(pprof.Trace)
+		for pattern, h := range pprofHandlers(debugEndpoint) {
+			mc.handlers[pattern] = h
+		}
 	}
 
 	r, err := resource.Merge(
@@ -145,14 +142,29 @@ func newPrometheusExporter(_ Monitoring, r *resource.Resource) (*otelprom.Export
 	return prometheusExporter, provider, h, nil
 }
 
+// monitoringContext is where the server reports what it does: metrics,
+// traces, logs and diagnostics.
 type monitoringContext struct {
 	handlers     map[string]http.Handler
 	promExporter *otelprom.Exporter
 	promProvider metric.MeterProvider
 	tp           *sdktrace.TracerProvider
+
+	// An embedded handler's (see NewHandler): set, they are used instead
+	// of the above and of the otel globals, which are never touched.
+	meterProvider  metric.MeterProvider
+	tracerProvider trace.TracerProvider
+	// logger is where everything is logged; nil is slog's default
+	// logger, which the standalone server sets up.
+	logger *slog.Logger
+	// diag is the diagnostics log, nil when they're off.
+	diag *diagLog
 }
 
 func (m *monitoringContext) getTraceProvider() trace.TracerProvider {
+	if m != nil && m.tracerProvider != nil {
+		return m.tracerProvider
+	}
 	if m == nil || m.tp == nil {
 		return otel.GetTracerProvider()
 	}
@@ -160,10 +172,29 @@ func (m *monitoringContext) getTraceProvider() trace.TracerProvider {
 }
 
 func (m *monitoringContext) getMeterProvider() metric.MeterProvider {
+	if m != nil && m.meterProvider != nil {
+		return m.meterProvider
+	}
 	if m == nil || m.promProvider == nil {
 		return otel.GetMeterProvider()
 	}
 	return m.promProvider
+}
+
+// log is the logger to log to.
+func (m *monitoringContext) log() *slog.Logger {
+	if m == nil || m.logger == nil {
+		return slog.Default()
+	}
+	return m.logger
+}
+
+// diagnostics is the diagnostics log, nil when they're off.
+func (m *monitoringContext) diagnostics() *diagLog {
+	if m == nil {
+		return nil
+	}
+	return m.diag
 }
 
 func (m *monitoringContext) shutdown() {
@@ -176,13 +207,13 @@ func (m *monitoringContext) shutdown() {
 	}
 	if m.promExporter != nil {
 		if err := m.promExporter.Shutdown(ctx); err != nil {
-			slog.Error("cannot shutdown prometheus exporter", "error", err)
+			m.log().Error("cannot shutdown prometheus exporter", "error", err)
 		}
 		m.promExporter = nil
 	}
 	if m.tp != nil {
 		if err := m.tp.Shutdown(ctx); err != nil {
-			slog.Error("cannot shutdown trace provider", "error", err)
+			m.log().Error("cannot shutdown trace provider", "error", err)
 		}
 	}
 }

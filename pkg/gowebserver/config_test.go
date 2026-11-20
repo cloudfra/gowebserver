@@ -17,6 +17,7 @@ package gowebserver
 import (
 	_ "embed"
 	"errors"
+	"flag"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -226,7 +227,7 @@ func TestPopulatedYamlConfig(t *testing.T) {
 }
 
 func TestDefaultConfiguration(t *testing.T) {
-	got, err := loadFromFlags()
+	got, err := registerFlags(flag.NewFlagSet("test", flag.ContinueOnError)).config()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,6 +235,7 @@ func TestDefaultConfiguration(t *testing.T) {
 		t.Fatal("got is nil")
 	}
 
+	httpPort, httpsPort := defaultPorts()
 	want := &Config{
 		Verbose:      false,
 		EnhancedList: false,
@@ -245,10 +247,10 @@ func TestDefaultConfiguration(t *testing.T) {
 		},
 		ConfigurationFile: "",
 		HTTP: HTTP{
-			Port: *httpPortFlag,
+			Port: httpPort,
 		},
 		HTTPS: HTTPS{
-			Port: *httpsPortFlag,
+			Port: httpsPort,
 			Certificate: Certificate{
 				RootPrivateKeyFilePath:   "",
 				RootCertificateFilePath:  "",

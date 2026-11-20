@@ -41,7 +41,7 @@ func makeRichViewHandler(t *testing.T, files map[string][]byte) *richViewHandler
 		}
 	})
 	mc := &monitoringContext{}
-	h, err := newRichViewHandler(base, testFS, mc)
+	h, err := newRichViewHandler(base, testFS, mc, pageOptions{})
 	if err != nil {
 		t.Fatalf("newRichViewHandler: %v", err)
 	}

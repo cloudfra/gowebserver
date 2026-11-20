@@ -102,7 +102,7 @@ func TestRequestMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, closeFS, err := newHandlerFromFS(dir, mc, true, thumbs)
+	h, closeFS, err := newHandlerFromFS(dir, mc, pageOptions{enhancedList: true}, thumbs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestRequestMetrics(t *testing.T) {
 func TestRequestMetricsUpload(t *testing.T) {
 	dir := t.TempDir()
 	mc, reader, _ := testMonitoring()
-	h, err := newUploadHandler(mc, "/upload", dir)
+	h, err := newUploadHandler(mc, "/upload", dir, pageChrome{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestRequestMetricsProxy(t *testing.T) {
 	defer backend.Close()
 
 	mc, reader, spans := testMonitoring()
-	h, _, err := newHandlerFromFS(backend.URL, mc, true, nil)
+	h, _, err := newHandlerFromFS(backend.URL, mc, pageOptions{enhancedList: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

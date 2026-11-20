@@ -347,7 +347,7 @@
 
   <div class="page">
     <header class="hero" id="hero">
-      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"{{if .Home}} data-home="{{.Home}}"{{end}}{{if .HomeTitle}} data-title="{{.HomeTitle}}"{{end}}{{if .Chrome.HostURL}} data-host-href="{{.Chrome.HostURL}}" data-host-label="{{.Chrome.HostLabel}}"{{end}}></nav>
       <h1 class="title" id="title" data-from-path>{{.RootName}}</h1>
       <p class="summary" id="summary"></p>
     </header>
@@ -390,7 +390,9 @@
       <p class="empty" id="no-match" hidden><strong>No matches</strong>Nothing in this folder matches your filter.</p>
     </main>
 
-    <div class="footer">Go Web Server {{ .ApplicationVersion }}, {{ .ApplicationBuildstamp }}</div>
+    {{- if not .Chrome.HideFooter}}
+    <div class="footer">{{if .Chrome.Footer}}{{.Chrome.Footer}}{{else}}Go Web Server {{ .ApplicationVersion }}{{if ne .ApplicationBuildstamp "UNKNOWN"}}, {{ .ApplicationBuildstamp }}{{end}}{{end}}</div>
+    {{- end}}
   </div>
 
   <div class="scrub" id="scrub" aria-hidden="true"><div class="scrub-label" id="scrub-label"></div><div class="scrub-thumb" id="scrub-thumb"></div></div>

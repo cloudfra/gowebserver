@@ -125,6 +125,15 @@ func (k *killHTTPServerHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 
 func (ws *webServerImpl) Serve(wait func()) error {
 	allCleanups := []func() error{}
+	// In reverse: the diagnostics log, opened first, is closed last, so
+	// what's closed before it can still write to it.
+	defer func() {
+		for i := len(allCleanups) - 1; i >= 0; i-- {
+			if err := allCleanups[i](); err != nil {
+				slog.Error("cleanup error", "error", err)
+			}
+		}
+	}()
 
 	displayPath := ""
 	for i, paths := range ws.fileSystemServePath {
@@ -145,12 +154,24 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		})
 	}
 
+	if ws.diagnosticsPath != "" {
+		// Before the thumbnailer and the served filesystems, which write
+		// to it; each serves the page's events at its root.
+		diag, err := startDiagnostics(ws.diagnosticsPath, ws.monitoringCtx.log())
+		if err != nil {
+			return fmt.Errorf("diagnostics: %w", err)
+		}
+		allCleanups = append(allCleanups, diag.close)
+		ws.monitoringCtx.diag = diag
+	}
+
 	// One thumbnailer (and store) is shared by every served filesystem.
 	thumbs, err := newThumbnailer(ws.thumbnails, ws.ffmpeg, ws.monitoringCtx)
 	if err != nil {
 		return err
 	}
 	allCleanups = append(allCleanups, thumbs.close)
+	pages := pageOptions{enhancedList: ws.enhancedListMode}
 
 	mounts := map[string]string{}
 	rootPath := ""
@@ -177,7 +198,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", indexHandler, handlerIndex)
 
 		for _, paths := range ws.fileSystemServePath {
-			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+			fsHandler, cleanup, err := newHandlerFromFS(paths.localPath, ws.monitoringCtx, pages, thumbs)
 			if err != nil {
 				return err
 			}
@@ -194,7 +215,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		if err != nil {
 			return err
 		}
-		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, ws.enhancedListMode, thumbs)
+		fsHandler, cleanup, err := newHandlerFromFS(fsSpec, ws.monitoringCtx, pages, thumbs)
 		if err != nil {
 			return err
 		}
@@ -202,29 +223,12 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		ws.addHandler(serverMux, "/", fsHandler, handlerFile)
 	}
 
-	defer func() {
-		for _, cleanup := range allCleanups {
-			if err := cleanup(); err != nil {
-				slog.Error("cleanup error", "error", err)
-			}
-		}
-	}()
-
 	if len(ws.uploadHTTPPath) > 0 {
-		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath)
+		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath, pageChrome{})
 		if err != nil {
 			return err
 		}
 		ws.addHandler(serverMux, ws.uploadHTTPPath, uploadHandler, handlerUpload)
-	}
-
-	if ws.diagnosticsPath != "" {
-		diagHandler, closeDiag, err := startDiagnostics(ws.diagnosticsPath)
-		if err != nil {
-			return fmt.Errorf("diagnostics: %w", err)
-		}
-		allCleanups = append(allCleanups, closeDiag)
-		serverMux.Handle("/"+diagEndpoint, diagHandler)
 	}
 
 	httpSocket, err := net.Listen("tcp", ws.httpAddr)
@@ -353,7 +357,7 @@ func New(conf *Config) (WebServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
 	}
-	ff, err := newFFmpeg(conf.FFmpeg)
+	ff, err := newFFmpeg(conf.FFmpeg, slog.Default(), ffmpegConfigNames)
 	if err != nil {
 		return nil, err
 	}

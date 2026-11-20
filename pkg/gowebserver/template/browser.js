@@ -73,6 +73,21 @@ function freePort() {
   });
 }
 
+// fill makes the folder dir for serve and serveEmbedded: opts.photos
+// PNGs, photo-00000.png onward, of opts.photoSize, and opts.files.
+function fill(dir, opts) {
+    fs.mkdirSync(dir);
+    const size = opts.photoSize || [640, 480];
+    for (let i = 0; i < (opts.photos || 0); i++) {
+      const name = 'photo-' + String(i).padStart(5, '0') + '.png';
+      fs.writeFileSync(path.join(dir, name), png(size[0], size[1], i * 37, i * 91, i * 13));
+    }
+    for (const [name, content] of Object.entries(opts.files || {})) {
+      fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+      fs.writeFileSync(path.join(dir, name), content);
+    }
+}
+
 // serve starts the server (the binary named by GOWEBSERVER) and resolves
 // once it answers, to {url, dir, uploads, close}. It serves opts.dir, or
 // else a new folder holding:
@@ -88,18 +103,7 @@ async function serve(opts) {
   const dir = opts.dir ? path.resolve(opts.dir) : path.join(tmp, 'served');
   const work = path.join(tmp, 'work'), uploads = path.join(tmp, 'uploads');
   [work, uploads].forEach((d) => fs.mkdirSync(d));
-  if (!opts.dir) {
-    fs.mkdirSync(dir);
-    const size = opts.photoSize || [640, 480];
-    for (let i = 0; i < (opts.photos || 0); i++) {
-      const name = 'photo-' + String(i).padStart(5, '0') + '.png';
-      fs.writeFileSync(path.join(dir, name), png(size[0], size[1], i * 37, i * 91, i * 13));
-    }
-    for (const [name, content] of Object.entries(opts.files || {})) {
-      fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
-      fs.writeFileSync(path.join(dir, name), content);
-    }
-  }
+  if (!opts.dir) fill(dir, opts);
 
   const port = await freePort(), tlsPort = await freePort();
   // It writes its certificate where it runs, so that's a folder of its own.
@@ -129,6 +133,45 @@ async function serve(opts) {
   return { url, dir, uploads, close, log: () => log };
 }
 
+// serveEmbedded starts the host program that embeds gowebserver (the
+// binary named by GOWEBSERVER_EMBED_HOST; see
+// internal/gowebserver/testing/embedhost) and resolves once it answers,
+// to {url, media, dir, close}: its app is at url, with its API at
+// url + 'api/', and gowebserver's file browser of opts.dir, or a folder
+// made as serve makes one, at media (url + 'media/'). opts.args are more
+// flags for it.
+async function serveEmbedded(opts) {
+  opts = opts || {};
+  const bin = process.env.GOWEBSERVER_EMBED_HOST;
+  if (!bin || !fs.existsSync(bin)) throw new Error('GOWEBSERVER_EMBED_HOST must name the host program; run this through make');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gows-embedded-'));
+  const dir = opts.dir ? path.resolve(opts.dir) : path.join(tmp, 'served');
+  if (!opts.dir) fill(dir, opts);
+  const port = await freePort();
+  const proc = spawn(bin, ['-path', dir, '-http.port', String(port)].concat(opts.args || []),
+    { cwd: tmp, stdio: ['ignore', 'ignore', 'pipe'] });
+  let log = '';
+  proc.stderr.on('data', (d) => { log = (log + d).slice(-4000); });
+  const close = () => {
+    proc.kill();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  };
+  const url = 'http://127.0.0.1:' + port + '/';
+  for (let i = 0; ; i++) {
+    if (proc.exitCode !== null || i > 200) {
+      close();
+      throw new Error('the host did not start:\n' + log);
+    }
+    try {
+      await fetch(url);
+      break;
+    } catch (e) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+  return { url, media: url + 'media/', dir, tmp, close, log: () => log };
+}
+
 // open starts the browser named by BROWSER (chromium, firefox or webkit)
 // and resolves to {browser, page, problems, name, close}. problems
 // collects what a healthy page doesn't do: script errors, console
@@ -153,4 +196,4 @@ async function open(opts) {
   return { browser, page, problems, name, close: () => browser.close() };
 }
 
-module.exports = { serve, open, png };
+module.exports = { serve, serveEmbedded, open, png };

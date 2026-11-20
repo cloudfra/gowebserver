@@ -24,7 +24,7 @@
 
 <body>
   <header class="hero" id="hero">
-    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"{{if .Home}} data-home="{{.Home}}"{{end}}{{if .HomeTitle}} data-title="{{.HomeTitle}}"{{end}}{{if .Chrome.HostURL}} data-host-href="{{.Chrome.HostURL}}" data-host-label="{{.Chrome.HostLabel}}"{{end}}></nav>
     <h1 class="title" id="title">{{.FileName}}</h1>
     <p class="meta">
       {{if .Language}}<span class="lang">{{.Language}}</span>{{end}}
@@ -77,7 +77,9 @@
     {{end}}
   </main>
 
-  <footer class="site-footer">gowebserver {{.ApplicationVersion}}</footer>
+  {{- if not .Chrome.HideFooter}}
+  <footer class="site-footer">{{if .Chrome.Footer}}{{.Chrome.Footer}}{{else}}gowebserver {{.ApplicationVersion}}{{end}}</footer>
+  {{- end}}
 
   {{template "page-script"}}
   <script>

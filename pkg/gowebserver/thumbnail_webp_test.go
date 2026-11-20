@@ -15,6 +15,7 @@
 package gowebserver
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -61,7 +62,7 @@ func TestThumbnailWebPFromTheStart(t *testing.T) {
 // A WebP thumbnail replaces the JPEG or PNG of the same size, so the store
 // keeps one of them; other sizes, and formats asked for by name, stay.
 func TestThumbnailStoreWebPReplacesItsJPEG(t *testing.T) {
-	s, err := newThumbnailStore("")
+	s, err := newThumbnailStore("", slog.Default())
 	if err != nil {
 		t.Fatal(err)
 	}

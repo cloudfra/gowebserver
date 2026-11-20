@@ -29,53 +29,87 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
+// flags are the standalone server's command line. They are registered on
+// a FlagSet that Load makes, never on flag.CommandLine, so importing the
+// package adds no flags to a program's own.
+type flags struct {
+	pathFlag                    *string
+	servePathFlag               *string
+	configFileFlag              *string
+	verboseFlag                 *bool
+	uploadPathFlag              *string
+	uploadHTTPPathFlag          *string
+	httpPortFlag                *int
+	httpsPortFlag               *int
+	rootPrivateKeyFilePathFlag  *string
+	rootCertificateFilePathFlag *string
+	privateKeyFilePathFlag      *string
+	certificateFilePathFlag     *string
+	certHostsFlag               *string
+	validDurationFlag           *time.Duration
+	forceOverwriteCertFlag      *bool
+	monitoringTraceURIFlag      *string
+	monitoringMetricsPath       *string
+	debugEndpointFlag           *string
+	debugShutdownFlag           *bool
+	debugDiagnosticsFlag        *string
+	enhancedListFlag            *bool
+	ffmpegAcceptLicenseFlag     *bool
+	ffmpegPathFlag              *string
+	ffmpegInstallOnDemandFlag   *bool
+	ffmpegSourceURLFlag         *string
+	thumbnailsEnabledFlag       *bool
+	thumbnailsCachePathFlag     *string
+}
+
+// registerFlags registers the server's flags on fs.
+func registerFlags(fs *flag.FlagSet) *flags {
+	f := &flags{}
 	// Serving Flags
-	pathFlag       = flag.String("path", "", "Path to serve (local filesystem, git, zip, tarball files).")
-	servePathFlag  = flag.String("servepath", "/", "The HTTP/HTTPS serving root path for the hosted path.")
-	configFileFlag = flag.String("configfile", "", "YAML formatted configuration file. (overrides flag values)")
-	verboseFlag    = flag.Bool("verbose", false, "Print out extra information.")
+	f.pathFlag = fs.String("path", "", "Path to serve (local filesystem, git, zip, tarball files).")
+	f.servePathFlag = fs.String("servepath", "/", "The HTTP/HTTPS serving root path for the hosted path.")
+	f.configFileFlag = fs.String("configfile", "", "YAML formatted configuration file. (overrides flag values)")
+	f.verboseFlag = fs.Bool("verbose", false, "Print out extra information.")
 
 	// Upload Flags
-	uploadPathFlag     = flag.String("upload.path", "uploaded-files", "Local filesystem path where uploaded files are placed.")
-	uploadHTTPPathFlag = flag.String("upload.httppath", "/upload.asp", "The URL path for uploading files.")
-
-	// HTTP Flags
-	httpPortFlag *int
-
-	// HTTPS Flags
-	httpsPortFlag *int
+	f.uploadPathFlag = fs.String("upload.path", "uploaded-files", "Local filesystem path where uploaded files are placed.")
+	f.uploadHTTPPathFlag = fs.String("upload.httppath", "/upload.asp", "The URL path for uploading files.")
 
 	// HTTPS Certificate Flags
-	rootPrivateKeyFilePathFlag  = flag.String("https.certificate.rootprivatekey", "", "(optional) Root private key file path for generating derived certificates.")
-	rootCertificateFilePathFlag = flag.String("https.certificate.rootpath", "", "(optional) Root public certificate for derived certificates.")
-	privateKeyFilePathFlag      = flag.String("https.certificate.privatekey", "web.key", "Private key for HTTPS serving.")
-	certificateFilePathFlag     = flag.String("https.certificate.path", "web.cert", "Certificate to host HTTPS with.")
-	certHostsFlag               = flag.String("https.certificate.hosts", "", "Comma-separated hostnames and IPs to generate a certificate for.")
-	validDurationFlag           = flag.Duration("https.certificate.duration", time.Hour*43800, "Validity period of the generated certificate; the default 43800h is approximately 5 years.")
-	forceOverwriteCertFlag      = flag.Bool("https.certificate.forceoverwrite", false, "Force overwrite existing certificates if they already exist.")
+	f.rootPrivateKeyFilePathFlag = fs.String("https.certificate.rootprivatekey", "", "(optional) Root private key file path for generating derived certificates.")
+	f.rootCertificateFilePathFlag = fs.String("https.certificate.rootpath", "", "(optional) Root public certificate for derived certificates.")
+	f.privateKeyFilePathFlag = fs.String("https.certificate.privatekey", "web.key", "Private key for HTTPS serving.")
+	f.certificateFilePathFlag = fs.String("https.certificate.path", "web.cert", "Certificate to host HTTPS with.")
+	f.certHostsFlag = fs.String("https.certificate.hosts", "", "Comma-separated hostnames and IPs to generate a certificate for.")
+	f.validDurationFlag = fs.Duration("https.certificate.duration", time.Hour*43800, "Validity period of the generated certificate; the default 43800h is approximately 5 years.")
+	f.forceOverwriteCertFlag = fs.Bool("https.certificate.forceoverwrite", false, "Force overwrite existing certificates if they already exist.")
 
 	// Monitoring Flags
-	monitoringTraceURIFlag = flag.String("monitoring.trace.uri", "", "OTLP HTTP endpoint URL for tracing (e.g. http://host:4318).")
-	monitoringMetricsPath  = flag.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
+	f.monitoringTraceURIFlag = fs.String("monitoring.trace.uri", "", "OTLP HTTP endpoint URL for tracing (e.g. http://host:4318).")
+	f.monitoringMetricsPath = fs.String("monitoring.metrics.path", "/metrics", "The URL path for exporting server metrics for Prometheus monitoring.")
 
 	// Debug Flags
-	debugEndpointFlag    = flag.String("debug.endpoint", "", "URL path prefix for the pprof and OpenTelemetry tracez debug endpoints. Empty turns them off.")
-	debugShutdownFlag    = flag.Bool("debug.shutdown", false, "Expose the /diediedie endpoint, which shuts the server down; for testing.")
-	debugDiagnosticsFlag = flag.String("debug.diagnostics", "", "Write anonymized diagnostics of browsing (thumbnails, ffmpeg, what the file browser loads and shows) to this file, one event a line. Names are replaced by tokens. Empty turns them off.")
+	f.debugEndpointFlag = fs.String("debug.endpoint", "", "URL path prefix for the pprof and OpenTelemetry tracez debug endpoints. Empty turns them off.")
+	f.debugShutdownFlag = fs.Bool("debug.shutdown", false, "Expose the /diediedie endpoint, which shuts the server down; for testing.")
+	f.debugDiagnosticsFlag = fs.String("debug.diagnostics", "", "Write anonymized diagnostics of browsing (thumbnails, ffmpeg, what the file browser loads and shows) to this file, one event a line. Names are replaced by tokens. Empty turns them off.")
 
-	enhancedListFlag = flag.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
+	f.enhancedListFlag = fs.Bool("enhancedindex", false, "Enable the enhanced directory listing UI with file previews and sorting.")
 
 	// FFmpeg Flags
-	ffmpegAcceptLicenseFlag   = flag.Bool("ffmpeg.acceptlicense", false, "Accept ffmpeg's license (downloadable builds are GPL). Required before ffmpeg is downloaded.")
-	ffmpegPathFlag            = flag.String("ffmpeg.path", "", "ffmpeg program to use, or the folder it's in (also searched: its bin folder). Empty uses the installed ffmpeg, if any. When set, the server won't start unless ffmpeg is there and runs.")
-	ffmpegInstallOnDemandFlag = flag.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
-	ffmpegSourceURLFlag       = flag.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
+	f.ffmpegAcceptLicenseFlag = fs.Bool("ffmpeg.acceptlicense", false, "Accept ffmpeg's license (downloadable builds are GPL). Required before ffmpeg is downloaded.")
+	f.ffmpegPathFlag = fs.String("ffmpeg.path", "", "ffmpeg program to use, or the folder it's in (also searched: its bin folder). Empty uses the installed ffmpeg, if any. When set, the server won't start unless ffmpeg is there and runs.")
+	f.ffmpegInstallOnDemandFlag = fs.Bool("ffmpeg.installondemand", false, "Download ffmpeg the first time it's needed when none is installed. Requires -ffmpeg.acceptlicense.")
+	f.ffmpegSourceURLFlag = fs.String("ffmpeg.sourceurl", "", "ffmpeg build to download (.tar.xz, .tar.gz or .zip); append #sha256=<hex> to verify it. Empty downloads the latest release for this platform.")
 
 	// Thumbnail Flags
-	thumbnailsEnabledFlag   = flag.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
-	thumbnailsCachePathFlag = flag.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
-)
+	f.thumbnailsEnabledFlag = fs.Bool("thumbnails.enabled", true, "Serve resized images and video frames when a file is requested with width or height query parameters.")
+	f.thumbnailsCachePathFlag = fs.String("thumbnails.cachepath", "", "BoltDB file that caches thumbnails across restarts. Empty uses <user cache dir>/gowebserver/thumbnails.db; \"memory:\" keeps them in memory only.")
+
+	defaultPort, defaultSecurePort := defaultPorts()
+	f.httpPortFlag = fs.Int("http.port", defaultPort, "Port to run HTTP server.")
+	f.httpsPortFlag = fs.Int("https.port", defaultSecurePort, "Port to run HTTPS server.")
+	return f
+}
 
 // HTTP holds the configuration for HTTP serving.
 type HTTP struct {
@@ -163,6 +197,11 @@ type FFmpeg struct {
 	// .zip). Append #sha256=<hex> to verify it. Empty downloads the latest
 	// release for this platform.
 	SourceURL string `yaml:"sourceUrl"`
+	// Required, for an embedded handler (Options.FFmpeg), fails
+	// NewHandler when Path is set but has no ffmpeg that runs. Without
+	// it, that's logged once and the handler goes without ffmpeg. The
+	// standalone server always requires a configured path.
+	Required bool `yaml:"-"`
 }
 
 // Thumbnails configures resized images and video frames, served when a
@@ -199,22 +238,36 @@ func (c *Config) String() string {
 	return b.String()
 }
 
-// Load loads the configuration for the server.
+// Load loads the configuration for the server from the command line,
+// os.Args, and the configuration file it names. The flags are the
+// server's own, on a FlagSet of their own: flag.CommandLine isn't
+// parsed, so a program's flags (or those of the test binary) aren't
+// accepted, and a program that imports the package keeps only its own.
 func Load() (*Config, error) {
-	flag.Parse()
-	conf, err := loadFromFlags()
+	return loadArgs(os.Args[1:])
+}
+
+// loadArgs loads the configuration from the command line args, parsed by
+// a FlagSet of the server's own, and the configuration file they name.
+func loadArgs(args []string) (*Config, error) {
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	f := registerFlags(fs)
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+	conf, err := f.config()
 	if err != nil {
 		return nil, err
 	}
-	if *configFileFlag != "" {
-		err := loadWithConfigFile(*configFileFlag, conf)
+	if conf.ConfigurationFile != "" {
+		err := loadWithConfigFile(conf.ConfigurationFile, conf)
 		if errors.Is(err, errSettingMoved) {
 			// The rest of the file would load, and the server start without
 			// what was asked for.
-			return nil, fmt.Errorf("configuration file %s: %w", *configFileFlag, err)
+			return nil, fmt.Errorf("configuration file %s: %w", conf.ConfigurationFile, err)
 		}
 		if err != nil {
-			slog.Warn("Error Loading File", "error", err, "configFile", *configFileFlag)
+			slog.Warn("Error Loading File", "error", err, "configFile", conf.ConfigurationFile)
 		}
 	}
 	return conf, nil
@@ -228,9 +281,10 @@ func loadWithConfigFile(filePath string, conf *Config) error {
 	if err := movedSettings(contents); err != nil {
 		return err
 	}
-	err = yaml.Unmarshal(contents, &conf)
 	// Config file should always be the flag value.
-	conf.ConfigurationFile = *configFileFlag
+	configFile := conf.ConfigurationFile
+	err = yaml.Unmarshal(contents, &conf)
+	conf.ConfigurationFile = configFile
 	if err != nil {
 		return err
 	}
@@ -263,7 +317,10 @@ func movedSettings(contents []byte) error {
 	return errors.Join(errs...)
 }
 
-func init() {
+// defaultPorts are the HTTP and HTTPS ports used unless set: 80 and 443
+// for root, else 8080 and 8443, and the PORT environment variable's for
+// HTTP when it's set.
+func defaultPorts() (int, int) {
 	defaultPortInt := 8080
 	defaultSecurePortInt := 8443
 	currentUser, err := user.Current()
@@ -281,64 +338,63 @@ func init() {
 			defaultPortInt = port
 		}
 	}
-
-	httpPortFlag = flag.Int("http.port", defaultPortInt, "Port to run HTTP server.")
-	httpsPortFlag = flag.Int("https.port", defaultSecurePortInt, "Port to run HTTPS server.")
+	return defaultPortInt, defaultSecurePortInt
 }
 
-func loadFromFlags() (*Config, error) {
-	sl, err := serveList(*pathFlag, *servePathFlag)
+// config is the configuration the flags give.
+func (f *flags) config() (*Config, error) {
+	sl, err := serveList(*f.pathFlag, *f.servePathFlag)
 	if err != nil {
 		return nil, err
 	}
 	return &Config{
-		Verbose:           *verboseFlag,
+		Verbose:           *f.verboseFlag,
 		Serve:             sl,
-		ConfigurationFile: *configFileFlag,
-		EnhancedList:      *enhancedListFlag,
+		ConfigurationFile: *f.configFileFlag,
+		EnhancedList:      *f.enhancedListFlag,
 		HTTP: HTTP{
-			Port: *httpPortFlag,
+			Port: *f.httpPortFlag,
 		},
 		HTTPS: HTTPS{
-			Port: *httpsPortFlag,
+			Port: *f.httpsPortFlag,
 			Certificate: Certificate{
-				PrivateKeyFilePath:       *privateKeyFilePathFlag,
-				CertificateFilePath:      *certificateFilePathFlag,
-				RootPrivateKeyFilePath:   *rootPrivateKeyFilePathFlag,
-				RootCertificateFilePath:  *rootCertificateFilePathFlag,
-				CertificateHosts:         *certHostsFlag,
-				CertificateValidDuration: *validDurationFlag,
-				ForceOverwrite:           *forceOverwriteCertFlag,
+				PrivateKeyFilePath:       *f.privateKeyFilePathFlag,
+				CertificateFilePath:      *f.certificateFilePathFlag,
+				RootPrivateKeyFilePath:   *f.rootPrivateKeyFilePathFlag,
+				RootCertificateFilePath:  *f.rootCertificateFilePathFlag,
+				CertificateHosts:         *f.certHostsFlag,
+				CertificateValidDuration: *f.validDurationFlag,
+				ForceOverwrite:           *f.forceOverwriteCertFlag,
 			},
 		},
 		Debug: Debug{
-			Endpoint:    *debugEndpointFlag,
-			Shutdown:    *debugShutdownFlag,
-			Diagnostics: *debugDiagnosticsFlag,
+			Endpoint:    *f.debugEndpointFlag,
+			Shutdown:    *f.debugShutdownFlag,
+			Diagnostics: *f.debugDiagnosticsFlag,
 		},
 		Monitoring: Monitoring{
 			Metrics: Metrics{
-				Enabled: *monitoringMetricsPath != "",
-				Path:    *monitoringMetricsPath,
+				Enabled: *f.monitoringMetricsPath != "",
+				Path:    *f.monitoringMetricsPath,
 			},
 			Trace: Trace{
-				Enabled: *monitoringTraceURIFlag != "",
-				URI:     *monitoringTraceURIFlag,
+				Enabled: *f.monitoringTraceURIFlag != "",
+				URI:     *f.monitoringTraceURIFlag,
 			},
 		},
 		Upload: Serve{
-			Source:   *uploadPathFlag,
-			Endpoint: *uploadHTTPPathFlag,
+			Source:   *f.uploadPathFlag,
+			Endpoint: *f.uploadHTTPPathFlag,
 		},
 		FFmpeg: FFmpeg{
-			AcceptLicense:   *ffmpegAcceptLicenseFlag,
-			Path:            *ffmpegPathFlag,
-			InstallOnDemand: *ffmpegInstallOnDemandFlag,
-			SourceURL:       *ffmpegSourceURLFlag,
+			AcceptLicense:   *f.ffmpegAcceptLicenseFlag,
+			Path:            *f.ffmpegPathFlag,
+			InstallOnDemand: *f.ffmpegInstallOnDemandFlag,
+			SourceURL:       *f.ffmpegSourceURLFlag,
 		},
 		Thumbnails: Thumbnails{
-			Enabled:   *thumbnailsEnabledFlag,
-			CachePath: *thumbnailsCachePathFlag,
+			Enabled:   *f.thumbnailsEnabledFlag,
+			CachePath: *f.thumbnailsCachePathFlag,
 		},
 	}, nil
 }

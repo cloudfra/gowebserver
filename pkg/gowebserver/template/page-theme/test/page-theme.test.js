@@ -152,3 +152,34 @@ test('scrolling writes styles once a frame, and not at all when docked', () => {
   t.pg.scroll(6000);
   assert.equal(writes, 2, 'past the header there is nothing to update');
 });
+
+// A handler embedded in another program says where its root is
+// (data-home, relative to the page): the crumbs start there, named
+// data-title, and never reach the host's own pages above it.
+test('embedded, the crumbs start at the mount, named by its title', () => {
+  const html = HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../../" data-title="Media">');
+  const t = setup({ html, location: { pathname: '/media/photos/2024/', host: 'host.test' }, media: { '(min-width: 1100px)': true } });
+  assert.deepEqual(t.crumbs(), [['Media', '/media/'], ['photos', '/media/photos/']]);
+  assert.equal(t.$('title').textContent, '2024');
+});
+
+test('embedded, the mount\'s own folder is named by its title', () => {
+  const html = HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./" data-title="Media">');
+  const t = setup({ html, location: { pathname: '/apps/media/', host: 'host.test' } });
+  assert.deepEqual(t.crumbs(), [['Media', '/apps/media/']]);
+  assert.equal(t.$('title').textContent, 'Media');
+});
+
+test('embedded, a file\'s page climbs from its folder', () => {
+  const html = HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../">').replace(' data-from-path', '');
+  const t = setup({ html, location: { pathname: '/media/notes/a.txt', host: 'host.test' }, media: { '(min-width: 1100px)': true } });
+  assert.deepEqual(t.crumbs(), [['host.test', '/media/'], ['notes', '/media/notes/']]);
+});
+
+test('embedded with a link home, it comes before the mount\'s crumbs', () => {
+  const html = HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../" data-title="Media" data-host-href="/app/" data-host-label="My &lt;app&gt;">');
+  const t = setup({ html, location: { pathname: '/media/photos/', host: 'host.test' }, media: { '(min-width: 1100px)': true } });
+  assert.deepEqual(t.crumbs(), [['My <app>', '/app/'], ['Media', '/media/']]);
+  assert.match(t.$('crumbs').innerHTML, /My &lt;app&gt;/);
+  assert.equal(t.$('crumbs').querySelectorAll('a.home').length, 1);
+});

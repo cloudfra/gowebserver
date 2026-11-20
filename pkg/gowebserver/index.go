@@ -73,7 +73,7 @@ func newIndexHTTPHandler(servePaths []string, modern bool) (*indexHTTPHandler, e
 
 func (h *indexHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" && r.URL.Query().Has("folders") {
-		writeSubfolders(w, h.folders)
+		writeSubfolders(w, h.folders, slog.Default())
 		return
 	}
 	w.Header().Add("Content-Type", "text/html")

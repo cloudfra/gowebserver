@@ -89,6 +89,8 @@ type thumbnailMetrics struct {
 	videoCopyBytes metric.Int64Counter
 
 	meter metric.Meter
+	// observed is observe's callback, for unregister.
+	observed metric.Registration
 }
 
 // What ffmpeg was run for, the "operation" of
@@ -181,25 +183,37 @@ func newThumbnailMetrics(mc *monitoringContext) (*thumbnailMetrics, error) {
 }
 
 // observe reports what doesn't change with each thumbnail: how many can
-// be made at once, and how large the store's database is.
+// be made at once, and how large the store's database is, until
+// unregister.
 func (m *thumbnailMetrics) observe(store *thumbnailStore, slots int) error {
-	if _, err := m.meter.Int64ObservableGauge("thumbnail_render_slots",
-		metric.WithDescription("Thumbnails that can be made at once. thumbnail_renders{state=\"running\"} at this number means the rest are waiting."),
-		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-			o.Observe(int64(slots))
-			return nil
-		})); err != nil {
+	renderSlots, err := m.meter.Int64ObservableGauge("thumbnail_render_slots",
+		metric.WithDescription("Thumbnails that can be made at once. thumbnail_renders{state=\"running\"} at this number means the rest are waiting."))
+	if err != nil {
 		return err
 	}
-	_, err := m.meter.Int64ObservableGauge("thumbnail_store_size_bytes",
-		metric.WithDescription("Size of the thumbnail store's database file. Absent when thumbnails are kept in memory."),
-		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-			if size, ok := store.size(); ok {
-				o.Observe(size)
-			}
-			return nil
-		}))
+	storeSize, err := m.meter.Int64ObservableGauge("thumbnail_store_size_bytes",
+		metric.WithDescription("Size of the thumbnail store's database file. Absent when thumbnails are kept in memory."))
+	if err != nil {
+		return err
+	}
+	// One registration, so close can take it back: a host's meter
+	// provider outlives the handler.
+	m.observed, err = m.meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
+		o.ObserveInt64(renderSlots, int64(slots))
+		if size, ok := store.size(); ok {
+			o.ObserveInt64(storeSize, size)
+		}
+		return nil
+	}, renderSlots, storeSize)
 	return err
+}
+
+// unregister stops observe's reports.
+func (m *thumbnailMetrics) unregister() error {
+	if m == nil || m.observed == nil {
+		return nil
+	}
+	return m.observed.Unregister()
 }
 
 // lookup starts asking the store for a thumbnail. The function it

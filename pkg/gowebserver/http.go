@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -44,32 +45,39 @@ func overlayURLProxy(target *url.URL, client *http.Client) *httputil.ReverseProx
 
 // newHTTPReverseProxy passes requests on to the server at httpPath. Each
 // request to it is a client span under the request's own, which that
-// server can continue, and is in the http_client_* metrics.
-func newHTTPReverseProxy(httpPath string, mc *monitoringContext) (http.Handler, error) {
-	if !isSupportedHTTP(httpPath) {
-		return nil, fmt.Errorf("%s is not a valid HTTP server", httpPath)
+// server can continue, and is in the http_client_* metrics. Its
+// connections are its own, not http.DefaultTransport's; the function it
+// returns closes those left idle.
+func newHTTPReverseProxy(httpPath string, mc *monitoringContext) (http.Handler, func() error, error) {
+	target, err := url.Parse(httpPath)
+	if err != nil || !isSupportedHTTP(httpPath) || target.Host == "" {
+		return nil, nilFuncWithError, fmt.Errorf("%s is not a valid HTTP server", httpPath)
 	}
 
-	transport := otelhttp.NewTransport(http.DefaultTransport,
+	connections := http.DefaultTransport.(*http.Transport).Clone()
+	transport := otelhttp.NewTransport(connections,
 		otelhttp.WithTracerProvider(mc.getTraceProvider()),
 		otelhttp.WithMeterProvider(mc.getMeterProvider()),
 		otelhttp.WithPropagators(tracePropagator))
-	reverseProxy := overlayURLProxy(mustURLParse(httpPath), &http.Client{Transport: transport})
+	reverseProxy := overlayURLProxy(target, &http.Client{Transport: transport})
+	if mc != nil && mc.logger != nil {
+		// An embedded handler's: its errors go to the host's logger, not
+		// the log package's.
+		reverseProxy.ErrorLog = slog.NewLogLogger(mc.logger.Handler(), slog.LevelError)
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setRequestHandler(r, handlerProxy)
-		reverseProxy.ServeHTTP(w, r)
-	}), nil
+			setRequestHandler(r, handlerProxy)
+			reverseProxy.ServeHTTP(w, r)
+		}), func() error {
+			connections.CloseIdleConnections()
+			return nil
+		}, nil
 }
 
+// isSupportedHTTP reports whether filePath is an http(s) URL to pass
+// requests on to, rather than a path (a folder named "httpdocs", say).
 func isSupportedHTTP(filePath string) bool {
-	return strings.HasPrefix(strings.ToLower(filePath), "http")
-}
-
-func mustURLParse(u string) *url.URL {
-	url, err := url.Parse(u)
-	if err != nil {
-		panic(err)
-	}
-	return url
+	p := strings.ToLower(filePath)
+	return strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://")
 }

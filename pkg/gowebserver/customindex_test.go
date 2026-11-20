@@ -232,7 +232,7 @@ func TestCustomIndexFolderWithAMediaName(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer gowsTesting.DeferClose(t, nFS)()
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, &monitoringContext{}, true, nil)
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, &monitoringContext{}, pageOptions{enhancedList: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestCustomIndex(t *testing.T) {
 	defer gowsTesting.DeferClose(t, nFS)()
 
 	mc := &monitoringContext{}
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc, true, nil)
+	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc, pageOptions{enhancedList: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -84,6 +84,9 @@ type Options struct {
 	DownloadDir string
 	// Client makes download requests; nil uses a default client.
 	Client *http.Client
+	// Logger is where downloads are logged; nil uses slog's default
+	// logger.
+	Logger *slog.Logger
 }
 
 // FFmpeg runs one ffmpeg binary, which may be downloaded on first use.
@@ -203,7 +206,7 @@ func (f *FFmpeg) Path(ctx context.Context) (string, error) {
 	p, err := f.dl.install(ctx)
 	if err != nil {
 		f.failed, f.failErr = time.Now(), err
-		slog.Warn("ffmpeg download failed", "error", err, "retry after", retryAfter)
+		f.dl.log.Warn("ffmpeg download failed", "error", err, "retry after", retryAfter)
 		return "", err
 	}
 	f.path = p

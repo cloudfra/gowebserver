@@ -201,37 +201,36 @@ The core server implementation lives in `pkg/gowebserver/`:
 * `index.go` / `customindex.go` — directory listing templates (basic and custom CSS UI).
 * `monitoring.go` — Prometheus metrics, OpenTelemetry tracing, and pprof endpoints.
 * `upload.go` — multi-file upload with MD5 token validation.
+* `handler.go` — `NewHandler`: the server's handlers as one `http.Handler` to embed in another program.
+* `spa.go` — `SPA`: a single-page app's build, served with its index for every route.
+* `gzip.go` — compression, and `Compress` for a host's own mux.
 
-## Example
+## Embedding in another Go program
 
-Sample code for embedding a HTTP/HTTPS server in your application.
+`gowebserver.NewHandler` is the file browser, gallery, text viewer and thumbnails for one folder (or archive, or git repository) as an `http.Handler`, to mount wherever your program wants it. It has no global side effects: importing the package registers no flags, and a handler registers no routes, starts no listener, never touches the otel or zap globals or slog's default logger, and logs, measures and traces only through what its `Options` give it (nothing, by default). Everything it serves and links to stays under the path it's mounted at, and its breadcrumb starts there, named by `Options.Title`. Its optional endpoints (uploads, diagnostics) are off unless asked for, and then under the mount too. `Close` releases the content and the thumbnail store and waits for its background work.
+
+Requests log nothing above Debug, and no log line names a file. A missing file is a 404 and an unreadable one a 403, with no error text in the body. A `Path` to a folder that doesn't exist yet is served once it does. A configured `FFmpeg.Path` without ffmpeg turns video thumbnails off (unless `FFmpeg.Required`). `Options.Home` adds a link back to the host's app before the breadcrumb, and `Footer`/`HideFooter` replace or drop the footer. `Mount` mounts a handler and answers the bare prefix with a relative redirect, which stays right behind a path-prefix proxy.
+
+`gowebserver.SPA` serves a built single-page app from any `fs.FS` (an `embed.FS` of its build, say): files as they are, its content-hashed build assets cached as immutable, and the app's index, uncached, for every other route. `gowebserver.Compress` is the server's gzip middleware, for a program's whole mux: bodies under 1 KiB stay plain (held until they're known to be longer when there's no Content-Length), HEAD gets the `Vary` its GET has, and nested, only the outermost compresses. `CompressWith` takes a minimum size and the media types to compress.
 
 ```go
-// Package main provides a web server to serve the file system of the host system. This is very insecure!
-package main
-
-import (
-  "github.com/cloudfra/gowebserver/pkg/gowebserver"
-  "go.uber.org/zap"
-)
-
-func main() {
-  logger, err := zap.NewProduction()
-  if err != nil {
-    zap.S().Fatal(err)
-  }
-  if err == nil {
-    zap.ReplaceGlobals(logger)
-  }
-  defer logger.Sync()
-  httpServer, err := gowebserver.New(&gowebserver.Config{
-    Serve: []gowebserver.Serve{{Source: ".", Endpoint: "/"}},
-  })
-  if err != nil {
-    zap.S().Fatal(err)
-  }
-
-  termCh := make(chan error)
-  httpServer.Serve(termCh)
+media, err := gowebserver.NewHandler(ctx, gowebserver.Options{
+  FS:            os.DirFS("/data/photos"), // or Path: "/data/photos.zip"
+  EnhancedIndex: true,
+  Title:         "Photos",
+  Thumbnails:    gowebserver.ThumbnailOptions{CachePath: "/data/thumbnails.db"},
+  Logger:        slog.Default(), // nil: discard
+})
+if err != nil {
+  return err
 }
+defer media.Close()
+
+mux := http.NewServeMux()
+mux.Handle("/api/", api)
+gowebserver.Mount(mux, "/media", media) // /media/ behind StripPrefix; /media redirects relatively
+mux.Handle("/", gowebserver.SPA(dist, gowebserver.SPAOptions{ImmutablePrefix: "assets/"}))
+srv := &http.Server{Handler: gowebserver.Compress(mux)}
 ```
+
+`ExampleNewHandler` in `pkg/gowebserver/example_test.go` runs it, and `internal/gowebserver/testing/embedhost` is a whole host program, which the browser tests use.

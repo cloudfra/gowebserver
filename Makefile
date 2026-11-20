@@ -60,6 +60,17 @@ $(FFMPEG):
 	{ mv -f "$@.$$$$.tmp" "$@" || [ -f "$@" ]; }; \
 	status=$$?; rm -f "$@.$$$$.tmp"; exit $$status
 
+# The host program that embeds gowebserver (at /media/, beside its own API
+# and app), for the browser tests: built again each time, like the server,
+# since the templates are embedded in it.
+JAVASCRIPT_EMBED_HOST = build/embedhost/embedhost$(EXE)
+JAVASCRIPT_ENV += GOWEBSERVER_EMBED_HOST="$(REPOSITORY_ROOT)/$(JAVASCRIPT_EMBED_HOST)"
+
+javascript-embed-host:
+	$(GO) build -o "$(REPOSITORY_ROOT)/$(JAVASCRIPT_EMBED_HOST)" ./internal/gowebserver/testing/embedhost
+
+test-browser: javascript-embed-host
+
 run: clean assets lint
 	$(GO) run cmd/gowebserver/gowebserver.go -http.port 8181 -path=. -verbose -debug.shutdown -enhancedindex=true
 
@@ -84,4 +95,4 @@ template: install/kubernetes.yaml
 test-codecov:
 	curl -X POST --data-binary @codecov.yml https://codecov.io/validate
 
-.PHONY : run multirun run-wasm kind-create kind-delete template test-codecov
+.PHONY : javascript-embed-host run multirun run-wasm kind-create kind-delete template test-codecov
