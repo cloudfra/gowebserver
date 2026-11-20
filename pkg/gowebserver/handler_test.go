@@ -528,3 +528,24 @@ func hasMetric(rm metricdata.ResourceMetrics, name string) bool {
 	}
 	return false
 }
+
+// The mount root, from a page at any depth, under either way of
+// stripping the mount's path.
+func TestMountRoot(t *testing.T) {
+	for _, prefix := range []string{"/media", "/media/"} {
+		for target, want := range map[string]string{
+			"/media/":             "./",
+			"/media/a/":           "./../",
+			"/media/a/b/":         "./../../",
+			"/media/a/b/c.txt":    "./../../",
+			"/media/a%2Fb/?x=/y/": "./../",
+		} {
+			var got string
+			h := http.StripPrefix(prefix, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = mountRoot(r) }))
+			h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, target, nil))
+			if got != want {
+				t.Errorf("StripPrefix(%q), %s: mountRoot %q, want %q", prefix, target, got, want)
+			}
+		}
+	}
+}

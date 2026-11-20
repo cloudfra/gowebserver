@@ -266,5 +266,10 @@ func (p pageOptions) home(r *http.Request) string {
 // at (see http.StripPrefix), so the URL stays under that path wherever it
 // is, and behind a proxy that adds a prefix of its own.
 func mountRoot(r *http.Request) string {
-	return "./" + strings.Repeat("../", max(strings.Count(r.URL.EscapedPath(), "/")-1, 0))
+	p := r.URL.EscapedPath()
+	if !strings.HasPrefix(p, "/") {
+		// http.StripPrefix("/media/") leaves "a/b/" for /media/a/b/.
+		p = "/" + p
+	}
+	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0))
 }
