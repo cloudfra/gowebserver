@@ -125,7 +125,7 @@ const state = (p) => p.evaluate(() => {
   return v && {
     t: v.currentTime, paused: v.paused, dur: v.duration,
     segs: dock.querySelectorAll('.vd-seg').length, ticks: dock.querySelectorAll('.vd-tick').length,
-    bands: dock.querySelectorAll('.vd-band').length, colors: Array.from(dock.querySelectorAll('.vd-tick')).map((e) => e.style.backgroundColor),
+    bands: dock.querySelectorAll('.vd-band').length, colors: Array.from(dock.querySelectorAll('.vd-tick')).map((e) => getComputedStyle(e).backgroundColor),
     chapter: dock.querySelector('.vd-chap').textContent, cap: dock.querySelector('.vd-cap').hidden ? '' : dock.querySelector('.vd-cap').textContent,
     controls: v.controls,
   };
@@ -174,6 +174,105 @@ test('a video plays in the dock, with its chapters and markers on the timeline',
   assert.equal((await state(p)).paused, true);
 });
 
+// What the preview box shows now: which picture (the sprite's "image",
+// the video's own "frame", or "none"), where it is, and how much is in
+// it, from its pixels: the canvas's for a frame, and for the sprite the
+// part of the sheet the box shows, drawn as the box draws it.
+const preview = (p) => p.evaluate(async () => {
+  const dock = document.querySelector('#ss-stage .vdock');
+  const kind = dock.dataset.preview, frame = dock.querySelector('.vd-pop-frame');
+  if (frame.hidden) return { kind, shown: false };
+  const r = frame.getBoundingClientRect();
+  let c = dock.querySelector('.vd-pop-canvas');
+  if (kind === 'image') {
+    const cs = getComputedStyle(dock.querySelector('.vd-pop-img'));
+    const im = new Image();
+    im.src = cs.backgroundImage.slice(5, -2);
+    await im.decode();
+    const [x, y] = cs.backgroundPosition.split(' ').map(parseFloat);
+    const [w, h] = cs.backgroundSize.split(' ').map(parseFloat);
+    c = document.createElement('canvas');
+    c.width = Math.round(r.width);
+    c.height = Math.round(r.height);
+    c.getContext('2d').drawImage(im, x, y, w, h);
+  }
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let lo = 255, hi = 0, sum = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+    lo = Math.min(lo, l);
+    hi = Math.max(hi, l);
+    sum += l;
+  }
+  return {
+    kind, shown: true, mean: sum / (d.length / 4), spread: hi - lo,
+    inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight && r.width > 40 && r.height > 20,
+  };
+});
+
+// Puts the pointer on the timeline at fraction f of it.
+async function hoverAt(p, f) {
+  const tl = await p.locator('#ss-stage .vd-tl').boundingBox();
+  const y = tl.y + tl.height / 2;
+  await p.mouse.move(tl.x + tl.width * (f - 0.05), y);
+  await p.mouse.move(tl.x + tl.width * f, y, { steps: 4 });
+}
+
+function assertPicture(s, what) {
+  assert.ok(s.shown, what + ': the box shows: ' + JSON.stringify(s));
+  assert.ok(s.inside, what + ': inside the window: ' + JSON.stringify(s));
+  assert.ok(s.mean > 8 && s.spread > 24, what + ': and something in it, not a blank box: ' + JSON.stringify(s));
+}
+
+test('with a cold cache the preview is the video\'s own frame, then the sprite', async (t) => {
+  if (!ffmpeg) return t.skip('needs the server\'s sprite');
+  const p = b.page;
+  // The sprite as it is while the server makes it: not there yet.
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await p.route(/\?sprite=/, async (route) => { await held; await route.continue(); });
+  await seekPaused(p, 1);
+  await hoverAt(p, 0.6);
+  await p.waitForSelector('#ss-stage .vd-pop:not([hidden])');
+  await p.waitForFunction(() => document.querySelector('#ss-stage .vdock').dataset.preview === 'frame', null, { timeout: 15000 });
+  assertPicture(await preview(p), 'cold');
+  release();
+  await p.waitForFunction(() => document.querySelector('#ss-stage .vdock').dataset.preview === 'image', null, { timeout: 30000 });
+  await hoverAt(p, 0.62);
+  assertPicture(await preview(p), 'warm');
+  await p.unroute(/\?sprite=/);
+  await p.mouse.move(640, 200);
+});
+
+test('without ffmpeg the preview is the video\'s own frame', async () => {
+  // The same folder, served by a server that can't find ffmpeg.
+  const path_ = process.env.PATH;
+  process.env.PATH = path_.split(path.delimiter).filter((d) => !fs.existsSync(path.join(d, 'ffmpeg'))).join(path.delimiter);
+  let srv2;
+  try {
+    srv2 = await serve({ dir: srv.dir });
+  } finally {
+    process.env.PATH = path_;
+  }
+  const page = await b.page.context().newPage();
+  const sprites = [];
+  page.on('request', (r) => { if (/\?sprite/.test(r.url())) sprites.push(r.url()); });
+  try {
+    await page.goto(srv2.url);
+    await page.locator('.tile[aria-label="talk.mp4"]').click();
+    await page.waitForSelector('#ss-stage .vdock:not([hidden])');
+    await page.waitForFunction(() => document.querySelector('#ss-stage .vdock').parentNode.querySelector('video').readyState >= 1);
+    await page.waitForTimeout(300); // the metadata
+    await hoverAt(page, 0.4);
+    await page.waitForFunction(() => document.querySelector('#ss-stage .vdock').dataset.preview === 'frame', null, { timeout: 15000 });
+    assertPicture(await preview(page), 'no ffmpeg');
+    assert.deepEqual(sprites, [], 'no sprite is asked for');
+  } finally {
+    await page.close();
+    srv2.close();
+  }
+});
+
 test('scrubbing the timeline seeks, with a preview and the chapter', async (t) => {
   if (!ffmpeg) return t.skip('needs a seekable video and a sprite');
   const p = b.page;
@@ -187,6 +286,7 @@ test('scrubbing the timeline seeks, with a preview and the chapter', async (t) =
   assert.equal(await p.textContent('#ss-stage .vd-pop-label'), 'Q&A');
   assert.equal(await p.textContent('#ss-stage .vd-pop-time'), '0:45');
   // The preview is a frame of the server's sprite.
+  await p.waitForFunction(() => document.querySelector('#ss-stage .vdock').dataset.preview === 'image');
   const bg = await p.$eval('#ss-stage .vd-pop-img', (e) => !e.hidden && e.style.backgroundImage);
   assert.match(bg, /talk\.mp4\?sprite/);
   const sprite = await p.evaluate(async () => {
@@ -261,7 +361,7 @@ test('the address carries the video and time, and a link opens it there', async 
   await page.waitForFunction(() => {
     const v = document.querySelector('#ss-stage .vdock').parentNode.querySelector('video');
     return v.readyState >= 1 && Math.abs(v.currentTime - 42) < 0.5;
-  });
+  }, null, { polling: 100 }); // a page behind another gets no animation frames
   assert.equal(await page.textContent('#ss-name'), 'talk.mp4');
   await page.close();
 });

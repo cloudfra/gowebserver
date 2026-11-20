@@ -155,7 +155,7 @@ func TestSpriteArgs(t *testing.T) {
 		t.Fatalf("Sprite = %q, %v", out, err)
 	}
 	args := readArgs(t, argsFile)
-	for _, want := range []string{"-skip_frame nokey -i clip.mp4", "fps=fps=1/18.000:round=down:eof_action=pass,scale=w=160:h=90:flags=bilinear,format=yuvj420p,tile=10x30", "-frames:v 1", "-c:v mjpeg"} {
+	for _, want := range []string{"-skip_frame nokey -i clip.mp4", "fps=fps=1/18.000:round=up:eof_action=pass,scale=w=160:h=90:flags=bilinear,format=yuvj420p,tile=10x30", "-frames:v 1", "-c:v mjpeg"} {
 		if !strings.Contains(string(args), want) {
 			t.Errorf("args %q missing %q", args, want)
 		}
@@ -218,5 +218,44 @@ func TestProbeAndSpriteReal(t *testing.T) {
 	}
 	if cfg, err = jpeg.DecodeConfig(bytes.NewReader(sheet)); err != nil || cfg.Width != 64 || cfg.Height != 36 {
 		t.Errorf("short sprite is %dx%d (%v), want 64x36", cfg.Width, cfg.Height, err)
+	}
+}
+
+// TestSpriteFrameTimes checks each frame of the sprite is the keyframe at
+// or before its time, as a player shows there, not one up to an interval
+// later. The video's brightness is its time (40 + 10 a second), and it has a
+// keyframe every 3 seconds, so frame n, for 5n seconds, is the keyframe
+// at 0, 3, 9 and 15 seconds.
+func TestSpriteFrameTimes(t *testing.T) {
+	bin, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	clip := filepath.Join(t.TempDir(), "ramp.mp4")
+	if out, err := exec.Command(bin, "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+		"-i", "color=black:s=64x36:r=10:d=20,geq=lum='40+10*T':cb=128:cr=128",
+		"-g", "30", "-keyint_min", "30", "-sc_threshold", "0", "-pix_fmt", "yuv420p", clip).CombinedOutput(); err != nil {
+		t.Skipf("ffmpeg can't make the test video: %v: %s", err, out)
+	}
+	f, err := Find(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := f.Sprite(t.Context(), clip, nil, SpriteOptions{Interval: 5 * time.Second, Columns: 4, Rows: 1, Width: 16, Height: 9, Quality: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := jpeg.Decode(bytes.NewReader(sheet))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n, want := range []float64{0, 3, 9, 15} {
+		// The middle of frame n.
+		y, _, _, _ := img.At(n*16+8, 4).RGBA()
+		// The video's luma is limited range, the JPEG's full.
+		got := (float64(y>>8)*219/255 + 16 - 40) / 10
+		if got < want-0.8 || got > want+0.8 {
+			t.Errorf("frame %d (%ds) is from %.1fs, want the keyframe at %.0fs", n, n*5, got, want)
+		}
 	}
 }

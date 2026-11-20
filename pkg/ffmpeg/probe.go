@@ -232,11 +232,14 @@ func (f *FFmpeg) Sprite(ctx context.Context, input string, stdin io.Reader, o Sp
 	if q < 2 || q > 31 {
 		q = 5
 	}
+	// fps keeps the last frame that rounds into each slot: rounding up,
+	// slot n's is the last keyframe at or before n*Interval, the frame a
+	// player shows there, rather than one up to an interval later.
 	// eof_action=pass keeps the first frame of a video shorter than one
 	// interval, and yuvj420p is the full range JPEG wants, which a
 	// full-range video (a browser's own recording) isn't converted to on
 	// its own.
-	filter := fmt.Sprintf("fps=fps=1/%s:round=down:eof_action=pass,scale=w=%d:h=%d:flags=bilinear,format=yuvj420p,tile=%dx%d",
+	filter := fmt.Sprintf("fps=fps=1/%s:round=up:eof_action=pass,scale=w=%d:h=%d:flags=bilinear,format=yuvj420p,tile=%dx%d",
 		strconv.FormatFloat(o.Interval.Seconds(), 'f', 3, 64), o.Width, o.Height, o.Columns, o.Rows)
 	out, err := f.Run(ctx, stdin, "-hide_banner", "-loglevel", "error", "-nostdin",
 		"-skip_frame", "nokey", "-i", input, "-an", "-sn", "-dn",

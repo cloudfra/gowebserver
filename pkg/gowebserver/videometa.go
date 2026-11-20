@@ -980,7 +980,10 @@ func (h *videoMetaHandler) serveSprite(w http.ResponseWriter, r *http.Request, n
 	span.SetAttributes(attribute.String("path", name), attribute.Int("frames", l.count))
 	th, cached := h.t.store.get(key)
 	if !cached {
-		th, err = h.t.shared(ctx, key, func(ctx context.Context) (*thumbnail, error) {
+		// Once started, a sprite is finished and stored even if the page
+		// that asked goes (the viewer moved on, or reloaded): it can take
+		// minutes, and starting over each time would never finish it.
+		th, err = h.t.shared(context.WithoutCancel(ctx), key, func(ctx context.Context) (*thumbnail, error) {
 			return h.makeSprite(ctx, name, info, l)
 		})
 		spriteErr = err

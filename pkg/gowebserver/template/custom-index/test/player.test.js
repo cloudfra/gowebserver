@@ -212,7 +212,7 @@ function setup(opts) {
   const media = [];
   for (let i = 0; i < 5; i++) media.push([1, 'talk-' + i + '.mp4', 'talk-' + i + '.mp4', 2000, 1704110400]);
   media.push([0, 'photo.jpg', 'photo.jpg', 2000, 1704110400]);
-  const fetched = [], session = Object.assign({}, opts.session), replaced = [];
+  const fetched = [], session = Object.assign({}, opts.session), replaced = [], images = [];
   const pg = page('<p id="summary"></p><p id="no-match"></p>' + markup('custom-index/custom-index.html', '<dialog class="ss"', '</dialog>'), {
     location: { hash: opts.hash || '', href: 'http://example.test/media/folder/' + (opts.hash || ''), pathname: '/media/folder/' },
     globals: {
@@ -221,6 +221,9 @@ function setup(opts) {
       Ambient: () => ({ show() { }, reset() { }, clear() { } }),
       accent: { set() { }, clear() { } },
       vividColor: () => null,
+      // Images the page loads (the preview sprite), which a test lets
+      // load or fail.
+      Image: class { constructor() { images.push(this); } },
       sessionStorage: {
         getItem: (k) => (k in session ? session[k] : null),
         setItem: (k, v) => { session[k] = String(v); },
@@ -244,7 +247,7 @@ function setup(opts) {
     return d;
   };
   return {
-    pg, $, s, fetched, session, replaced, video,
+    pg, $, s, fetched, session, replaced, images, video,
     dlg: $('ss'),
     key: (k, more) => $('ss').fire('keydown', Object.assign({ key: k }, more)),
     // The current video, once it knows its length.
@@ -387,10 +390,18 @@ test('subtitles are listed in the captions menu', async () => {
   cc.click();
   const menu = t.$('ss-stage').querySelector('.vd-menu');
   assert.equal(menu.hidden, false);
-  assert.deepEqual(menu.children.map((b) => b.textContent), ['Off', 'English', 'French']);
-  assert.equal(menu.children[0].getAttribute('aria-checked'), 'true');
-  menu.children[2].click();
+  assert.equal(menu.classList.contains('open'), true, 'fading in');
+  assert.equal(menu.querySelector('.vd-menu-title').textContent, 'Subtitles');
+  const items = menu.querySelector('.vd-menu-list').children;
+  assert.deepEqual(items.map((b) => b.textContent), ['Off', 'English', 'French']);
+  assert.deepEqual(items.map((b) => b.getAttribute('role')), ['menuitemradio', 'menuitemradio', 'menuitemradio']);
+  assert.equal(items[0].getAttribute('aria-checked'), 'true', 'the current choice is checked');
+  assert.equal(cc.getAttribute('aria-expanded'), 'true');
+  items[2].click();
+  assert.equal(menu.classList.contains('open'), false, 'fading out');
+  t.pg.tick(200);
   assert.equal(menu.hidden, true);
+  assert.equal(cc.getAttribute('aria-expanded'), 'false');
   assert.equal(cc.getAttribute('aria-pressed'), 'true');
   assert.equal(t.pg.stored['gows-captions'], 'fr', 'remembered');
 });
@@ -411,4 +422,165 @@ test('the volume slider\'s keys stay on the volume', () => {
     assert.equal(volume.fire('keydown', { key }).stopped, true, key);
   });
   assert.equal(t.$('ss-name').textContent, 'talk-2.mp4');
+});
+
+test('the hover lights the timeline from the playhead to the pointer', () => {
+  const p = vp();
+  const seg = { start: 0, end: 100 };
+  assert.equal(p.vpSegmentFill(seg, 20, [], 50),
+    'linear-gradient(to right,transparent 20.00%,var(--vd-hover) 20.00%,var(--vd-hover) 50.00%,transparent 50.00%),' + p.vpSegmentFill(seg, 20, []));
+  assert.equal(p.vpSegmentFill(seg, 20, [], 10), p.vpSegmentFill(seg, 20, []), 'behind the playhead, nothing');
+  assert.equal(p.vpSegmentFill({ start: 60, end: 100 }, 20, [], 50), p.vpSegmentFill({ start: 60, end: 100 }, 20, []), 'nor in a later segment');
+});
+
+// The pointer on the timeline at x (of 600 pixels).
+function hover(t, x) {
+  const tl = t.$('ss-stage').querySelector('.vd-tl');
+  tl.rect = { left: 0, top: 0, width: 600, height: 26 };
+  tl.fire('pointermove', { clientX: x, clientY: 10, pointerType: 'mouse' });
+  const q = (c) => t.$('ss-stage').querySelector(c);
+  return {
+    pop: !q('.vd-pop').hidden, frame: !q('.vd-pop-frame').hidden, img: !q('.vd-pop-img').hidden,
+    bg: q('.vd-pop-img').style.backgroundImage, time: q('.vd-pop-time').textContent, label: q('.vd-pop-label').textContent,
+    kind: q('.vdock').dataset.preview,
+  };
+}
+
+test('the preview never shows an empty box: the sprite once it has loaded, the time until then', async () => {
+  const sprite = { sprite: './talk-0.mp4?sprite=ab12', interval: 5, columns: 10, count: 120, width: 160, height: 90 };
+  const t = setup({ metas: { 'talk-0.mp4': { duration: 600, chapters: [{ start: 0, end: 600, title: 'Part 1' }], markers: [], groups: {}, subtitles: [], thumbnails: sprite } } });
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  t.ready(600);
+  // Before the metadata is in: the time, and no picture.
+  let h = hover(t, 300);
+  assert.equal(h.pop, true);
+  assert.equal(h.time, '5:00');
+  assert.equal(h.frame, false, 'no box without a picture');
+  await t.pg.settle();
+  await t.pg.settle();
+  // The metadata names a sprite: it starts loading, and until it has,
+  // there's still no box (the stand-in can't draw the video's frames).
+  h = hover(t, 300);
+  assert.equal(h.label, 'Part 1');
+  assert.equal(t.images.length, 1);
+  assert.match(t.images[0].src, /talk-0\.mp4\?sprite=ab12$/);
+  assert.equal(h.frame, false, 'not a black box while the sprite is made');
+  assert.equal(h.kind, 'none');
+  // Loaded: the frame for the time, and the box shows it at once, with
+  // the pointer still where it was.
+  t.images[0].onload();
+  h = hover(t, 300);
+  assert.equal(h.frame, true);
+  assert.equal(h.img, true);
+  assert.equal(h.kind, 'image');
+  const img = t.$('ss-stage').querySelector('.vd-pop-img');
+  assert.equal(img.style.backgroundPosition, '0px -540px', 'frame 60: first column, seventh row');
+  assert.equal(img.style.backgroundSize, '1600px 1080px', 'the whole sheet behind the box');
+  assert.equal(t.images.length, 1, 'loaded once');
+});
+
+test('a sprite that fails to load leaves the time, not a box', async () => {
+  const sprite = { sprite: './talk-0.mp4?sprite=ab12', interval: 5, columns: 10, count: 120, width: 160, height: 90 };
+  const t = setup({ metas: { 'talk-0.mp4': { duration: 600, chapters: [], markers: [], groups: {}, subtitles: [], thumbnails: sprite } } });
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  await t.pg.settle();
+  await t.pg.settle();
+  t.ready(600);
+  hover(t, 100);
+  t.images[0].onerror();
+  const h = hover(t, 120);
+  assert.equal(h.pop, true);
+  assert.equal(h.frame, false);
+  assert.equal(h.time, '2:00');
+});
+
+test('the menus: a title, a check on the choice, keys to move, Escape to close', () => {
+  const t = setup();
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  const v = t.ready(600);
+  v.playbackRate = 1.5;
+  const rate = t.$('ss-stage').querySelector('.vd-rate');
+  rate.click();
+  const menu = t.$('ss-stage').querySelector('.vd-menu');
+  const items = menu.querySelector('.vd-menu-list').children;
+  assert.equal(menu.querySelector('.vd-menu-title').textContent, 'Speed');
+  assert.deepEqual(items.map((b) => b.textContent), ['0.25×', '0.5×', '0.75×', 'Normal', '1.25×', '1.5×', '1.75×', '2×']);
+  assert.equal(t.pg.document.activeElement, items[5], 'the focus starts on the choice');
+  menu.fire('keydown', { key: 'ArrowDown' });
+  assert.equal(t.pg.document.activeElement, items[6]);
+  menu.fire('keydown', { key: 'End' });
+  assert.equal(t.pg.document.activeElement, items[7]);
+  menu.fire('keydown', { key: 'ArrowDown' });
+  assert.equal(t.pg.document.activeElement, items[0], 'round to the top');
+  assert.equal(t.s.slideshow.dock.holdsChrome(), true, 'an open menu keeps the controls');
+  menu.fire('keydown', { key: 'Escape' });
+  assert.equal(menu.classList.contains('open'), false);
+  assert.equal(t.pg.document.activeElement, rate, 'back on its button');
+  items[3].click();
+  assert.equal(v.playbackRate, 1);
+});
+
+test('a narrow video gets the compact row, and the rest in More', async () => {
+  const t = setup({
+    metas: {
+      'talk-0.mp4': {
+        duration: 600, chapters: [{ start: 0, end: 300, title: 'Part 1' }, { start: 300, end: 600, title: 'Part 2' }],
+        markers: [{ time: 30, label: 'Agenda' }], groups: {}, subtitles: [],
+      },
+    },
+  });
+  t.$('ss-stage').clientWidth = 390;
+  t.$('ss-stage').clientHeight = 844;
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  await t.pg.settle();
+  await t.pg.settle();
+  const v = t.ready(600);
+  v.playbackRate = 1;
+  v.videoWidth = 1280;
+  v.videoHeight = 720;
+  v.fire('loadedmetadata');
+  const dock = t.$('ss-stage').querySelector('.vdock');
+  assert.equal(dock.classList.contains('compact'), true);
+  t.$('ss-stage').querySelector('.vd-more').click();
+  const items = t.$('ss-stage').querySelector('.vd-menu-list').children;
+  assert.deepEqual(items.map((b) => b.textContent),
+    ['SpeedNormal', 'Previous chapter', 'Next chapter', 'Previous marker', 'Next marker', 'Show markers']);
+  items[2].click();
+  assert.equal(v.currentTime, 300, 'the next chapter');
+  t.$('ss-stage').querySelector('.vd-more').click();
+  t.$('ss-stage').querySelector('.vd-menu-list').children[0].click();
+  assert.equal(t.$('ss-stage').querySelector('.vd-menu-title').textContent, 'Speed', 'Speed opens its own menu');
+});
+
+test('the controls fade while the video plays, and stay while it is paused', () => {
+  const t = setup();
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  const v = t.ready(600);
+  t.dlg.fire('pointermove', { pointerType: 'mouse', clientX: 5, clientY: 5 });
+  t.pg.tick(3000);
+  assert.equal(t.dlg.classList.contains('chrome-off'), false, 'paused');
+  v.play();
+  t.pg.tick(3000);
+  assert.equal(t.dlg.classList.contains('chrome-off'), true, 'playing, untouched');
+  t.key('m');
+  assert.equal(t.dlg.classList.contains('chrome-off'), false, 'a key brings them back');
+  v.pause();
+  t.pg.tick(3000);
+  assert.equal(t.dlg.classList.contains('chrome-off'), false);
+});
+
+test('Escape right after a menu closes is the slideshow\'s, not the fading menu\'s', () => {
+  const t = setup();
+  t.s.slideshow.open(t.s.vis.videos, 0, null, false);
+  const v = t.ready(600);
+  v.playbackRate = 1;
+  t.$('ss-stage').querySelector('.vd-rate').click();
+  const menu = t.$('ss-stage').querySelector('.vd-menu');
+  menu.querySelector('.vd-menu-list').children[4].click();
+  assert.equal(menu.hidden, false, 'still fading out');
+  const e = t.dlg.fire('keydown', { key: 'Escape' });
+  assert.equal(e.defaultPrevented, false, 'left to the dialog, which closes');
+  assert.equal(t.s.slideshow.dock.holdsChrome(), true, 'paused, not the menu');
+  v.play();
+  assert.equal(t.s.slideshow.dock.holdsChrome(), false);
 });

@@ -248,8 +248,9 @@ function vpRateStep(rate, d) {
 
 // The background of a timeline segment from start to end: what's played
 // (up to t) in the accent, what's buffered (ranges, [start, end] pairs) a
-// lighter gray, the rest the track's.
-function vpSegmentFill(seg, t, ranges) {
+// lighter gray, the rest the track's. With the pointer on the timeline at
+// hover, the stretch from t to there is lit a little, over all of that.
+function vpSegmentFill(seg, t, ranges, hover) {
   var len = seg.end - seg.start;
   if (!(len > 0)) return '';
   var p = function (x) { return (Math.max(0, Math.min(1, (x - seg.start) / len)) * 100).toFixed(2) + '%'; };
@@ -262,7 +263,10 @@ function vpSegmentFill(seg, t, ranges) {
     at = b;
   });
   stops.push('var(--vd-track) ' + at, 'var(--vd-track) 100%');
-  return 'linear-gradient(to right,' + stops.join(',') + ')';
+  var base = 'linear-gradient(to right,' + stops.join(',') + ')';
+  if (hover == null || hover <= t || hover <= seg.start || t >= seg.end) return base;
+  return 'linear-gradient(to right,transparent ' + p(t) + ',var(--vd-hover) ' + p(t) + ',var(--vd-hover) ' + p(hover) +
+    ',transparent ' + p(hover) + '),' + base;
 }
 
 // The language's name in the viewer's language, where the browser knows
@@ -277,20 +281,14 @@ function vpLangName(lang, label) {
   }
 }
 
-var VP_ICONS = {
-  play: '<svg viewBox="0 0 24 24"><path class="i-fill" d="M7 4.8v14.4a1 1 0 001.5.86l11.6-7.2a1 1 0 000-1.72L8.5 3.94A1 1 0 007 4.8z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24"><rect class="i-fill" x="6" y="4.5" width="4" height="15" rx="1"/><rect class="i-fill" x="14" y="4.5" width="4" height="15" rx="1"/></svg>',
-  prevCh: '<svg viewBox="0 0 24 24"><path d="M6 5v14"/><path d="M18 6l-8 6 8 6z"/></svg>',
-  nextCh: '<svg viewBox="0 0 24 24"><path d="M18 5v14"/><path d="M6 6l8 6-8 6z"/></svg>',
-  prevMk: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/><path d="M6 4v16"/></svg>',
-  nextMk: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/><path d="M18 4v16"/></svg>',
-  markers: '<svg viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>',
-  vol: '<svg viewBox="0 0 24 24"><path class="i-fill" d="M4 9h3l5-4v14l-5-4H4z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M18 6a8.5 8.5 0 010 12"/></svg>',
-  mute: '<svg viewBox="0 0 24 24"><path class="i-fill" d="M4 9h3l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>',
-  cc: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 100 3.6M17 10.2a2.2 2.2 0 100 3.6"/></svg>',
-  full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
-  exitFull: '<svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
-};
+// The dock's icons are the page's own symbols (vd-* in custom-index.html),
+// drawn like the rest of its icons: a 24 grid, a 1.8 stroke, round ends.
+function vpIcon(id) {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#vd-' + id + '"/></svg>';
+}
+
+// How long the pointer rests on a button before its tooltip shows.
+var VP_TIP_DELAY = 400;
 
 // VideoDock makes the dock. opts are what it asks of the slideshow:
 // fullscreen() toggles full screen, isFullscreen() says whether it's on,
@@ -301,48 +299,61 @@ function VideoDock(opts) {
   var el = doc.createElement('div');
   el.className = 'vdock';
   el.hidden = true;
+  var btn = function (cls, label, icon, key, more) {
+    return '<button class="vd-btn ' + cls + '" type="button" aria-label="' + label + '"' +
+      (key ? ' data-key="' + key + '"' : '') + (more || '') + '>' + icon + '</button>';
+  };
   el.innerHTML =
     '<div class="vd-flash" aria-hidden="true"></div>' +
     '<div class="vd-cap" aria-live="off" hidden></div>' +
     '<div class="vd-panel">' +
     '<div class="vd-tl" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">' +
-    '<div class="vd-bands"></div><div class="vd-segs"></div><div class="vd-ticks"></div><div class="vd-head"></div>' +
-    '<div class="vd-pop" aria-hidden="true" hidden><div class="vd-pop-img"></div><div class="vd-pop-label"></div><div class="vd-pop-time"></div></div>' +
+    '<div class="vd-rail"><div class="vd-bands"></div><div class="vd-segs"></div><div class="vd-ticks"></div></div>' +
+    '<div class="vd-head"></div>' +
+    '<div class="vd-pop" aria-hidden="true" hidden>' +
+    '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
+    '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
+    '</div>' +
     '</div>' +
     '<div class="vd-row">' +
-    '<button class="vd-btn vd-play" type="button" aria-label="Play" data-key="K">' + VP_ICONS.play + '</button>' +
-    '<span class="vd-time"><span class="vd-cur">0:00</span><span class="vd-sep"> / </span><span class="vd-dur">0:00</span></span>' +
+    btn('vd-play', 'Play', vpIcon('play'), 'K') +
+    '<span class="vd-time"><span class="vd-cur">0:00</span><span class="vd-sep">/</span><span class="vd-dur">0:00</span></span>' +
     '<span class="vd-chap"></span>' +
     '<span class="vd-gap"></span>' +
     '<span class="vd-group vd-mk" hidden>' +
-    '<button class="vd-btn vd-prev-mk" type="button" aria-label="Previous marker" data-key="[">' + VP_ICONS.prevMk + '</button>' +
-    '<button class="vd-btn vd-mk-menu" type="button" aria-label="Markers" aria-haspopup="menu">' + VP_ICONS.markers + '</button>' +
-    '<button class="vd-btn vd-next-mk" type="button" aria-label="Next marker" data-key="]">' + VP_ICONS.nextMk + '</button>' +
+    btn('vd-prev-mk', 'Previous marker', vpIcon('prev-mk'), '[') +
+    btn('vd-mk-menu', 'Markers', vpIcon('markers'), '', ' aria-haspopup="menu" aria-expanded="false"') +
+    btn('vd-next-mk', 'Next marker', vpIcon('next-mk'), ']') +
     '</span>' +
     '<span class="vd-group vd-ch" hidden>' +
-    '<button class="vd-btn vd-prev-ch" type="button" aria-label="Previous chapter" data-key="Shift+[">' + VP_ICONS.prevCh + '</button>' +
-    '<button class="vd-btn vd-next-ch" type="button" aria-label="Next chapter" data-key="Shift+]">' + VP_ICONS.nextCh + '</button>' +
+    btn('vd-prev-ch', 'Previous chapter', vpIcon('prev-ch'), 'Shift [') +
+    btn('vd-next-ch', 'Next chapter', vpIcon('next-ch'), 'Shift ]') +
     '</span>' +
-    '<span class="vd-vol">' +
-    '<button class="vd-btn vd-mute" type="button" aria-label="Mute" data-key="M">' + VP_ICONS.vol + '</button>' +
-    '<input class="vd-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">' +
+    '<span class="vd-group vd-set">' +
+    '<span class="vd-vol">' + btn('vd-mute', 'Mute', vpIcon('vol'), 'M') +
+    '<span class="vd-vol-slide"><input class="vd-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume"></span></span>' +
+    btn('vd-cc', 'Subtitles', vpIcon('cc'), 'C', ' aria-haspopup="menu" aria-expanded="false" aria-pressed="false" hidden') +
+    btn('vd-rate', 'Speed', '<span class="vd-rate-text">1×</span>', '&lt; &gt;', ' aria-haspopup="menu" aria-expanded="false"') +
+    btn('vd-more', 'More', vpIcon('more'), '', ' aria-haspopup="menu" aria-expanded="false"') +
     '</span>' +
-    '<button class="vd-btn vd-rate" type="button" aria-label="Speed" aria-haspopup="menu" data-key="&lt; &gt;">1×</button>' +
-    '<button class="vd-btn vd-cc" type="button" aria-label="Subtitles" aria-haspopup="menu" aria-pressed="false" data-key="C" hidden>' + VP_ICONS.cc + '</button>' +
-    '<button class="vd-btn vd-full" type="button" aria-label="Full screen" data-key="F">' + VP_ICONS.full + '</button>' +
+    btn('vd-full', 'Full screen', vpIcon('full'), 'F') +
     '</div>' +
     '</div>' +
-    '<div class="vd-menu" role="menu" hidden></div>';
+    '<div class="vd-menu" role="menu" hidden><div class="vd-menu-title"></div><div class="vd-menu-list"></div></div>' +
+    '<div class="vd-tip" aria-hidden="true" hidden><span class="vd-tip-label"></span><kbd class="vd-tip-key"></kbd></div>';
   var q = function (c) { return el.querySelector(c); };
   var tl = q('.vd-tl'), segsEl = q('.vd-segs'), ticksEl = q('.vd-ticks'), bandsEl = q('.vd-bands'), head = q('.vd-head');
-  var pop = q('.vd-pop'), popImg = q('.vd-pop-img'), popLabel = q('.vd-pop-label'), popTime = q('.vd-pop-time');
+  var pop = q('.vd-pop'), popFrame = q('.vd-pop-frame'), popImg = q('.vd-pop-img'), popCanvas = q('.vd-pop-canvas');
+  var popLabel = q('.vd-pop-label'), popTime = q('.vd-pop-time');
   var btnPlay = q('.vd-play'), cur = q('.vd-cur'), durEl = q('.vd-dur'), chapEl = q('.vd-chap');
-  var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), btnCC = q('.vd-cc'), btnFull = q('.vd-full');
-  var menu = q('.vd-menu'), cap = q('.vd-cap'), flash = q('.vd-flash');
+  var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), rateText = q('.vd-rate-text');
+  var btnCC = q('.vd-cc'), btnFull = q('.vd-full'), btnMore = q('.vd-more'), btnMarkers = q('.vd-mk-menu');
+  var menu = q('.vd-menu'), menuTitle = q('.vd-menu-title'), menuList = q('.vd-menu-list');
+  var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip');
 
   var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
   var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;
-  var tracks = [], capOn = -1, menuKind = '';
+  var tracks = [], capOn = -1, menuKind = '', hoverT = null, hoverX = 0;
   var metaCache = new Map();
   var CAPTIONS_KEY = 'gows-captions', VOLUME_KEY = 'gows-volume';
 
@@ -364,18 +375,19 @@ function VideoDock(opts) {
       case 'durationchange':
         if (pendingAt != null && v.readyState >= 1) seekTo(pendingAt);
         render();
+        refreshPop();
         break;
       case 'play': case 'pause':
-        el.classList.toggle('paused', v.paused);
-        btnPlay.innerHTML = v.paused ? VP_ICONS.play : VP_ICONS.pause;
-        btnPlay.setAttribute('aria-label', v.paused ? 'Play' : 'Pause');
+        syncPlay();
         if (e.type === 'pause') report(false);
+        // Playing again starts the wait before the controls fade.
+        else if (opts.activity) opts.activity();
         break;
       case 'seeked':
         report(false);
         break;
       case 'ratechange':
-        btnRate.textContent = v.playbackRate + '×';
+        rateText.textContent = v.playbackRate + '×';
         break;
       case 'volumechange':
         syncVolume();
@@ -413,10 +425,8 @@ function VideoDock(opts) {
     var vol = parseFloat(store(VOLUME_KEY));
     if (vol >= 0 && vol <= 1) { v.volume = vol || 1; v.muted = vol === 0; }
     if (pendingAt != null && v.readyState >= 1) seekTo(pendingAt);
-    el.classList.toggle('paused', v.paused);
-    btnPlay.innerHTML = v.paused ? VP_ICONS.play : VP_ICONS.pause;
-    btnPlay.setAttribute('aria-label', v.paused ? 'Play' : 'Pause');
-    btnRate.textContent = v.playbackRate + '×';
+    syncPlay();
+    rateText.textContent = v.playbackRate + '×';
     syncFull();
     syncVolume();
     setMeta(metaCache.get(item.url) || null);
@@ -424,8 +434,10 @@ function VideoDock(opts) {
   }
 
   function detach() {
-    closeMenu();
+    closeMenu(false, true);
     hidePop();
+    hideTip();
+    preview.reset();
     if (!v) return null;
     report(true);
     var t = v.currentTime;
@@ -441,14 +453,16 @@ function VideoDock(opts) {
     return t;
   }
 
-  // The dock covers the video, whose box in its slide is r.
+  // The dock covers the video, whose box in its slide is r. A narrow
+  // video, or one on a touch screen, gets the compact row: what doesn't
+  // fit goes in the More menu.
   function place(r) {
     el.style.left = r.x + 'px';
     el.style.top = r.y + 'px';
     el.style.width = r.w + 'px';
     el.style.height = r.h + 'px';
-    el.classList.toggle('narrow', r.w < 560);
-    el.classList.toggle('tiny', r.w < 340);
+    el.classList.toggle('compact', r.w < 600 || !finePointer.matches);
+    el.classList.toggle('tiny', r.w < 380);
   }
 
   // ---- The metadata ----
@@ -472,6 +486,7 @@ function VideoDock(opts) {
     capOn = -1;
     tracks = [];
     hiddenKinds = Object.create(null);
+    preview.reset();
     if (m && m.thumbnails && m.thumbnails.sprite) m.thumbnails.spriteURL = resolve(m.thumbnails.sprite);
     if (m && m.thumbnails && m.thumbnails.vtt && window.fetch) {
       var vttURL = resolve(m.thumbnails.vtt), forIt = it;
@@ -479,12 +494,16 @@ function VideoDock(opts) {
         .then(function (text) {
           if (it !== forIt || meta !== m) return;
           thumbCues = vpParseThumbsVTT(text, function (u) { return resolve(u, vttURL); });
+          refreshPop();
         });
     }
     addTracks();
+    el.classList.toggle('has-mk', !!(m && m.markers && m.markers.length));
+    el.classList.toggle('has-ch', !!(m && m.chapters && m.chapters.length));
     q('.vd-mk').hidden = !(m && m.markers && m.markers.length);
     q('.vd-ch').hidden = !(m && m.chapters && m.chapters.length);
     render();
+    refreshPop();
   }
 
   // ---- Subtitles ----
@@ -494,6 +513,7 @@ function VideoDock(opts) {
   function addTracks() {
     var subs = (meta && meta.subtitles) || [];
     btnCC.hidden = !subs.length;
+    el.classList.toggle('has-cc', !!subs.length);
     if (!v || !subs.length) { syncCC(); return; }
     if (!v._vpTracks) {
       v._vpTracks = subs.map(function (s) {
@@ -568,7 +588,7 @@ function VideoDock(opts) {
       var d = doc.createElement('div');
       d.className = 'vd-tick';
       d.style.left = m.l + '%';
-      if (m.color) d.style.background = m.color;
+      if (m.color) d.style.setProperty('--c', m.color);
       ticksEl.appendChild(d);
     });
     bandsEl.textContent = '';
@@ -577,7 +597,7 @@ function VideoDock(opts) {
       d.className = 'vd-band';
       d.style.left = b.l + '%';
       d.style.width = Math.max(b.w, 0.4) + '%';
-      if (b.color) d.style.background = b.color;
+      if (b.color) d.style.setProperty('--c', b.color);
       bandsEl.appendChild(d);
     });
     durEl.textContent = vpFmtTime(dur);
@@ -600,7 +620,7 @@ function VideoDock(opts) {
     if (t == null) t = v.currentTime || 0;
     var ranges = buffered();
     layout.segments.forEach(function (s, i) {
-      if (segEls[i]) segEls[i].style.background = vpSegmentFill(s, t, ranges);
+      if (segEls[i]) segEls[i].style.background = vpSegmentFill(s, t, ranges, hoverT);
     });
     head.style.left = (dur > 0 ? Math.min(100, t / dur * 100) : 0) + '%';
     var long = dur >= 3600;
@@ -676,7 +696,7 @@ function VideoDock(opts) {
   function key(e) {
     if (!v) return false;
     var tag = e.target && e.target.tagName;
-    if (!menu.hidden && e.key === 'Escape') { closeMenu(true); return true; }
+    if (menuOpen() && e.key === 'Escape') { closeMenu(true); return true; }
     if (tag === 'INPUT' && /^Arrow|^Page|^Home|^End/.test(e.key)) return false;
     if ((tag === 'BUTTON' || tag === 'A') && (e.key === ' ' || e.key === 'Enter')) return false;
     var a = vpKey(e);
@@ -685,43 +705,189 @@ function VideoDock(opts) {
     return act(a);
   }
 
-  // ---- The pointer on the timeline ----
+  // Whether the controls should stay up: while the video is paused, a
+  // menu is open or the timeline is being dragged.
+  function holdsChrome() {
+    return !!v && (v.paused || menuOpen() || dragging);
+  }
+
+  // ---- The preview over the timeline ----
+  // What the box shows for a time, best first: the server's sprite (or
+  // the thumbnails track's images) once loaded; meanwhile, or without
+  // one, a frame of the video itself, from a second, muted copy of it
+  // that seeks to the time under the pointer (one seek at a time, the
+  // latest wanted next); and with neither, no picture at all, just the
+  // time and the chapter, never an empty box.
+  var preview = (function () {
+    var sheets = Object.create(null); // image URL -> {img, ready, failed}
+    var sv = null, busy = false, want = null, drawn = false, shownT = -1, svFailed = false;
+
+    function sheet(url) {
+      var s = sheets[url];
+      if (s) return s;
+      s = sheets[url] = { ready: false, failed: false };
+      var img = new Image();
+      img.decoding = 'async';
+      img.onload = function () { s.ready = true; refreshPop(); };
+      img.onerror = function () { s.failed = true; refreshPop(); };
+      img.src = url;
+      s.img = img;
+      return s;
+    }
+
+    // The sprite's or the track's frame at t, if its image has loaded.
+    // Asking starts the image loading, the first time.
+    function image(t) {
+      var th = vpThumbAt(meta && meta.thumbnails, thumbCues, t);
+      if (!th || !th.w || !th.h || !th.url) return null;
+      var s = sheet(th.url);
+      return s.ready ? th : null;
+    }
+
+    // Whether there's an image source at all that may still arrive.
+    function imageComing(t) {
+      var th = vpThumbAt(meta && meta.thumbnails, thumbCues, t);
+      if (!th || !th.url) return false;
+      var s = sheets[th.url];
+      return !s || (!s.ready && !s.failed);
+    }
+
+    function size() {
+      var w = 176, vw = (sv && sv.videoWidth) || (v && v.videoWidth) || 16, vh = (sv && sv.videoHeight) || (v && v.videoHeight) || 9;
+      return { w: w, h: Math.max(40, Math.min(176, Math.round(w * vh / vw))) };
+    }
+
+    function frame(t) {
+      if (svFailed || !v || !it) return;
+      want = t;
+      if (!sv) {
+        sv = doc.createElement('video');
+        sv.muted = true;
+        sv.playsInline = true;
+        sv.preload = 'auto';
+        sv.setAttribute('aria-hidden', 'true');
+        sv.addEventListener('loadedmetadata', next);
+        sv.addEventListener('seeked', drawFrame);
+        sv.addEventListener('error', function () { svFailed = true; busy = false; });
+        sv.src = v.currentSrc || it.url;
+      }
+      next();
+    }
+
+    function next() {
+      if (!sv || busy || want == null || sv.readyState < 1) return;
+      if (Math.abs(want - shownT) < 0.2 && drawn) return;
+      busy = true;
+      var t = want;
+      want = null;
+      sv._t = t;
+      // A seek to the keyframe is enough for a preview, and much faster.
+      if (sv.fastSeek) sv.fastSeek(t); else sv.currentTime = t;
+    }
+
+    function drawFrame() {
+      busy = false;
+      if (!sv) return;
+      var go = function () {
+        if (!sv || !sv.videoWidth) { next(); return; }
+        var s = size(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+        if (popCanvas.width !== Math.round(s.w * dpr)) { popCanvas.width = Math.round(s.w * dpr); popCanvas.height = Math.round(s.h * dpr); }
+        try {
+          popCanvas.getContext('2d').drawImage(sv, 0, 0, popCanvas.width, popCanvas.height);
+          drawn = true;
+          shownT = sv._t;
+        } catch (e) {
+          svFailed = true;
+        }
+        refreshPop(true);
+        next();
+      };
+      if (sv.readyState >= 2) go(); else sv.addEventListener('loadeddata', go, { once: true });
+    }
+
+    function reset() {
+      if (sv) {
+        sv.removeAttribute('src');
+        try { sv.load(); } catch (e) { }
+      }
+      sv = null;
+      busy = false;
+      want = null;
+      drawn = false;
+      shownT = -1;
+      svFailed = false;
+      sheets = Object.create(null);
+    }
+
+    return {
+      image: image, frame: frame, reset: reset, size: size, imageComing: imageComing,
+      hasFrame: function () { return drawn; },
+      canFrame: function () { return !svFailed && !!popCanvas.getContext; }
+    };
+  })();
+
   function timeAt(x) {
     var r = tl.getBoundingClientRect(), dur = duration();
     return r.width > 0 && dur > 0 ? Math.max(0, Math.min(1, (x - r.left) / r.width)) * dur : 0;
   }
 
-  function showPop(t, x) {
+  // keepFrame: only the live frame changed, so the box stays as it is.
+  function showPop(t, x, keepFrame) {
     var dur = duration();
     if (!(dur > 0)) return;
+    hoverT = t;
+    hoverX = x;
     var h = vpHover(layout, t, dur / 200);
-    var th = vpThumbAt(meta && meta.thumbnails, thumbCues, t);
     popTime.textContent = vpFmtTime(t, dur >= 3600);
     var label = h.marker ? h.marker.label : '';
     if (h.chapter && h.chapter.title) label = label ? h.chapter.title + ' · ' + label : h.chapter.title;
     popLabel.textContent = label;
     popLabel.hidden = !label;
-    if (th && th.w && th.h) {
-      var scale = Math.min(1, 180 / th.w);
+    var th = preview.image(t);
+    if (th) {
+      var scale = Math.min(1, 176 / th.w);
+      popFrame.hidden = false;
+      popFrame.style.width = Math.round(th.w * scale) + 'px';
+      popFrame.style.height = Math.round(th.h * scale) + 'px';
       popImg.hidden = false;
-      popImg.style.width = Math.round(th.w * scale) + 'px';
-      popImg.style.height = Math.round(th.h * scale) + 'px';
+      popCanvas.hidden = true;
       popImg.style.backgroundImage = 'url("' + String(th.url).replace(/["\\]/g, '\\$&') + '")';
       popImg.style.backgroundPosition = (-th.x * scale) + 'px ' + (-th.y * scale) + 'px';
       popImg.style.backgroundSize = th.sheetW ? (th.sheetW * scale) + 'px ' + (th.sheetH * scale) + 'px' : '';
+      el.dataset.preview = 'image';
     } else {
+      // No image yet: the video's own frame, as soon as it's drawn.
+      if (!keepFrame && preview.canFrame()) preview.frame(t);
+      var hasFrame = preview.hasFrame();
+      popFrame.hidden = !hasFrame;
       popImg.hidden = true;
+      popCanvas.hidden = !hasFrame;
+      if (hasFrame) {
+        var s = preview.size();
+        popFrame.style.width = s.w + 'px';
+        popFrame.style.height = s.h + 'px';
+      }
+      el.dataset.preview = hasFrame ? 'frame' : 'none';
     }
     pop.hidden = false;
     var r = tl.getBoundingClientRect(), half = pop.offsetWidth / 2;
-    var left = Math.max(half, Math.min(r.width - half, x - r.left));
-    pop.style.left = left + 'px';
+    pop.style.left = Math.max(half, Math.min(r.width - half, x - r.left)) + 'px';
+    update();
+  }
+
+  // The box again for the time already under the pointer, when what it
+  // can show changed: the metadata or an image arrived, a frame was drawn.
+  function refreshPop(frameOnly) {
+    if (!pop.hidden && hoverT != null) showPop(timeAt(hoverX), hoverX, frameOnly);
   }
 
   function hidePop() {
     pop.hidden = true;
+    hoverT = null;
+    if (v) update();
   }
 
+  // ---- The pointer on the timeline ----
   tl.addEventListener('pointerdown', function (e) {
     if (!v || e.button > 0) return;
     e.preventDefault();
@@ -740,10 +906,10 @@ function VideoDock(opts) {
     if (!v) return;
     var t = timeAt(e.clientX);
     if (dragging) {
-      update(t);
       if (v.fastSeek) v.fastSeek(t); else v.currentTime = t;
     }
-    if (dragging || e.pointerType === 'mouse') showPop(t, e.clientX);
+    if (dragging || e.pointerType === 'mouse' || e.pointerType === 'pen') showPop(t, e.clientX);
+    if (dragging) update(t);
   });
   function endDrag(e) {
     if (!dragging) return;
@@ -791,31 +957,94 @@ function VideoDock(opts) {
   });
   btnFull.addEventListener('click', function () { act('fullscreen'); });
 
+  function syncPlay() {
+    if (!v) return;
+    el.classList.toggle('paused', v.paused);
+    btnPlay.innerHTML = vpIcon(v.paused ? 'play' : 'pause');
+    btnPlay.setAttribute('aria-label', v.paused ? 'Play' : 'Pause');
+  }
+
   function syncVolume() {
     if (!v) return;
     var muted = v.muted || v.volume === 0;
-    btnMute.innerHTML = muted ? VP_ICONS.mute : VP_ICONS.vol;
+    btnMute.innerHTML = vpIcon(muted ? 'mute' : v.volume < 0.5 ? 'vol-low' : 'vol');
     btnMute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
     volume.value = String(muted ? 0 : v.volume);
+    volume.style.setProperty('--vol', (muted ? 0 : v.volume * 100) + '%');
   }
 
   function syncFull() {
     var on = opts.isFullscreen();
-    btnFull.innerHTML = on ? VP_ICONS.exitFull : VP_ICONS.full;
+    btnFull.innerHTML = vpIcon(on ? 'exit-full' : 'full');
     btnFull.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
   }
 
-  // ---- Menus: speed, subtitles, marker kinds ----
-  function openMenu(kind, anchor, items) {
-    if (menuKind === kind && !menu.hidden) { closeMenu(true); return; }
+  // ---- Tooltips ----
+  // One tooltip for every button: its name and its key, shown above it
+  // after the pointer rests there, or at once for keyboard focus.
+  var tipTimer = 0, tipFor = null;
+  function showTip(b) {
+    if (!b || b.disabled || menuOpen()) return;
+    tipFor = b;
+    q('.vd-tip-label').textContent = b.getAttribute('aria-label');
+    var k = b.getAttribute('data-key');
+    q('.vd-tip-key').textContent = k || '';
+    q('.vd-tip-key').hidden = !k;
+    tip.hidden = false;
+    var br = b.getBoundingClientRect(), er = el.getBoundingClientRect(), w = tip.offsetWidth;
+    var x = br.left - er.left + br.width / 2 - w / 2;
+    tip.style.left = Math.max(6, Math.min(er.width - w - 6, x)) + 'px';
+    tip.style.top = (br.top - er.top - tip.offsetHeight - 10) + 'px';
+    tip.classList.add('on');
+  }
+  function hideTip() {
+    clearTimeout(tipTimer);
+    tipFor = null;
+    tip.classList.remove('on');
+    tip.hidden = true;
+  }
+  el.addEventListener('pointerover', function (e) {
+    var b = e.target.closest && e.target.closest('.vd-btn');
+    if (!b || e.pointerType === 'touch' || b === tipFor) return;
+    hideTip();
+    tipTimer = setTimeout(function () { showTip(b); }, VP_TIP_DELAY);
+  });
+  el.addEventListener('pointerout', function (e) {
+    var b = e.target.closest && e.target.closest('.vd-btn');
+    if (b && !b.contains(e.relatedTarget)) hideTip();
+  });
+  el.addEventListener('focusin', function (e) {
+    var b = e.target.closest && e.target.closest('.vd-btn');
+    if (b && b.matches && b.matches(':focus-visible')) showTip(b);
+  });
+  el.addEventListener('focusout', hideTip);
+  el.addEventListener('pointerdown', hideTip);
+
+  // ---- Menus: speed, subtitles, marker kinds, and More ----
+  // A popover over its button: a title, then items with a check on the
+  // current choice. Arrow keys move, Home and End jump, Escape or Tab
+  // closes it, and it fades and rises into place.
+  var menuAnchor = null, menuCloseTimer = 0;
+  // Open, as opposed to shown while it fades out after closing: a key
+  // pressed then is not the menu's.
+  function menuOpen() {
+    return menu.classList.contains('open');
+  }
+  function openMenu(kind, anchor, title, items) {
+    if (menuKind === kind && menuOpen()) { closeMenu(true); return; }
+    closeMenu(false, true);
+    hideTip();
+    clearTimeout(menuCloseTimer);
     menuKind = kind;
-    menu.textContent = '';
-    menu.setAttribute('aria-label', anchor.getAttribute('aria-label'));
+    menuTitle.textContent = title;
+    menuList.textContent = '';
+    menu.setAttribute('aria-label', title);
     items.forEach(function (o) {
       var b = doc.createElement('button');
       b.type = 'button';
-      b.setAttribute('role', o.check ? 'menuitemcheckbox' : 'menuitemradio');
-      b.setAttribute('aria-checked', String(!!o.on));
+      b.setAttribute('role', o.check ? 'menuitemcheckbox' : o.action ? 'menuitem' : 'menuitemradio');
+      if (!o.action) b.setAttribute('aria-checked', String(!!o.on));
+      b.innerHTML = vpIcon('check');
       if (o.color) {
         var dot = doc.createElement('span');
         dot.className = 'vd-dot';
@@ -823,81 +1052,101 @@ function VideoDock(opts) {
         b.appendChild(dot);
       }
       var text = doc.createElement('span');
+      text.className = 'vd-menu-text';
       text.textContent = o.label;
       b.appendChild(text);
+      if (o.hint) {
+        var hint = doc.createElement('span');
+        hint.className = 'vd-menu-hint';
+        hint.textContent = o.hint;
+        b.appendChild(hint);
+      }
       b.addEventListener('click', function () {
+        if (o.check) { o.pick(); b.setAttribute('aria-checked', String(!!o.state())); return; }
+        // An item that opens another menu does so from the same button.
+        closeMenu(!o.keepFocus, !!o.keepFocus);
         o.pick();
-        if (o.check) { b.setAttribute('aria-checked', String(!!o.state())); return; }
-        closeMenu(true);
       });
-      menu.appendChild(b);
+      menuList.appendChild(b);
     });
     menu.hidden = false;
     el.classList.add('menu-open');
     var ar = anchor.getBoundingClientRect(), er = el.getBoundingClientRect();
-    menu.style.right = Math.max(4, er.right - ar.right) + 'px';
-    var first = menu.querySelector('[aria-checked="true"]') || menu.firstChild;
+    menu.style.right = Math.max(6, er.right - ar.right) + 'px';
+    menu.style.bottom = Math.max(6, er.bottom - ar.top + 8) + 'px';
+    void menu.offsetWidth;
+    menu.classList.add('open');
+    var first = menuList.querySelector('[aria-checked="true"]') || menuList.firstChild;
     if (first) first.focus();
     anchor.setAttribute('aria-expanded', 'true');
-    menu._anchor = anchor;
+    menuAnchor = anchor;
   }
 
-  function closeMenu(refocus) {
-    if (menu.hidden) return;
-    menu.hidden = true;
+  // refocus puts the focus back on the menu's button; now skips the fade.
+  function closeMenu(refocus, now) {
+    if (!menuOpen()) {
+      // Fading out already: now, it goes at once.
+      if (now) menu.hidden = true;
+      return;
+    }
+    menu.classList.remove('open');
     el.classList.remove('menu-open');
-    var a = menu._anchor;
     menuKind = '';
+    var a = menuAnchor;
+    menuAnchor = null;
     if (a) {
       a.setAttribute('aria-expanded', 'false');
       if (refocus) a.focus();
     }
+    clearTimeout(menuCloseTimer);
+    if (now || reducedMotion.matches) menu.hidden = true;
+    else menuCloseTimer = setTimeout(function () { if (!menu.classList.contains('open')) menu.hidden = true; }, 160);
+    if (opts.activity) opts.activity();
   }
 
   menu.addEventListener('keydown', function (e) {
-    var items = Array.prototype.slice.call(menu.children), i = items.indexOf(doc.activeElement);
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      e.stopPropagation();
-      var n = items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length];
-      if (n) n.focus();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      closeMenu(true);
+    var items = Array.prototype.slice.call(menuList.children), i = items.indexOf(doc.activeElement), n = null;
+    switch (e.key) {
+      case 'ArrowDown': n = items[(i + 1) % items.length]; break;
+      case 'ArrowUp': n = items[(i - 1 + items.length) % items.length]; break;
+      case 'Home': n = items[0]; break;
+      case 'End': n = items[items.length - 1]; break;
+      case 'Escape': e.preventDefault(); e.stopPropagation(); closeMenu(true); return;
+      case 'Tab': closeMenu(true, true); e.preventDefault(); return;
+      default: return;
     }
+    e.preventDefault();
+    e.stopPropagation();
+    if (n) n.focus();
   });
   doc.addEventListener('pointerdown', function (e) {
-    if (!menu.hidden && !menu.contains(e.target) && !(menu._anchor && menu._anchor.contains(e.target))) closeMenu(false);
+    if (menuOpen() && !menu.contains(e.target) && !(menuAnchor && menuAnchor.contains(e.target))) closeMenu(false);
   }, true);
 
-  btnRate.addEventListener('click', function () {
-    if (!v) return;
-    openMenu('rate', btnRate, VP_RATES.map(function (r) {
+  function rateMenu(anchor) {
+    openMenu('rate', anchor, 'Speed', VP_RATES.map(function (r) {
       return { label: r === 1 ? 'Normal' : r + '×', on: v.playbackRate === r, pick: function () { v.playbackRate = r; } };
     }));
-  });
+  }
 
-  btnCC.addEventListener('click', function () {
-    if (!v || !meta) return;
+  function ccMenu(anchor) {
     var items = [{ label: 'Off', on: capOn < 0, pick: function () { setCaptions(-1, true); } }];
     tracks.forEach(function (tr, i) {
       items.push({ label: tr.label, on: capOn === i, pick: function () { setCaptions(i, true); } });
     });
-    openMenu('cc', btnCC, items);
-  });
+    openMenu('cc', anchor, 'Subtitles', items);
+  }
 
-  q('.vd-mk-menu').addEventListener('click', function (e) {
-    if (!v || !meta) return;
+  function markersMenu(anchor) {
     var kinds = Object.create(null), order = [], colors = vpGroupColors(meta);
     (meta.markers || []).forEach(function (mk) {
       var k = mk.kind || '';
       if (!(k in kinds)) { kinds[k] = { n: 0, color: colors[mk.group] || '' }; order.push(k); }
       kinds[k].n++;
     });
-    openMenu('markers', e.currentTarget, order.map(function (k) {
+    openMenu('markers', anchor, 'Show markers', order.map(function (k) {
       return {
-        label: (k || 'Other') + ' (' + numFmt.format(kinds[k].n) + ')', color: kinds[k].color, check: true, on: !hiddenKinds[k],
+        label: k || 'Other', hint: numFmt.format(kinds[k].n), color: kinds[k].color, check: true, on: !hiddenKinds[k],
         pick: function () {
           if (hiddenKinds[k]) delete hiddenKinds[k]; else hiddenKinds[k] = true;
           render();
@@ -905,13 +1154,40 @@ function VideoDock(opts) {
         state: function () { return !hiddenKinds[k]; }
       };
     }));
-  });
+  }
+
+  // What the compact row leaves out, in one menu.
+  function moreMenu() {
+    var items = [{
+      label: 'Speed', hint: v.playbackRate === 1 ? 'Normal' : v.playbackRate + '×', action: true, keepFocus: true,
+      pick: function () { rateMenu(btnMore); }
+    }];
+    if (tracks.length && el.classList.contains('tiny')) {
+      items.push({ label: 'Subtitles', hint: capOn >= 0 ? tracks[capOn].label : 'Off', action: true, keepFocus: true, pick: function () { ccMenu(btnMore); } });
+    }
+    if (layout.segments.some(function (s) { return s.chapter; })) {
+      items.push({ label: 'Previous chapter', action: true, pick: function () { act('chapter:-1'); } });
+      items.push({ label: 'Next chapter', action: true, pick: function () { act('chapter:1'); } });
+    }
+    if (meta && meta.markers && meta.markers.length) {
+      items.push({ label: 'Previous marker', action: true, pick: function () { act('marker:-1'); } });
+      items.push({ label: 'Next marker', action: true, pick: function () { act('marker:1'); } });
+      items.push({ label: 'Show markers', action: true, keepFocus: true, pick: function () { markersMenu(btnMore); } });
+    }
+    openMenu('more', btnMore, 'More', items);
+  }
+
+  btnRate.addEventListener('click', function () { if (v) rateMenu(btnRate); });
+  btnCC.addEventListener('click', function () { if (v && meta) ccMenu(btnCC); });
+  btnMarkers.addEventListener('click', function () { if (v && meta) markersMenu(btnMarkers); });
+  btnMore.addEventListener('click', function () { if (v) moreMenu(); });
 
   // Using the dock keeps the controls up.
   el.addEventListener('pointermove', function () { if (opts.activity) opts.activity(); });
 
   return {
     el: el, attach: attach, detach: detach, place: place, act: act, key: key, syncFull: syncFull,
+    holdsChrome: holdsChrome,
     current: function () { return v; },
     time: function () { return v ? v.currentTime : 0; },
     flash: showFlash

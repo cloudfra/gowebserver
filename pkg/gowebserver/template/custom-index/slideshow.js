@@ -71,6 +71,7 @@ var slideshow = (function () {
   // The current slide's video gets the dock; any other slide leaves it.
   function attachDock() {
     var it = list[idx], div = slides.get(idx), m = div && div.firstChild;
+    dlg.classList.toggle('on-video', !!(it && it.video));
     if (!it || !it.video || !m || m.tagName !== 'VIDEO') {
       dock.detach();
       clearHash();
@@ -861,7 +862,9 @@ var slideshow = (function () {
     dlg.classList.remove('chrome-off');
     clearTimeout(chromeTimer);
     chromeTimer = setTimeout(function () {
-      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover, .vdock.menu-open, .vdock.scrubbing')) dlg.classList.add('chrome-off');
+      // A paused video, an open menu or a held timeline keeps them.
+      if (dock.holdsChrome()) return;
+      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover')) dlg.classList.add('chrome-off');
     }, 2800);
   }
 
