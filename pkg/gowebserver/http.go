@@ -67,12 +67,12 @@ func newHTTPReverseProxy(httpPath string, mc *monitoringContext) (http.Handler, 
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setRequestHandler(r, handlerProxy)
-		reverseProxy.ServeHTTP(w, r)
-	}), func() error {
-		connections.CloseIdleConnections()
-		return nil
-	}, nil
+			setRequestHandler(r, handlerProxy)
+			reverseProxy.ServeHTTP(w, r)
+		}), func() error {
+			connections.CloseIdleConnections()
+			return nil
+		}, nil
 }
 
 // isSupportedHTTP reports whether filePath is an http(s) URL to pass
