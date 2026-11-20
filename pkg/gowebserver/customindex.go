@@ -430,7 +430,10 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	archiveDirs := map[string]fs.DirEntry{}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		names = append(names, entry.Name())
+		// Only files are videos or their sidecars, as findSidecars has it.
+		if !entry.IsDir() {
+			names = append(names, entry.Name())
+		}
 		if strings.HasSuffix(entry.Name(), nestedDirSuffix) {
 			archiveDirs[entry.Name()] = entry
 		}

@@ -394,3 +394,21 @@ test('subtitles are listed in the captions menu', async () => {
   assert.equal(cc.getAttribute('aria-pressed'), 'true');
   assert.equal(t.pg.stored['gows-captions'], 'fr', 'remembered');
 });
+
+test('a marker kind or group named like a built-in is a kind like any other', () => {
+  const p = vp();
+  const l = p.vpLayout({ markers: [{ time: 10, kind: 'constructor', group: 'toString', label: 'Odd' }] }, 60);
+  assert.equal(l.ticks.length, 1);
+  assert.equal(l.ticks[0].color, p.VP_COLORS[0]);
+});
+
+test('the volume slider\'s keys stay on the volume', () => {
+  const t = setup();
+  t.s.slideshow.open(t.s.vis.videos, 2, null, false);
+  t.ready(600);
+  const volume = t.$('ss-stage').querySelector('.vd-volume');
+  ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageDown'].forEach((key) => {
+    assert.equal(volume.fire('keydown', { key }).stopped, true, key);
+  });
+  assert.equal(t.$('ss-name').textContent, 'talk-2.mp4');
+});

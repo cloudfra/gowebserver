@@ -3177,15 +3177,15 @@ main {
 }
 
 .vd-segs {
-  top: 10px;
-  height: 4px;
+  top: 9.5px;
+  height: 5px;
   transition: top 0.15s var(--ease), height 0.15s var(--ease);
 }
 
 .vd-tl:hover .vd-segs,
 .vdock.scrubbing .vd-segs {
-  top: 9px;
-  height: 6px;
+  top: 8.5px;
+  height: 7px;
 }
 
 .vd-seg {
@@ -3577,8 +3577,26 @@ main {
   padding: 20px 4px 2px;
 }
 
+/* A phone sets the volume with its own buttons. */
+.vdock.narrow .vd-mute {
+  display: none;
+}
+
+.vdock.narrow .vd-row {
+  gap: 0;
+}
+
+.vdock.narrow .vd-btn {
+  width: 32px;
+}
+
+.vdock.narrow .vd-rate {
+  width: auto;
+  min-width: 36px;
+  padding: 0 4px;
+}
+
 .vdock.tiny .vd-ch,
-.vdock.tiny .vd-mute,
 .vdock.tiny .vd-sep,
 .vdock.tiny .vd-dur {
   display: none;

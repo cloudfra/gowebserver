@@ -109,6 +109,27 @@ func TestProbeStandIn(t *testing.T) {
 	}
 }
 
+func TestProbeNonSquarePixels(t *testing.T) {
+	stderr := "  Duration: 00:01:00.00, start: 0.000000, bitrate: 900 kb/s\n" +
+		"  Stream #0:0: Video: mpeg2video (Main), yuv420p(tv, top first), 720x480 [SAR 32:27 DAR 16:9], 25 fps, 25 tbr\n"
+	errFile := filepath.Join(t.TempDir(), "stderr.txt")
+	if err := os.WriteFile(errFile, []byte(stderr), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bin, _ := script(t, "cat '"+errFile+"' >&2")
+	f, err := Find(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := f.Probe(t.Context(), "disc.mkv", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Width != 853 || info.Height != 480 {
+		t.Errorf("size = %dx%d, want 853x480, as it's shown", info.Width, info.Height)
+	}
+}
+
 func TestProbeFails(t *testing.T) {
 	bin, _ := script(t, "echo 'clip.mp4: Invalid data found when processing input' >&2; exit 1")
 	f, err := Find(bin)

@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -364,7 +365,7 @@ func TestVideoMetaPathSafety(t *testing.T) {
 
 // relativeSibling is a URL of a file in the same folder: "./" then one
 // escaped path segment, and an optional query.
-var relativeSibling = regexp.MustCompile(`^\./[^/?#]+(\?[a-z]+)?$`)
+var relativeSibling = regexp.MustCompile(`^\./[^/?#]+(\?[a-z]+(=[0-9a-f]+)?)?$`)
 
 // checkRelativeURLs fails unless every URL in a ?meta document names a
 // file in the video's own folder, relative to the video.
@@ -537,12 +538,14 @@ func TestVideoMetaEmbeddedChaptersAndSprite(t *testing.T) {
 	if d, _ := m["duration"].(float64); d < 11.9 || d > 12.1 {
 		t.Errorf("duration = %v, want 12", m["duration"])
 	}
-	if got := jsonOf(t, m["thumbnails"]); got != `{"columns":3,"count":3,"height":90,"interval":5,"sprite":"./lecture.mp4?sprite","width":160}` {
+	// The sprite's URL has the video's version in it, so a browser never
+	// keeps one from before the video changed.
+	if got := jsonOf(t, m["thumbnails"]); !regexp.MustCompile(`^\{"columns":3,"count":3,"height":90,"interval":5,"sprite":"\./lecture\.mp4\?sprite=[0-9a-f]{12}","width":160\}$`).MatchString(got) {
 		t.Errorf("thumbnails = %s", got)
 	}
 	checkRelativeURLs(t, m)
 
-	w := serveGet(t, h, "/lecture.mp4?sprite")
+	w := serveGet(t, h, "/"+strings.TrimPrefix(m["thumbnails"].(map[string]any)["sprite"].(string), "./"))
 	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "image/jpeg" {
 		t.Fatalf("sprite = %d %q %s", w.Code, w.Header().Get("Content-Type"), w.Body)
 	}
@@ -622,5 +625,58 @@ func TestVideoMetaDiagnostics(t *testing.T) {
 	}
 	if m := secret.FindString(log); m != "" {
 		t.Errorf("the log has %q in it:\n%s", m, log)
+	}
+}
+
+// TestVideoMetaFFmpegLater is an ffmpeg that can't be started at first
+// (being downloaded, say) and then can: the document made meanwhile isn't
+// kept, and the next one has what ffmpeg says, under another ETag.
+func TestVideoMetaFFmpegLater(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as ffmpeg")
+	}
+	dir, bin := t.TempDir(), filepath.Join(t.TempDir(), "ffmpeg")
+	writeFiles(t, dir, map[string]string{"talk.mp4": "x"})
+	script := "#!/bin/sh\necho '  Duration: 00:10:00.00, start: 0.000000, bitrate: 1 kb/s' >&2\n" +
+		"printf ';FFMETADATA1\\n[CHAPTER]\\nTIMEBASE=1/1000\\nSTART=0\\nEND=600000\\ntitle=Part 1\\n'\n"
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	h := videoMetaServer(t, dir, bin, false)
+	// It can't be run now.
+	if err := os.Chmod(bin, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	w := serveGet(t, h, "/talk.mp4?meta")
+	if body := w.Body.String(); w.Code != http.StatusOK || body != `{"chapters":[],"markers":[],"groups":{},"subtitles":[]}` {
+		t.Fatalf("meta without ffmpeg = %d %s", w.Code, body)
+	}
+	etag := w.Header().Get("ETag")
+	if err := os.Chmod(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/talk.mp4?meta", nil)
+	req.Header.Set("If-None-Match", etag)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"duration":600`) || !strings.Contains(rec.Body.String(), `"Part 1"`) {
+		t.Errorf("once ffmpeg runs = %d %s", rec.Code, rec.Body)
+	}
+	if rec.Header().Get("ETag") == etag {
+		t.Error("a different document has the same ETag")
+	}
+}
+
+// TestListingFolderNamedLikeAVideo: a folder named like a video has no
+// sidecars, in the listing or in ?meta.
+func TestListingFolderNamedLikeAVideo(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{"notes.mp4/inside.txt": "x", "notes.srt": "1\n", "talk.mp4": "x", "talk.vtt/inside.txt": "x"})
+	page := serveGet(t, videoMetaServer(t, dir, "", false), "/").Body.String()
+	if !strings.Contains(page, `<span class="name">notes.srt</span>`) {
+		t.Error("notes.srt is hidden as the sidecar of a folder")
+	}
+	if regexp.MustCompile(`\[1,"talk.mp4","talk.mp4", 1 , \d+ , \d+ \]`).MatchString(page) {
+		t.Error("a folder named like subtitles badges the video")
 	}
 }

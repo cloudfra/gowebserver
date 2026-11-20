@@ -52,6 +52,7 @@ var (
 	// A video stream's line: its size comes after the codec and pixel
 	// format, as ", 1920x1080"; a hex tag such as "0x31637661" isn't one.
 	streamSize = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: .*?[\s,](\d{1,5})x(\d{1,5})[\s,\[]`)
+	streamSAR  = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: .*?\[SAR (\d+):(\d+) DAR`)
 	streamFPS  = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: .*?, (\d+(?:\.\d+)?) fps`)
 	rotation   = regexp.MustCompile(`rotation of (-?\d+(?:\.\d+)?) degrees`)
 )
@@ -90,6 +91,15 @@ func (f *FFmpeg) Probe(ctx context.Context, input string, stdin io.Reader) (*Inf
 		h, herr := strconv.Atoi(string(m[2]))
 		if werr == nil && herr == nil {
 			info.Width, info.Height = w, h
+		}
+		// Pixels that aren't square (a DVD's 720x480 shown at 16:9) are
+		// shown at their aspect ratio: wider or narrower than stored.
+		if s := streamSAR.FindSubmatch(stderr); s != nil {
+			a, aerr := strconv.Atoi(string(s[1]))
+			b, berr := strconv.Atoi(string(s[2]))
+			if aerr == nil && berr == nil && a > 0 && b > 0 && a != b {
+				info.Width = int(math.Round(float64(info.Width) * float64(a) / float64(b)))
+			}
 		}
 		if r := rotation.FindSubmatch(stderr); r != nil {
 			if deg, err := strconv.ParseFloat(string(r[1]), 64); err == nil && math.Mod(math.Abs(math.Round(deg)), 180) == 90 {

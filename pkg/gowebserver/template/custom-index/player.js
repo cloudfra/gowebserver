@@ -64,7 +64,7 @@ function vpParseHash(hash) {
 // Each marker group's color: its own when it has one, else the next of
 // VP_COLORS.
 function vpGroupColors(meta) {
-  var colors = {}, n = 0, groups = (meta && meta.groups) || {};
+  var colors = Object.create(null), n = 0, groups = (meta && meta.groups) || {};
   Object.keys(groups).sort().forEach(function (g) {
     colors[g] = groups[g] && groups[g].color ? groups[g].color : VP_COLORS[n++ % VP_COLORS.length];
   });
@@ -82,7 +82,7 @@ function vpGroupColors(meta) {
 function vpLayout(meta, dur, hidden) {
   var out = { segments: [], ticks: [], bands: [] };
   if (!(dur > 0)) return out;
-  hidden = hidden || {};
+  hidden = hidden || Object.create(null);
   var pct = function (t) { return Math.max(0, Math.min(100, t / dur * 100)); };
   var seg = function (s, e, title, chapter) {
     out.segments.push({ start: s, end: e, title: title, chapter: chapter, l: pct(s), w: pct(e) - pct(s) });
@@ -340,7 +340,7 @@ function VideoDock(opts) {
   var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), btnCC = q('.vd-cc'), btnFull = q('.vd-full');
   var menu = q('.vd-menu'), cap = q('.vd-cap'), flash = q('.vd-flash');
 
-  var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = {}, thumbCues = null;
+  var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
   var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;
   var tracks = [], capOn = -1, menuKind = '';
   var metaCache = new Map();
@@ -471,7 +471,7 @@ function VideoDock(opts) {
     thumbCues = null;
     capOn = -1;
     tracks = [];
-    hiddenKinds = {};
+    hiddenKinds = Object.create(null);
     if (m && m.thumbnails && m.thumbnails.sprite) m.thumbnails.spriteURL = resolve(m.thumbnails.sprite);
     if (m && m.thumbnails && m.thumbnails.vtt && window.fetch) {
       var vttURL = resolve(m.thumbnails.vtt), forIt = it;
@@ -779,6 +779,11 @@ function VideoDock(opts) {
   q('.vd-prev-ch').addEventListener('click', function () { act('chapter:-1'); });
   q('.vd-next-ch').addEventListener('click', function () { act('chapter:1'); });
   btnMute.addEventListener('click', function () { act('mute'); });
+  // The slider's own keys change the volume, and nothing else: not the
+  // slide, as the arrows and Home and End do in the slideshow.
+  volume.addEventListener('keydown', function (e) {
+    if (/^(Arrow|Page|Home$|End$)/.test(e.key)) e.stopPropagation();
+  });
   volume.addEventListener('input', function () {
     if (!v) return;
     v.volume = +volume.value;
@@ -884,7 +889,7 @@ function VideoDock(opts) {
 
   q('.vd-mk-menu').addEventListener('click', function (e) {
     if (!v || !meta) return;
-    var kinds = {}, order = [], colors = vpGroupColors(meta);
+    var kinds = Object.create(null), order = [], colors = vpGroupColors(meta);
     (meta.markers || []).forEach(function (mk) {
       var k = mk.kind || '';
       if (!(k in kinds)) { kinds[k] = { n: 0, color: colors[mk.group] || '' }; order.push(k); }

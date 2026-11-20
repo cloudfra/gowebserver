@@ -226,7 +226,11 @@ func findSidecars(fsys fs.FS, name string) ([]videoSidecar, error) {
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
-		names = append(names, e.Name())
+		// A folder named like a video has no sidecars (listingSidecars is
+		// given the same names).
+		if !e.IsDir() {
+			names = append(names, e.Name())
+		}
 	}
 	bases := videoBases(names)
 	base := strings.TrimSuffix(file, path.Ext(file))
@@ -548,6 +552,12 @@ func newSpriteLayout(dur time.Duration, w, h int) (spriteLayout, bool) {
 	}, true
 }
 
+// spriteVersion is in the sprite's URL (NAME.EXT?sprite=VERSION), so a
+// browser never shows a sprite it kept from before the video changed.
+func spriteVersion(info fs.FileInfo, l spriteLayout) string {
+	return hashHex(fileVersion(info) + "|" + l.key())
+}
+
 // key names the layout in the store, so a sprite made for another one
 // isn't served for this.
 func (l spriteLayout) key() string {
@@ -564,6 +574,21 @@ const (
 // videoMetaCacheMax bounds the documents and probes kept in memory.
 const videoMetaCacheMax = 10000
 
+// videoProbesAtOnce is how many videos ffmpeg describes at once for
+// ?meta: flipping through a folder of videos asks for one each.
+const videoProbesAtOnce = 2
+
+// errVideoUnreadable is a video ffmpeg couldn't describe lately, which
+// isn't tried again until thumbnailUnsupportedFor has passed.
+var errVideoUnreadable = errors.New("videometa: ffmpeg can't read this video")
+
+// probeResult is what ffmpeg said about a video: its description, or
+// that it couldn't read it (until a time).
+type probeResult struct {
+	info  *ffmpeg.Info
+	until time.Time // for a failure, when to try again
+}
+
 // videoMetaHandler answers ?meta, ?sprite and ?vtt (see the top of this
 // file), and sets the Content-Type of the videos and captions it knows
 // (servedTypes) and X-Content-Type-Options: nosniff on everything else
@@ -575,17 +600,19 @@ type videoMetaHandler struct {
 	t      *thumbnailer   // nil when thumbnails, and so sprites, are off
 	ff     *ffmpeg.FFmpeg // nil when ffmpeg is unavailable
 
-	probes singleflight.Group
-	mu     sync.Mutex
-	docs   map[string][]byte       // ?meta documents, by metaKey
-	info   map[string]*ffmpeg.Info // probes, by video version
+	probes   singleflight.Group
+	probeSem chan struct{}
+	mu       sync.Mutex
+	docs     map[string][]byte      // ?meta documents, by the versions they're made from
+	info     map[string]probeResult // probes, by video version
 }
 
 func newVideoMetaHandler(base http.Handler, fsys fs.FS, source string, t *thumbnailer, ff *ffmpeg.FFmpeg) *videoMetaHandler {
 	sum := sha256.Sum256([]byte(source))
 	return &videoMetaHandler{
 		base: base, fsys: fsys, source: hex.EncodeToString(sum[:8]), t: t, ff: ff,
-		docs: map[string][]byte{}, info: map[string]*ffmpeg.Info{},
+		probeSem: make(chan struct{}, videoProbesAtOnce),
+		docs:     map[string][]byte{}, info: map[string]probeResult{},
 	}
 }
 
@@ -649,11 +676,6 @@ func (h *videoMetaHandler) serveMeta(w http.ResponseWriter, r *http.Request, nam
 		key += "|" + s.name + "@" + fileVersion(s.info)
 	}
 	key += fmt.Sprintf("|ffmpeg=%t,sprites=%t", h.ff != nil, h.t.videos())
-	sum := sha256.Sum256([]byte(key))
-	etag := `"meta-` + hex.EncodeToString(sum[:12]) + `"`
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("ETag", etag)
 
 	h.mu.Lock()
 	doc, cached := h.docs[key]
@@ -669,13 +691,24 @@ func (h *videoMetaHandler) serveMeta(w http.ResponseWriter, r *http.Request, nam
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		h.mu.Lock()
-		if len(h.docs) >= videoMetaCacheMax {
-			h.docs = map[string][]byte{}
+		// A document made while the container couldn't be read for a
+		// passing reason (ffmpeg not started yet, out of time, the client
+		// gone) is served but not kept, so the next request reads it again.
+		if probeErr == nil {
+			h.mu.Lock()
+			if len(h.docs) >= videoMetaCacheMax {
+				h.docs = map[string][]byte{}
+			}
+			h.docs[key] = doc
+			h.mu.Unlock()
 		}
-		h.docs[key] = doc
-		h.mu.Unlock()
 	}
+	// The ETag is the document's own, so a different document is never
+	// taken for one the browser has.
+	sum := sha256.Sum256(doc)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", `"meta-`+hex.EncodeToString(sum[:12])+`"`)
 	if diagEnabled() {
 		fields := map[string]any{
 			"file": anon(path.Base(name)), "dir": anonDir(path.Dir(name)), "cached": cached,
@@ -754,7 +787,7 @@ func (h *videoMetaHandler) buildMeta(ctx context.Context, name string, info fs.F
 	if meta.Thumbnails == nil && h.t.videos() {
 		if l, ok := newSpriteLayout(probe.Duration, probe.Width, probe.Height); ok {
 			meta.Thumbnails = &metaThumbnails{
-				Sprite: relativeURL(path.Base(name)) + "?sprite", Interval: l.interval,
+				Sprite: relativeURL(path.Base(name)) + "?sprite=" + spriteVersion(info, l), Interval: l.interval,
 				Columns: l.cols, Count: l.count, Width: l.width, Height: l.height,
 			}
 		}
@@ -799,40 +832,54 @@ func (h *videoMetaHandler) probe(ctx context.Context, name string, info fs.FileI
 	h.mu.Lock()
 	cached, ok := h.info[key]
 	h.mu.Unlock()
-	if ok {
-		return cached, nil
+	switch {
+	case ok && cached.until.IsZero():
+		return cached.info, nil
+	case ok && time.Now().Before(cached.until):
+		return cached.info, errVideoUnreadable
 	}
 	if h.t != nil {
 		if th, ok := h.t.store.get(key); ok {
 			var pi ffmpeg.Info
 			if err := json.Unmarshal(th.data, &pi); err == nil {
-				h.remember(key, &pi)
+				h.remember(key, probeResult{info: &pi})
 				return &pi, nil
 			}
 		}
 	}
+	// One run per video however many ask, a few videos at a time, ended
+	// when the request that started it goes (as when the viewer has
+	// already moved on to the next video).
 	v, err, _ := h.probes.Do(key, func() (any, error) {
-		pctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), thumbnailVideoTimeout)
+		select {
+		case h.probeSem <- struct{}{}:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		defer func() { <-h.probeSem }()
+		pctx, cancel := context.WithTimeout(ctx, thumbnailVideoTimeout)
 		defer cancel()
 		var pi *ffmpeg.Info
 		err := h.withVideoInput(pctx, name, info, ffmpegProbe, func(ctx context.Context, input string, stdin io.Reader) (err error) {
 			pi, err = h.ff.Probe(ctx, input, stdin)
 			return err
 		})
-		if errors.Is(err, ffmpeg.ErrNotStarted) {
-			if h.t != nil {
-				h.t.ffmpegFailed(err)
-			}
+		if errors.Is(err, ffmpeg.ErrNotStarted) && h.t != nil {
+			h.t.ffmpegFailed(err)
+		}
+		if errors.Is(err, ffmpeg.ErrNotStarted) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			return nil, err // not the video's fault: try again next time
 		}
 		if err != nil {
-			// The video can't be read: remembered as having nothing, so it
-			// isn't tried on every request.
+			// The video can't be read: remembered for a while as having
+			// nothing, so it isn't tried on every request.
 			slog.Debug("ffmpeg could not describe a video", "path", name, "error", err)
 			pi = &ffmpeg.Info{}
+			h.remember(key, probeResult{info: pi, until: time.Now().Add(thumbnailUnsupportedFor)})
+			return pi, errVideoUnreadable
 		}
-		h.remember(key, pi)
-		if err == nil && h.t != nil {
+		h.remember(key, probeResult{info: pi})
+		if h.t != nil {
 			if data, merr := json.Marshal(pi); merr == nil {
 				if perr := h.t.store.put(key, &thumbnail{data: data}); perr != nil {
 					slog.Warn("failed to store a video's description", "path", key, "error", perr)
@@ -845,13 +892,13 @@ func (h *videoMetaHandler) probe(ctx context.Context, name string, info fs.FileI
 	return pi, err
 }
 
-func (h *videoMetaHandler) remember(key string, pi *ffmpeg.Info) {
+func (h *videoMetaHandler) remember(key string, r probeResult) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if len(h.info) >= videoMetaCacheMax {
-		h.info = map[string]*ffmpeg.Info{}
+		h.info = map[string]probeResult{}
 	}
-	h.info[key] = pi
+	h.info[key] = r
 }
 
 func hashHex(s string) string {
@@ -960,11 +1007,11 @@ func (h *videoMetaHandler) serveSprite(w http.ResponseWriter, r *http.Request, n
 // render slots.
 func (h *videoMetaHandler) makeSprite(ctx context.Context, name string, info fs.FileInfo, l spriteLayout) (*thumbnail, error) {
 	select {
-	case h.t.sem <- struct{}{}:
+	case h.t.spriteSem <- struct{}{}:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	defer func() { <-h.t.sem }()
+	defer func() { <-h.t.spriteSem }()
 	ctx, cancel := context.WithTimeout(ctx, spriteTimeout)
 	defer cancel()
 	var data []byte
