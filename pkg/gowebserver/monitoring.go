@@ -18,7 +18,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"net/http/pprof"
 	"time"
 
 	"github.com/cloudfra/gowebserver/internal"
@@ -43,11 +42,9 @@ func setupMonitoring(m Monitoring, debugEndpoint string) (*monitoringContext, er
 	}
 
 	if len(debugEndpoint) > 0 {
-		mc.handlers[debugEndpoint+"/pprof/"] = http.HandlerFunc(pprof.Index)
-		mc.handlers[debugEndpoint+"/pprof/cmdline"] = http.HandlerFunc(pprof.Cmdline)
-		mc.handlers[debugEndpoint+"/pprof/profile"] = http.HandlerFunc(pprof.Profile)
-		mc.handlers[debugEndpoint+"/pprof/symbol"] = http.HandlerFunc(pprof.Symbol)
-		mc.handlers[debugEndpoint+"/pprof/trace"] = http.HandlerFunc(pprof.Trace)
+		for pattern, h := range pprofHandlers(debugEndpoint) {
+			mc.handlers[pattern] = h
+		}
 	}
 
 	r, err := resource.Merge(

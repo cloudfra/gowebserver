@@ -336,7 +336,7 @@ func (t *thumbnailer) run(ctx context.Context, key string, r *render, mk func(co
 		_, span, end := t.metrics.stage(ctx, r.th.kind, thumbnailStageStore, &r.th.timing)
 		span.SetAttributes(attribute.Int("bytes", len(r.th.data)))
 		if err := t.store.put(key, r.th); err != nil {
-			t.log.Warn("failed to store thumbnail", "path", key, "error", err)
+			t.log.Warn("failed to store thumbnail", "error", errCategory(err))
 		} else {
 			t.metrics.storedBytes.Add(ctx, int64(len(r.th.data)), metric.WithAttributes(kindAttr(r.th.kind)))
 		}
@@ -651,7 +651,7 @@ func (h *thumbnailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		default:
 			result = thumbnailFailed
-			h.t.log.Warn("thumbnail failed", "path", name, "error", err)
+			h.t.log.Warn("thumbnail failed", "error", errCategory(err))
 			th = &thumbnail{}
 		}
 	}
@@ -839,7 +839,7 @@ func (h *thumbnailHandler) decodeImage(ctx context.Context, name string, spec *t
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			h.t.log.Error("failed to close image after thumbnailing", "path", name, "error", err)
+			h.t.log.Error("failed to close image after thumbnailing", "error", errCategory(err))
 		}
 	}()
 	// A file on disk is read by ffmpeg itself, so only its header is
@@ -868,7 +868,7 @@ func (h *thumbnailHandler) decodeImage(ctx context.Context, name string, spec *t
 		case ctx.Err() != nil, errors.Is(err, errThumbnailUnsupported):
 			return nil, 0, nil, err
 		}
-		h.t.log.Debug("ffmpeg could not read a photo; decoding it in Go", "path", name, "error", err)
+		h.t.log.Debug("ffmpeg could not read a photo; decoding it in Go", "error", errCategory(err))
 	}
 	if local {
 		rest, err := io.ReadAll(io.LimitReader(f, thumbnailMaxFileBytes+1-int64(len(data))))
@@ -1041,7 +1041,7 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 	info, statErr := f.Stat()
 	localPath, local := localFilePath(f, info)
 	if err := f.Close(); err != nil {
-		h.t.log.Error("failed to close video after thumbnailing", "path", name, "error", err)
+		h.t.log.Error("failed to close video after thumbnailing", "error", errCategory(err))
 	}
 	if local {
 		fr, err := h.ffmpegFrames(ctx, localPath, "", grab)
@@ -1063,7 +1063,7 @@ func (h *thumbnailHandler) videoFrame(ctx context.Context, name string, spec *th
 	}
 	defer func() {
 		if err := os.Remove(tmp); err != nil {
-			h.t.log.Error("failed to remove temporary video copy", "path", tmp, "error", err)
+			h.t.log.Error("failed to remove temporary video copy", "error", errCategory(err))
 		}
 	}()
 	fr, err = h.ffmpegFrames(ctx, tmp, "", grab)
@@ -1105,7 +1105,7 @@ func (h *thumbnailHandler) copyToTemp(ctx context.Context, name string) (string,
 	}
 	defer func() {
 		if err := src.Close(); err != nil {
-			h.t.log.Error("failed to close video after copying", "path", name, "error", err)
+			h.t.log.Error("failed to close video after copying", "error", errCategory(err))
 		}
 	}()
 	tmp, err := os.CreateTemp("", "gowebserver-video-*"+path.Ext(name))
@@ -1238,7 +1238,7 @@ func (h *thumbnailHandler) ffmpegFrames(ctx context.Context, input, pipe string,
 		}
 		last = err
 	}
-	h.t.log.Debug("ffmpeg could not read a frame", "input", input, "error", last)
+	h.t.log.Debug("ffmpeg could not read a frame", "error", errCategory(last))
 	if timedOut {
 		return videoFrame{}, fmt.Errorf("thumbnail: ffmpeg ran out of time: %w", context.DeadlineExceeded)
 	}
@@ -1318,7 +1318,7 @@ func (h *thumbnailHandler) withVideo(ctx context.Context, operation, pipe string
 		}
 		defer func() {
 			if err := f.Close(); err != nil {
-				h.t.log.Error("failed to close video after thumbnailing", "path", pipe, "error", err)
+				h.t.log.Error("failed to close video after thumbnailing", "error", errCategory(err))
 			}
 		}()
 		return fn(ctx, f)

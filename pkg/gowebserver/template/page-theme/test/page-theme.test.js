@@ -175,3 +175,11 @@ test('embedded, a file\'s page climbs from its folder', () => {
   const t = setup({ html, location: { pathname: '/media/notes/a.txt', host: 'host.test' }, media: { '(min-width: 1100px)': true } });
   assert.deepEqual(t.crumbs(), [['host.test', '/media/'], ['notes', '/media/notes/']]);
 });
+
+test('embedded with a link home, it comes before the mount\'s crumbs', () => {
+  const html = HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../" data-title="Media" data-host-href="/app/" data-host-label="My &lt;app&gt;">');
+  const t = setup({ html, location: { pathname: '/media/photos/', host: 'host.test' }, media: { '(min-width: 1100px)': true } });
+  assert.deepEqual(t.crumbs(), [['My <app>', '/app/'], ['Media', '/media/']]);
+  assert.match(t.$('crumbs').innerHTML, /My &lt;app&gt;/);
+  assert.equal(t.$('crumbs').querySelectorAll('a.home').length, 1);
+});

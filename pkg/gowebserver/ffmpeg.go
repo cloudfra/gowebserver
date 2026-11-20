@@ -24,6 +24,24 @@ import (
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 )
 
+// ffmpegNames are what the settings that choose ffmpeg are called where
+// they're set, for the messages about them.
+type ffmpegNames struct {
+	path, installOnDemand, acceptLicense string
+}
+
+// hint says what to do about a missing ffmpeg.
+func (n ffmpegNames) hint() string {
+	return "install it, or set " + n.installOnDemand + " and " + n.acceptLicense
+}
+
+var (
+	// The standalone server's configuration (and flags, in lower case).
+	ffmpegConfigNames = ffmpegNames{"ffmpeg.path", "ffmpeg.installOnDemand", "ffmpeg.acceptLicense"}
+	// An embedded handler's Options.
+	ffmpegOptionNames = ffmpegNames{"Options.FFmpeg.Path", "Options.FFmpeg.InstallOnDemand", "Options.FFmpeg.AcceptLicense"}
+)
+
 // ffmpegCheckTimeout bounds the run of "ffmpeg -version" that checks a
 // configured ffmpeg at startup.
 const ffmpegCheckTimeout = 30 * time.Second
@@ -35,7 +53,7 @@ const ffmpegCheckTimeout = 30 * time.Second
 // to name ffmpeg, or the folder it's in, and ffmpeg has to run, or the
 // configuration is wrong and that's an error, rather than video features
 // quietly failing later.
-func newFFmpeg(conf FFmpeg, log *slog.Logger) (*ffmpeg.FFmpeg, error) {
+func newFFmpeg(conf FFmpeg, log *slog.Logger, names ffmpegNames) (*ffmpeg.FFmpeg, error) {
 	ff, err := ffmpeg.New(ffmpeg.Options{
 		Path:            conf.Path,
 		InstallOnDemand: conf.InstallOnDemand,
@@ -45,24 +63,24 @@ func newFFmpeg(conf FFmpeg, log *slog.Logger) (*ffmpeg.FFmpeg, error) {
 	})
 	switch {
 	case conf.Path != "" && err != nil:
-		return nil, fmt.Errorf("ffmpeg.path: %w", err)
+		return nil, fmt.Errorf("%s: %w", names.path, err)
 	case conf.Path != "":
 		ctx, cancel := context.WithTimeout(context.Background(), ffmpegCheckTimeout)
 		defer cancel()
 		version, err := ff.Version(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("ffmpeg.path: %q doesn't run: %w", ff.Source(), err)
+			return nil, fmt.Errorf("%s: %q doesn't run: %w", names.path, ff.Source(), err)
 		}
 		log.Info("ffmpeg is available", "source", ff.Source(), "version", version)
 	case err == nil:
 		log.Info("ffmpeg is available", "source", ff.Source())
 	case errors.Is(err, ffmpeg.ErrLicenseNotAccepted):
-		log.Warn("ffmpeg is not installed, and ffmpeg.installOnDemand needs ffmpeg.acceptLicense to download it", "error", err)
+		log.Warn("ffmpeg is not installed, and "+names.installOnDemand+" needs "+names.acceptLicense+" to download it", "error", err)
 	case conf.InstallOnDemand:
 		// Asked for, so worth a warning.
 		log.Warn("ffmpeg is unavailable", "error", err)
 	default:
-		log.Info("ffmpeg is not installed; features that need it are off", "hint", "install it, or set ffmpeg.installOnDemand and ffmpeg.acceptLicense")
+		log.Info("ffmpeg is not installed; features that need it are off", "hint", names.hint())
 	}
 	return ff, nil
 }

@@ -266,8 +266,11 @@ type customIndexReport struct {
 	// Home is the URL the breadcrumb starts at, relative to the page, or
 	// "" for the server's root; HomeTitle names it, or "" for the host
 	// name (see pageOptions).
-	Home                  string
-	HomeTitle             string
+	Home      string
+	HomeTitle string
+	// Chrome is the link to the host's app and the footer (see
+	// pageChrome).
+	Chrome                pageChrome
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -384,8 +387,6 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	urlPath := r.URL.Path
 	path := cleanPath(strings.TrimPrefix(urlPath, "/"))
 
-	c.log.Info("customIndexHandler", "url", r.URL, "path", path)
-
 	if c.redirectDirectoryToTrailingSlash(w, r, path, urlPath) {
 		return true
 	}
@@ -410,7 +411,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	fail := func(err error) bool {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, c.log)
 		return true
 	}
 
@@ -422,7 +423,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			c.log.Error("failed to close file after serving custom index", "path", path, "error", err)
+			c.log.Error("failed to close file after serving custom index", "error", errCategory(err))
 		}
 	}()
 	rdf, ok := f.(fs.ReadDirFile)
@@ -454,6 +455,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		Diagnostics:           c.diag.pageEndpoint(r),
 		Home:                  c.pages.home(r),
 		HomeTitle:             c.pages.title,
+		Chrome:                c.pages.chrome,
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}

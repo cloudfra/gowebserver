@@ -105,8 +105,41 @@ func (s *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // isFileName reports whether name's last segment is a file's name: it
 // ends in an extension with a known media type.
 func isFileName(name string) bool {
-	ext := path.Ext(name)
-	return ext != "" && mime.TypeByExtension(ext) != ""
+	ext := strings.ToLower(path.Ext(name))
+	return ext != "" && (spaTypes[ext] != "" || mime.TypeByExtension(ext) != "")
+}
+
+// spaTypes are the media types of the files a web app's build has, by
+// extension, set on each response: Go's table (mime.TypeByExtension,
+// which reads the system's) lacks some, such as .webmanifest, or differs
+// by platform. It's this package's own; the global table isn't touched.
+var spaTypes = map[string]string{
+	".html":        "text/html; charset=utf-8",
+	".js":          "text/javascript; charset=utf-8",
+	".mjs":         "text/javascript; charset=utf-8",
+	".css":         "text/css; charset=utf-8",
+	".json":        "application/json",
+	".map":         "application/json",
+	".webmanifest": "application/manifest+json",
+	".wasm":        "application/wasm",
+	".txt":         "text/plain; charset=utf-8",
+	".xml":         "application/xml",
+	".svg":         "image/svg+xml",
+	".ico":         "image/x-icon",
+	".png":         "image/png",
+	".jpg":         "image/jpeg",
+	".jpeg":        "image/jpeg",
+	".gif":         "image/gif",
+	".webp":        "image/webp",
+	".avif":        "image/avif",
+	".woff":        "font/woff",
+	".woff2":       "font/woff2",
+	".ttf":         "font/ttf",
+	".otf":         "font/otf",
+	".mp4":         "video/mp4",
+	".webm":        "video/webm",
+	".mp3":         "audio/mpeg",
+	".pdf":         "application/pdf",
 }
 
 // serveFile serves the file at name in fsys, reporting false when there
@@ -137,6 +170,9 @@ func (s *spaHandler) serveFile(w http.ResponseWriter, r *http.Request, name stri
 			return true
 		}
 		content = bytes.NewReader(b)
+	}
+	if t := spaTypes[strings.ToLower(path.Ext(name))]; t != "" {
+		w.Header().Set("Content-Type", t)
 	}
 	switch {
 	case immutable:

@@ -103,7 +103,7 @@ func (c *customIndexHandler) serveSubfolders(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, c.log)
 		return
 	}
 	span.SetAttributes(attribute.Int("folders", len(folders)), attribute.String("sort", sortBy))

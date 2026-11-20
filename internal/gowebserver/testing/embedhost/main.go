@@ -68,6 +68,7 @@ func run() error {
 		FS:            os.DirFS(*pathFlag),
 		EnhancedIndex: true,
 		Title:         *titleFlag,
+		Home:          gowebserver.HomeLink{Label: "Host app", URL: "/"},
 		Diagnostics:   *diagnosticsFlag,
 		Logger:        logger,
 	})
@@ -91,7 +92,7 @@ func run() error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
-	mux.Handle("/media/", http.StripPrefix("/media", media))
+	gowebserver.Mount(mux, "/media", media)
 	mux.Handle("/", gowebserver.SPA(dist, gowebserver.SPAOptions{ImmutablePrefix: "assets/"}))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *httpPortFlag))

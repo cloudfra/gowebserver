@@ -29,6 +29,12 @@ var HOME = (function () {
   return segs.join('/') || '/';
 })();
 var HOME_TITLE = ($('crumbs') && $('crumbs').getAttribute('data-title')) || '';
+// A link back to the app that embeds the handler, before the crumbs, when
+// it asks for one (data-host-href, data-host-label).
+var HOST = (function () {
+  var nav = $('crumbs'), href = nav && nav.getAttribute('data-host-href');
+  return href ? { href: href, label: nav.getAttribute('data-host-label') || 'Home' } : null;
+})();
 
 // ===== Theme =====
 (function () {
@@ -71,7 +77,8 @@ var HOME_TITLE = ($('crumbs') && $('crumbs').getAttribute('data-title')) || '';
       href += p + '/';
       ancestors.push({ href: href, name: label(p) });
     });
-    var html = '<a href="' + escapeHTML(HOME) + '">' +
+    var html = (HOST ? '<a class="host" href="' + escapeHTML(HOST.href) + '">' + escapeHTML(HOST.label) + '</a>' + SEP : '') +
+      '<a class="home" href="' + escapeHTML(HOME) + '">' +
       '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
       '<span>' + escapeHTML(HOME_TITLE || location.host || 'Home') + '</span></a>';
     var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));

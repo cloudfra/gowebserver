@@ -86,7 +86,10 @@ test('the file browser at /media/ starts its breadcrumb there, named by its titl
   const start = requests.length;
   await b.page.goto(srv.media);
   await settled();
-  const home = b.page.locator('#crumbs a').first();
+  const back = b.page.locator('#crumbs a.host');
+  assert.equal(await back.textContent(), 'Host app');
+  assert.equal(await back.evaluate((a) => a.href), srv.url);
+  const home = b.page.locator('#crumbs a.home');
   assert.equal(await home.textContent(), 'Media');
   assert.equal(await home.evaluate((a) => a.href), srv.media);
   assert.equal(await b.page.locator('#title').textContent(), 'Media');
@@ -96,13 +99,13 @@ test('the file browser at /media/ starts its breadcrumb there, named by its titl
   await b.page.goto(srv.media + 'trips/2024/');
   await settled();
   const crumbs = await b.page.$$eval('#crumbs a', (as) => as.map((a) => [a.textContent, a.href]));
-  assert.deepEqual(crumbs, [['Media', srv.media], ['trips', srv.media + 'trips/']]);
+  assert.deepEqual(crumbs, [['Host app', srv.url], ['Media', srv.media], ['trips', srv.media + 'trips/']]);
   assert.deepEqual(outside(requests.slice(start)), []);
 });
 
 test('the crumbs\' panel lists the mount\'s own folders', async () => {
   await b.page.goto(srv.media + 'trips/2024/');
-  await b.page.hover('#crumbs a >> nth=0');
+  await b.page.hover('#crumbs a.home');
   await b.page.waitForSelector('#crumb-panel.hp-open');
   const links = await b.page.$$eval('#crumb-panel a', (as) => as.map((a) => a.href));
   assert.ok(links.includes(srv.media + 'trips/'), links.join(' '));
@@ -127,7 +130,7 @@ test('the gallery opens and moves along, under /media/', async () => {
 test('the text viewer\'s links stay under /media/', async () => {
   await b.page.goto(srv.media + 'trips/2024/readme.md?view=rich');
   const crumbs = await b.page.$$eval('#crumbs a', (as) => as.map((a) => [a.textContent, a.href]));
-  assert.deepEqual(crumbs, [['Media', srv.media], ['trips', srv.media + 'trips/'], ['2024', srv.media + 'trips/2024/']]);
+  assert.deepEqual(crumbs, [['Host app', srv.url], ['Media', srv.media], ['trips', srv.media + 'trips/'], ['2024', srv.media + 'trips/2024/']]);
 });
 
 // Every page reachable from /media/, through every link on it: each link
@@ -144,7 +147,8 @@ test('a crawl of every link from /media/ never leaves it', async () => {
     assert.ok(res && res.status() < 400, url + ': ' + (res && res.status()));
     await b.page.waitForLoadState('load');
     if (await b.page.locator('.tile').count()) await settled();
-    const links = await b.page.$$eval('a[href]', (as) => as.map((a) => a.href.split('#')[0]));
+    // Every link but the one back to the host's app, which it asked for.
+    const links = await b.page.$$eval('a[href]:not(.host)', (as) => as.map((a) => a.href.split('#')[0]));
     for (const l of links) {
       assert.ok(under(l), 'a link on ' + url + ' goes to ' + l);
       // Pages, not the files themselves (a download is no page).
@@ -174,6 +178,14 @@ test('the host\'s app still loads after browsing the mount', async () => {
   await b.page.goto(srv.url + 'settings');
   await b.page.waitForSelector('body[data-ready]');
   assert.equal(await b.page.locator('#route').textContent(), '/settings');
+});
+
+test('the bare mount redirects to it, relative to where it is', async () => {
+  const res = await fetch(srv.url + 'media?x=1', { redirect: 'manual' });
+  assert.equal(res.status, 307);
+  assert.equal(res.headers.get('location'), './media/?x=1');
+  await b.page.goto(srv.url + 'media');
+  assert.equal(b.page.url(), srv.media);
 });
 
 test('nothing went wrong along the way', () => {

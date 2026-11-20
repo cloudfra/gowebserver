@@ -40,6 +40,8 @@
   // What a crumb's panel lists: {head, list} with list a promise of
   // [{name, href, archive, current}].
   function contents(a) {
+    // The host's own app: nothing of the mount's to list.
+    if (a.classList.contains('host')) return null;
     var href = a.getAttribute('href') || HOME;
     if (a.classList.contains('more')) {
       // The folders the ellipsis stands for: every one above its link.

@@ -366,3 +366,16 @@ test('embedded, the home crumb lists the mount\'s top level', async () => {
   assert.deepEqual(t.current(), ['Photos']);
   assert.equal(t.panel.querySelector('.cp-head').textContent, 'Media');
 });
+
+test('the link to the host\'s app opens no panel', async () => {
+  const t = setup({
+    html: HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../../" data-title="Media" data-host-href="/" data-host-label="App">'),
+    pathname: '/media/Photos/2024/',
+    dirs: { '/': [{ name: 'api' }], '/media/': [{ name: 'Photos' }] },
+  });
+  t.hover(t.crumb('App'));
+  t.pg.tick(DWELL);
+  await t.settle();
+  assert.deepEqual(t.asked, []);
+  assert.equal(t.open(), false);
+});

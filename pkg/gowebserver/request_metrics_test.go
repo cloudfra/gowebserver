@@ -173,7 +173,7 @@ func TestRequestMetrics(t *testing.T) {
 func TestRequestMetricsUpload(t *testing.T) {
 	dir := t.TempDir()
 	mc, reader, _ := testMonitoring()
-	h, err := newUploadHandler(mc, "/upload", dir)
+	h, err := newUploadHandler(mc, "/upload", dir, pageChrome{})
 	if err != nil {
 		t.Fatal(err)
 	}

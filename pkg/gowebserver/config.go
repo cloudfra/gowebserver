@@ -197,6 +197,11 @@ type FFmpeg struct {
 	// .zip). Append #sha256=<hex> to verify it. Empty downloads the latest
 	// release for this platform.
 	SourceURL string `yaml:"sourceUrl"`
+	// Required, for an embedded handler (Options.FFmpeg), fails
+	// NewHandler when Path is set but has no ffmpeg that runs. Without
+	// it, that's logged once and the handler goes without ffmpeg. The
+	// standalone server always requires a configured path.
+	Required bool `yaml:"-"`
 }
 
 // Thumbnails configures resized images and video frames, served when a

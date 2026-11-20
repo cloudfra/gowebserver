@@ -223,7 +223,7 @@ func (c *customIndexHandler) serveFolderPreview(w http.ResponseWriter, r *http.R
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			fsError(w, err, c.log)
 			return
 		}
 		c.previews.put(key, preview)

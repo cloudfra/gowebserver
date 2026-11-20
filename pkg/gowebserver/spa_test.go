@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"testing"
@@ -170,5 +171,39 @@ func TestSPABesideHandler(t *testing.T) {
 		if rec := mountGet(t, mux, http.MethodGet, target, nil); rec.Body.String() != want {
 			t.Errorf("GET %s: %q, want %q", target, rec.Body.String(), want)
 		}
+	}
+}
+
+// The build's files have their media types from SPA's own table, as
+// browsers need them (a manifest, fonts, AVIF), whatever the system's
+// table says, which is left alone.
+func TestSPATypes(t *testing.T) {
+	before := mime.TypeByExtension(".webmanifest")
+	build := fstest.MapFS{"index.html": {Data: []byte("app")}}
+	want := map[string]string{
+		"manifest.webmanifest":  "application/manifest+json",
+		"assets/a.woff2":        "font/woff2",
+		"assets/b.avif":         "image/avif",
+		"assets/c.mjs":          "text/javascript; charset=utf-8",
+		"assets/d.wasm":         "application/wasm",
+		"assets/e.js.map":       "application/json",
+		"assets/f.unknownthing": "",
+	}
+	for name := range want {
+		build[name] = &fstest.MapFile{Data: []byte("x")}
+	}
+	h := SPA(build, SPAOptions{ImmutablePrefix: "assets/"})
+	for name, ct := range want {
+		rec := mountGet(t, h, http.MethodGet, "/"+name, nil)
+		if ct != "" && rec.Header().Get("Content-Type") != ct {
+			t.Errorf("%s: Content-Type %q, want %q", name, rec.Header().Get("Content-Type"), ct)
+		}
+	}
+	// A missing manifest is a file, so a 404, not the app.
+	if rec := mountGet(t, h, http.MethodGet, "/missing.webmanifest", nil); rec.Code != http.StatusNotFound {
+		t.Errorf("a missing manifest: %d", rec.Code)
+	}
+	if after := mime.TypeByExtension(".webmanifest"); after != before {
+		t.Errorf("the global table changed: %q, was %q", after, before)
 	}
 }

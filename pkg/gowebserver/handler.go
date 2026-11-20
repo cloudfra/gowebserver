@@ -21,7 +21,10 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -41,7 +44,9 @@ type Options struct {
 	FS fs.FS
 	// Path is the content to serve as the standalone server's -path takes
 	// it: a folder, an archive (zip, tar, 7z, rar), a git repository, or
-	// an http(s) URL whose server requests are passed on to.
+	// an http(s) URL whose server requests are passed on to. A folder
+	// that isn't there yet (a path with no extension) is served once it
+	// is; until then every request is a 404.
 	Path string
 	// Source names the content in the thumbnail store, which keeps each
 	// source's thumbnails apart and knows a file's by its name, size and
@@ -58,6 +63,14 @@ type Options struct {
 	// of the handler (where it's mounted), and the page of that folder.
 	// Empty uses the page's host name.
 	Title string
+	// Home, when set, is a link back to the host's own app, shown before
+	// the breadcrumb's first crumb: the one link on the pages that leaves
+	// the mount, and only because the host asks for it.
+	Home HomeLink
+	// Footer replaces the pages' footer, "Go Web Server" and its version;
+	// HideFooter leaves the footer out.
+	Footer     string
+	HideFooter bool
 
 	// Thumbnails are resized images and video frames, served for a file
 	// asked for with width or height query parameters. On unless
@@ -84,6 +97,15 @@ type Options struct {
 	// a view that tells them apart, to see both.
 	MeterProvider  metric.MeterProvider
 	TracerProvider trace.TracerProvider
+}
+
+// HomeLink is a link to the host's own app (see Options.Home).
+type HomeLink struct {
+	// Label is the link's text. Empty is "Home".
+	Label string
+	// URL is where it goes: a path such as "/" or "/app/", relative or
+	// absolute, or an http(s) URL.
+	URL string
 }
 
 // ThumbnailOptions configures a [Handler]'s thumbnails.
@@ -164,9 +186,14 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 
 	var thumbs *thumbnailer
 	if !o.Thumbnails.Disabled {
-		ff, err := newFFmpeg(o.FFmpeg, logger)
+		ff, err := newFFmpeg(o.FFmpeg, logger, ffmpegOptionNames)
 		if err != nil {
-			return nil, fmt.Errorf("gowebserver: %w", err)
+			if o.FFmpeg.Required {
+				return nil, fmt.Errorf("gowebserver: %w", err)
+			}
+			logger.Warn("ffmpeg isn't usable; video thumbnails are off, and photos are made without it", "error", err,
+				"hint", "point Options.FFmpeg.Path at ffmpeg, or set Options.FFmpeg.Required to fail instead")
+			ff = nil
 		}
 		cachePath := o.Thumbnails.CachePath
 		if cachePath == "" {
@@ -179,9 +206,21 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 		h.closers = append(h.closers, thumbs.close)
 	}
 
-	pages := pageOptions{enhancedList: o.EnhancedIndex, mounted: true, title: o.Title}
+	if o.Home.URL != "" {
+		u, err := url.Parse(o.Home.URL)
+		if err != nil || (u.Scheme != "" && u.Scheme != "http" && u.Scheme != "https") {
+			return nil, fmt.Errorf("gowebserver: Options.Home.URL %q is not a path or an http(s) URL", o.Home.URL)
+		}
+	}
+	pages := pageOptions{enhancedList: o.EnhancedIndex, mounted: true, title: o.Title, chrome: pageChrome{
+		HostLabel: o.Home.Label, HostURL: o.Home.URL, Footer: o.Footer, HideFooter: o.HideFooter,
+	}}
+	if pages.chrome.HostURL != "" && pages.chrome.HostLabel == "" {
+		pages.chrome.HostLabel = "Home"
+	}
 	var content http.Handler
-	if o.FS != nil {
+	switch {
+	case o.FS != nil:
 		source := o.Source
 		if source == "" {
 			source = "fs:"
@@ -190,7 +229,14 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("gowebserver: %w", err)
 		}
-	} else {
+	case missingFolder(o.Path):
+		// A folder made on first use: served once it's there.
+		lazy := &lazyContent{path: o.Path, log: logger, mount: func() (http.Handler, func() error, error) {
+			return newHandlerFromFSContext(context.WithoutCancel(ctx), o.Path, o.Source, mc, pages, thumbs)
+		}}
+		content = lazy
+		h.closers = append(h.closers, lazy.close)
+	default:
 		var closeFS func() error
 		content, closeFS, err = newHandlerFromFSContext(ctx, o.Path, o.Source, mc, pages, thumbs)
 		if err != nil {
@@ -209,7 +255,7 @@ func NewHandler(ctx context.Context, o Options) (_ *Handler, err error) {
 		route := "/" + strings.Trim(o.Upload.Path, "/")
 		// The page links to itself relative to where it is, so it stays
 		// under the mount.
-		upload, err := newUploadHandler(mc, "./"+path.Base(route), o.Upload.Dir)
+		upload, err := newUploadHandler(mc, "./"+path.Base(route), o.Upload.Dir, pages.chrome)
 		if err != nil {
 			return nil, fmt.Errorf("gowebserver: upload: %w", err)
 		}
@@ -259,6 +305,69 @@ func (h *Handler) Close() error {
 	return h.err
 }
 
+// missingFolder reports whether p names a local folder that isn't there
+// yet: not a URL, nothing at p, and no extension, which an archive has.
+func missingFolder(p string) bool {
+	if strings.Contains(p, "://") || filepath.Ext(p) != "" {
+		return false
+	}
+	_, err := os.Stat(p)
+	return errors.Is(err, fs.ErrNotExist)
+}
+
+// lazyContent serves a folder that may not exist yet: each request
+// before it does is a 404, and the first after it does mounts it.
+type lazyContent struct {
+	path  string
+	log   *slog.Logger
+	mount func() (http.Handler, func() error, error)
+
+	mu      sync.Mutex
+	h       http.Handler
+	closeFS func() error
+	closed  bool
+}
+
+func (l *lazyContent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h, err := l.handler()
+	if err != nil {
+		fsError(w, err, l.log)
+		return
+	}
+	h.ServeHTTP(w, r)
+}
+
+// handler is the folder's handler, mounting it if it's there now.
+func (l *lazyContent) handler() (http.Handler, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.h != nil {
+		return l.h, nil
+	}
+	if l.closed {
+		return nil, fs.ErrNotExist
+	}
+	if _, err := os.Stat(l.path); err != nil {
+		return nil, err
+	}
+	h, closeFS, err := l.mount()
+	if err != nil {
+		return nil, err
+	}
+	l.h, l.closeFS = h, closeFS
+	return h, nil
+}
+
+func (l *lazyContent) close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.closed = true
+	if l.closeFS == nil {
+		return nil
+	}
+	return l.closeFS()
+}
+
 // pageOptions are what the content handler's pages show.
 type pageOptions struct {
 	// enhancedList lists folders with the file browser.
@@ -268,6 +377,16 @@ type pageOptions struct {
 	mounted bool
 	// title names the breadcrumb's first crumb; empty is the host name.
 	title string
+	// chrome is what the pages show around their content.
+	chrome pageChrome
+}
+
+// pageChrome is what the pages show around their content, from Options:
+// a link to the host's app before the breadcrumb, and the footer.
+type pageChrome struct {
+	HostLabel, HostURL string
+	Footer             string
+	HideFooter         bool
 }
 
 // home is the URL of the breadcrumb's first crumb, relative to the page r
@@ -300,4 +419,27 @@ func mountRoot(r *http.Request) string {
 		p = "/" + p
 	}
 	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0))
+}
+
+// Mount serves h at prefix (such as "/media") on mux: everything under
+// prefix+"/" goes to h behind http.StripPrefix, and prefix itself is
+// redirected to prefix+"/" with a relative Location ("./media/"), not
+// ServeMux's absolute one, so the redirect stays right behind a proxy
+// that adds a path prefix of its own. A prefix of "/" or "" mounts h at
+// the root.
+func Mount(mux *http.ServeMux, prefix string, h http.Handler) {
+	p := strings.Trim(prefix, "/")
+	if p == "" {
+		mux.Handle("/", h)
+		return
+	}
+	p = "/" + p
+	mux.Handle(p+"/", http.StripPrefix(p, h))
+	mux.HandleFunc(p, func(w http.ResponseWriter, r *http.Request) {
+		target := relativeURL(path.Base(p)) + "/"
+		if q := r.URL.RawQuery; q != "" {
+			target += "?" + q
+		}
+		redirectRelative(w, target, http.StatusTemporaryRedirect)
+	})
 }

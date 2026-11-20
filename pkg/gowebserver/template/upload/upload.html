@@ -82,7 +82,9 @@
     <input type="hidden" name="token" value="{{.UploadToken}}" />
   </form>
 
-  <div class="footer">Go Web Server {{.ApplicationVersion}}</div>
+  {{- if not .Chrome.HideFooter}}
+  <div class="footer">{{if .Chrome.Footer}}{{.Chrome.Footer}}{{else}}Go Web Server {{.ApplicationVersion}}{{end}}</div>
+  {{- end}}
 
   <script>
     'use strict';

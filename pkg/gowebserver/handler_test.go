@@ -270,7 +270,7 @@ func TestNewHandlerLeavesGlobalsAlone(t *testing.T) {
 	if len(spans.Ended()) == 0 {
 		t.Error("no spans in the host's tracer provider")
 	}
-	if !strings.Contains(logs.String(), "customIndexHandler") {
+	if !strings.Contains(logs.String(), "thumbnails are cached") {
 		t.Errorf("nothing logged to the host's logger:\n%s", logs.String())
 	}
 

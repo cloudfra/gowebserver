@@ -39,7 +39,7 @@ var gzipWriters = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) 
 // one (206), or one to a Range or HEAD request is passed on untouched, so
 // seeking in a video and sendfile still work.
 func gzipHandler(next http.Handler) http.Handler {
-	return gzipHandlerLog(next, slog.Default())
+	return gzipHandlerLog(next, slog.Default(), defaultCompression)
 }
 
 // Compress compresses h's responses with gzip for a client that accepts
@@ -50,28 +50,134 @@ func gzipHandler(next http.Handler) http.Handler {
 // compressed response, and each that could have been, has
 // "Vary: Accept-Encoding".
 //
+// A response smaller than 1 KiB stays plain: by its Content-Length, or,
+// without one, by holding its first KiB before deciding. A HEAD response
+// gets the Vary its GET would have. CompressWith changes the size and the
+// types.
+//
 // Wrap a host's whole mux in it, API responses and all. Nested, as when
 // it wraps a mux that has a Compress of its own inside, only the
 // outermost compresses. It logs nothing.
 func Compress(h http.Handler) http.Handler {
-	return gzipHandlerLog(h, slog.New(slog.DiscardHandler))
+	return CompressWith(h, CompressOptions{})
+}
+
+// CompressOptions configures [CompressWith].
+type CompressOptions struct {
+	// MinSize is the smallest body compressed, in bytes. Zero is 1024.
+	MinSize int
+	// Types are the media types compressed: "application/json", a whole
+	// type ("text/*"), or a structured suffix ("*+json"). Nil is
+	// Compress's list: text, scripts, styles, JSON, XML, SVG, WebAssembly
+	// and a few fonts.
+	Types []string
+}
+
+// CompressWith is [Compress] with the minimum size and the types o says.
+func CompressWith(h http.Handler, o CompressOptions) http.Handler {
+	c := defaultCompression
+	if o.MinSize > 0 {
+		c.minSize = o.MinSize
+	}
+	if o.Types != nil {
+		c.compressible = typeMatcher(o.Types)
+	}
+	return gzipHandlerLog(h, slog.New(slog.DiscardHandler), c)
+}
+
+// compression is what a gzipHandler compresses.
+type compression struct {
+	minSize      int
+	compressible func(contentType string) bool
+}
+
+var defaultCompression = compression{minSize: gzipMinSize, compressible: compressible}
+
+// typeMatcher matches a Content-Type against types (see
+// CompressOptions.Types).
+func typeMatcher(types []string) func(string) bool {
+	return func(contentType string) bool {
+		mt, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return false
+		}
+		for _, t := range types {
+			t = strings.ToLower(strings.TrimSpace(t))
+			switch {
+			case strings.HasSuffix(t, "/*"):
+				if strings.HasPrefix(mt, strings.TrimSuffix(t, "*")) {
+					return true
+				}
+			case strings.HasPrefix(t, "*+"):
+				if strings.HasSuffix(mt, t[1:]) {
+					return true
+				}
+			case t == mt:
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // gzipping marks a request whose response a gzipHandler further out
 // compresses.
 type gzipping struct{}
 
-// gzipHandlerLog is gzipHandler, logging to log.
-func gzipHandlerLog(next http.Handler, log *slog.Logger) http.Handler {
+// gzipHandlerLog is gzipHandler, logging to log, compressing what c says.
+func gzipHandlerLog(next http.Handler, log *slog.Logger, c compression) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodHead || r.Header.Get("Range") != "" || r.Context().Value(gzipping{}) != nil {
+		if r.Context().Value(gzipping{}) != nil || r.Header.Get("Range") != "" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		gw := &gzipResponseWriter{ResponseWriter: w, accepts: acceptsGzip(r.Header.Get("Accept-Encoding")), log: log}
+		ctx := context.WithValue(r.Context(), gzipping{}, true)
+		if r.Method == http.MethodHead {
+			// Not compressed, as there's no body, but with the Vary its
+			// GET would have.
+			next.ServeHTTP(&headVaryWriter{ResponseWriter: w, c: c}, r.WithContext(ctx))
+			return
+		}
+		gw := &gzipResponseWriter{ResponseWriter: w, accepts: acceptsGzip(r.Header.Get("Accept-Encoding")), log: log, c: c}
 		defer gw.close()
-		next.ServeHTTP(gw, r.WithContext(context.WithValue(r.Context(), gzipping{}, true)))
+		next.ServeHTTP(gw, r.WithContext(ctx))
 	})
+}
+
+// headVaryWriter adds Vary: Accept-Encoding to a HEAD response whose GET
+// could be compressed.
+type headVaryWriter struct {
+	http.ResponseWriter
+	c    compression
+	done bool
+}
+
+func (w *headVaryWriter) vary() {
+	if w.done {
+		return
+	}
+	w.done = true
+	h := w.Header()
+	if h.Get("Content-Encoding") == "" && w.c.compressible(h.Get("Content-Type")) {
+		h.Add("Vary", "Accept-Encoding")
+	}
+}
+
+func (w *headVaryWriter) WriteHeader(code int) {
+	if code >= http.StatusOK {
+		w.vary()
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *headVaryWriter) Write(b []byte) (int, error) {
+	w.vary()
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap is for http.ResponseController.
+func (w *headVaryWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // acceptsGzip reports whether an Accept-Encoding header allows gzip.
@@ -140,6 +246,13 @@ type gzipResponseWriter struct {
 	pending int
 	gz      *gzip.Writer // nil unless compressing
 	log     *slog.Logger
+	c       compression
+	// A response that could be compressed but whose length isn't known
+	// is held, its status and first bytes, until it's c.minSize long
+	// (then it's compressed) or ends (then it's sent plain).
+	holding bool
+	status  int
+	held    []byte
 }
 
 // decide chooses whether to compress, from the header the handler set and
@@ -150,7 +263,7 @@ func (w *gzipResponseWriter) decide(status int) {
 	}
 	w.decided = true
 	h := w.Header()
-	if h.Get("Content-Encoding") != "" || !compressible(h.Get("Content-Type")) {
+	if h.Get("Content-Encoding") != "" || !w.c.compressible(h.Get("Content-Type")) {
 		return
 	}
 	// Whether the body is compressed depends on Accept-Encoding, which
@@ -160,11 +273,21 @@ func (w *gzipResponseWriter) decide(status int) {
 		status == http.StatusPartialContent || status == http.StatusNotModified {
 		return
 	}
-	if cl := h.Get("Content-Length"); cl != "" {
-		if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n < gzipMinSize {
+	cl := h.Get("Content-Length")
+	if cl != "" {
+		if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n < int64(w.c.minSize) {
 			return
 		}
+	} else {
+		w.holding, w.status = true, status
+		return
 	}
+	w.startGzip()
+}
+
+// startGzip sets the header for a compressed body and starts gzip.
+func (w *gzipResponseWriter) startGzip() {
+	h := w.Header()
 	h.Del("Content-Length")
 	h.Del("Accept-Ranges")
 	h.Set("Content-Encoding", "gzip")
@@ -186,7 +309,33 @@ func (w *gzipResponseWriter) sendHeader(code int) {
 	w.decide(code)
 	w.wroteHeader = true
 	w.pending = 0
-	w.ResponseWriter.WriteHeader(code)
+	if !w.holding {
+		w.ResponseWriter.WriteHeader(code)
+	}
+}
+
+// release ends holding: compressed when gzip is true, else plain, and
+// sends what was held.
+func (w *gzipResponseWriter) release(gzip bool) error {
+	w.holding = false
+	if gzip {
+		w.startGzip()
+	} else {
+		w.Header().Set("Content-Length", strconv.Itoa(len(w.held)))
+	}
+	w.ResponseWriter.WriteHeader(w.status)
+	held := w.held
+	w.held = nil
+	if len(held) == 0 {
+		return nil
+	}
+	var err error
+	if w.gz != nil {
+		_, err = w.gz.Write(held)
+	} else {
+		_, err = w.ResponseWriter.Write(held)
+	}
+	return err
 }
 
 // sendPending sends a held status, if there is one.
@@ -224,6 +373,15 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 		}
 		w.sendHeader(code)
 	}
+	if w.holding {
+		w.held = append(w.held, b...)
+		if len(w.held) >= w.c.minSize {
+			if err := w.release(true); err != nil {
+				return 0, err
+			}
+		}
+		return len(b), nil
+	}
 	if w.gz != nil {
 		return w.gz.Write(b)
 	}
@@ -239,7 +397,7 @@ func (w *gzipResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 		}
 		w.sendHeader(code)
 	}
-	if w.wroteHeader && w.gz == nil {
+	if w.wroteHeader && w.gz == nil && !w.holding {
 		if rf, ok := w.ResponseWriter.(io.ReaderFrom); ok {
 			return rf.ReadFrom(r)
 		}
@@ -250,6 +408,12 @@ func (w *gzipResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 
 func (w *gzipResponseWriter) Flush() {
 	w.sendPending()
+	if w.holding {
+		// A stream: what follows is worth compressing.
+		if err := w.release(true); err != nil {
+			w.log.Debug("gzip flush failed", "error", err)
+		}
+	}
 	if w.gz != nil {
 		if err := w.gz.Flush(); err != nil {
 			// Usually the client has gone; the next write says so too.
@@ -269,6 +433,12 @@ func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
 // close ends the response: a held status with no body, or the gzip stream.
 func (w *gzipResponseWriter) close() {
 	w.sendPending()
+	if w.holding {
+		// It ended short: plain.
+		if err := w.release(false); err != nil {
+			w.log.Debug("cannot write a short response", "error", err)
+		}
+	}
 	if w.gz == nil {
 		return
 	}

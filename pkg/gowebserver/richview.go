@@ -85,6 +85,8 @@ type RichViewReport struct {
 	// customIndexReport).
 	Home      string
 	HomeTitle string
+	// Chrome is the link to the host's app and the footer.
+	Chrome pageChrome
 }
 
 type richViewHandler struct {
@@ -190,18 +192,18 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	f, err := h.baseFS.Open(fsPath)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			h.log.Error("failed to close file after rich view rendering", "path", fsPath, "error", err)
+			h.log.Error("failed to close file after rich view rendering", "error", errCategory(err))
 		}
 	}()
 
 	stat, err := f.Stat()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 
@@ -217,7 +219,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	content, err := io.ReadAll(io.LimitReader(f, int64(richViewMaxFileSize)+1))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 
@@ -240,10 +242,11 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Oversized:          true,
 			Home:               h.pages.home(r),
 			HomeTitle:          h.pages.title,
+			Chrome:             h.pages.chrome,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := h.tmpl.Execute(w, report); err != nil {
-			h.log.Error("failed to execute rich view template for oversized file", "path", fsPath, "error", err)
+			h.log.Error("failed to execute rich view template for oversized file", "error", errCategory(err))
 		}
 		return
 	}
@@ -290,20 +293,20 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	chromaCSS, err := richViewCSS(formatter, themeName)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 
 	iterator, err := lexer.Tokenise(nil, contentStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 
 	var htmlBuf bytes.Buffer
 	// With classes enabled the style only affects the CSS, not the markup.
 	if err := formatter.Format(&htmlBuf, styles.Fallback, iterator); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fsError(w, err, h.log)
 		return
 	}
 
@@ -328,6 +331,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ApplicationVersion: internal.Version(),
 		Home:               h.pages.home(r),
 		HomeTitle:          h.pages.title,
+		Chrome:             h.pages.chrome,
 	}
 
 	result = richViewHighlighted
@@ -335,7 +339,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer rendered()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.Execute(w, report); err != nil {
-		h.log.Error("failed to execute rich view template", "path", fsPath, "error", err)
+		h.log.Error("failed to execute rich view template", "error", errCategory(err))
 	}
 }
 

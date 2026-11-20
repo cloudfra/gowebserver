@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -259,4 +260,21 @@ func relativeURL(name string) string {
 func redirectRelative(w http.ResponseWriter, target string, code int) {
 	w.Header().Set("Location", target)
 	w.WriteHeader(code)
+}
+
+// fsError answers a request that failed with err, from the served
+// filesystem or what was made of it: 404 when the file isn't there, 403
+// when it can't be read, 500 otherwise. The body is the status's text,
+// never err's, which can name paths; a 500 is logged by err's category.
+func fsError(w http.ResponseWriter, err error, log *slog.Logger) {
+	code := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		code = http.StatusNotFound
+	case errors.Is(err, fs.ErrPermission):
+		code = http.StatusForbidden
+	default:
+		log.Warn("cannot answer a request", "error", errCategory(err))
+	}
+	http.Error(w, http.StatusText(code), code)
 }

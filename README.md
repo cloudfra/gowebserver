@@ -209,7 +209,9 @@ The core server implementation lives in `pkg/gowebserver/`:
 
 `gowebserver.NewHandler` is the file browser, gallery, text viewer and thumbnails for one folder (or archive, or git repository) as an `http.Handler`, to mount wherever your program wants it. It has no global side effects: importing the package registers no flags, and a handler registers no routes, starts no listener, never touches the otel or zap globals or slog's default logger, and logs, measures and traces only through what its `Options` give it (nothing, by default). Everything it serves and links to stays under the path it's mounted at, and its breadcrumb starts there, named by `Options.Title`. Its optional endpoints (uploads, diagnostics) are off unless asked for, and then under the mount too. `Close` releases the content and the thumbnail store and waits for its background work.
 
-`gowebserver.SPA` serves a built single-page app from any `fs.FS` (an `embed.FS` of its build, say): files as they are, its content-hashed build assets cached as immutable, and the app's index, uncached, for every other route. `gowebserver.Compress` is the server's gzip middleware, for a program's whole mux; nested, only the outermost compresses.
+Requests log nothing above Debug, and no log line names a file. A missing file is a 404 and an unreadable one a 403, with no error text in the body. A `Path` to a folder that doesn't exist yet is served once it does. A configured `FFmpeg.Path` without ffmpeg turns video thumbnails off (unless `FFmpeg.Required`). `Options.Home` adds a link back to the host's app before the breadcrumb, and `Footer`/`HideFooter` replace or drop the footer. `Mount` mounts a handler and answers the bare prefix with a relative redirect, which stays right behind a path-prefix proxy.
+
+`gowebserver.SPA` serves a built single-page app from any `fs.FS` (an `embed.FS` of its build, say): files as they are, its content-hashed build assets cached as immutable, and the app's index, uncached, for every other route. `gowebserver.Compress` is the server's gzip middleware, for a program's whole mux: bodies under 1 KiB stay plain (held until they're known to be longer when there's no Content-Length), HEAD gets the `Vary` its GET has, and nested, only the outermost compresses. `CompressWith` takes a minimum size and the media types to compress.
 
 ```go
 media, err := gowebserver.NewHandler(ctx, gowebserver.Options{
@@ -226,7 +228,7 @@ defer media.Close()
 
 mux := http.NewServeMux()
 mux.Handle("/api/", api)
-mux.Handle("/media/", http.StripPrefix("/media", media))
+gowebserver.Mount(mux, "/media", media) // /media/ behind StripPrefix; /media redirects relatively
 mux.Handle("/", gowebserver.SPA(dist, gowebserver.SPAOptions{ImmutablePrefix: "assets/"}))
 srv := &http.Server{Handler: gowebserver.Compress(mux)}
 ```

@@ -224,7 +224,7 @@ func (ws *webServerImpl) Serve(wait func()) error {
 	}
 
 	if len(ws.uploadHTTPPath) > 0 {
-		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath)
+		uploadHandler, err := newUploadHandler(ws.monitoringCtx, ws.uploadHTTPPath, ws.uploadPath, pageChrome{})
 		if err != nil {
 			return err
 		}
@@ -357,7 +357,7 @@ func New(conf *Config) (WebServer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
 	}
-	ff, err := newFFmpeg(conf.FFmpeg, slog.Default())
+	ff, err := newFFmpeg(conf.FFmpeg, slog.Default(), ffmpegConfigNames)
 	if err != nil {
 		return nil, err
 	}
