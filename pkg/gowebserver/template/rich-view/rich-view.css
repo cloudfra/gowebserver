@@ -141,6 +141,11 @@ svg {
   background: var(--accent-soft);
 }
 
+/* .icon-btn's own display would win over the browser's [hidden] rule. */
+.icon-btn[hidden] {
+  display: none;
+}
+
 .icon-btn.done {
   color: var(--accent);
 }
@@ -202,6 +207,16 @@ main {
 html.wrap .code .chroma .cl {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.follow-note {
+  margin: 10px 2px 0;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+
+.follow-note:empty {
+  display: none;
 }
 
 .notice {

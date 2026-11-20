@@ -28,8 +28,8 @@
     <h1 class="title" id="title">{{.FileName}}</h1>
     <p class="meta">
       {{if .Language}}<span class="lang">{{.Language}}</span>{{end}}
-      {{if .Lines}}<span>{{.Lines}} {{if eq .Lines 1}}line{{else}}lines{{end}}</span>{{end}}
-      {{if .Size}}<span>{{.Size}}</span>{{end}}
+      {{if .Lines}}<span id="meta-lines">{{.Lines}} {{if eq .Lines 1}}line{{else}}lines{{end}}</span>{{end}}
+      {{if .Size}}<span id="meta-size">{{.Size}}</span>{{end}}
     </p>
   </header>
 
@@ -54,6 +54,9 @@
     <button class="icon-btn" id="copy" type="button" aria-label="Copy contents" title="Copy contents" hidden>
       <svg viewBox="0 0 24 24"><rect class="i-sheet" x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 012-2h8" /></svg>
     </button>
+    <button class="icon-btn" id="follow" type="button" aria-pressed="false" aria-label="Follow this log" title="Follow this log" hidden>
+      <svg viewBox="0 0 24 24"><path class="i-tail" d="M3 12h4l2-5 4 10 2-5h6" /></svg>
+    </button>
     {{end}}
     <a class="icon-btn" href="{{.RawURL}}" aria-label="Open raw file" title="Open raw file">
       <svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg>
@@ -73,7 +76,8 @@
       <a href="{{.RawURL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>Download raw file</a>
     </div>
     {{else}}
-    <div class="code" id="code">{{.HighlightedHTML}}</div>
+    <div class="code" id="code"{{if .FollowURL}} data-follow-url="{{.FollowURL}}" data-follow-offset="{{.FollowOffset}}" data-follow-line="{{.FollowLine}}"{{end}}>{{.HighlightedHTML}}</div>
+    <p class="follow-note" id="follow-note" role="status" aria-live="polite"></p>
     {{end}}
   </main>
 
