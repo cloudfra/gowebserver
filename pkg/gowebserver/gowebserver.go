@@ -73,11 +73,13 @@ func configLogger(verbose bool) func() error {
 }
 
 func runInteractive(wait func()) error {
-	return runApplication(wait)
+	return runApplication(wait, os.Args[1:])
 }
 
-func runApplication(wait func()) error {
-	conf, err := Load()
+// runApplication runs the server configured by the command line args
+// until wait returns.
+func runApplication(wait func(), args []string) error {
+	conf, err := loadArgs(args)
 	if err != nil {
 		return err
 	}

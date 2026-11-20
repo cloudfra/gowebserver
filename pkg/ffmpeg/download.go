@@ -95,13 +95,17 @@ func releaseAsset(version, platform, ext string) string {
 // downloader installs ffmpeg into dir: a release into dir/<version>/, and
 // a SourceURL into dir/url-<hash of the URL>/.
 type downloader struct {
+	log       *slog.Logger
 	dir       string
 	sourceURL *url.URL // nil for the latest release
 	client    *http.Client
 }
 
 func newDownloader(o Options) (*downloader, error) {
-	d := &downloader{dir: o.DownloadDir, client: o.Client}
+	d := &downloader{log: o.Logger, dir: o.DownloadDir, client: o.Client}
+	if d.log == nil {
+		d.log = slog.Default()
+	}
 	if o.SourceURL != "" {
 		u, err := url.Parse(o.SourceURL)
 		if err != nil {
@@ -185,7 +189,7 @@ func (d *downloader) install(ctx context.Context) (string, error) {
 	version, err := d.latestVersion(ctx, platform, ext)
 	if err != nil {
 		if have := d.newestInstalled(); have != "" {
-			slog.Warn("can't check for the latest ffmpeg; using the newest downloaded", "version", have, "error", err)
+			d.log.Warn("can't check for the latest ffmpeg; using the newest downloaded", "version", have, "error", err)
 			exe, _ := d.installed(have)
 			return exe, nil
 		}
@@ -214,7 +218,7 @@ func (d *downloader) latestVersion(ctx context.Context, platform, ext string) (s
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			slog.Warn("failed to close ffmpeg release listing", "error", err)
+			d.log.Warn("failed to close ffmpeg release listing", "error", err)
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
@@ -313,10 +317,10 @@ func (d *downloader) fetch(ctx context.Context, u *url.URL, sub string) (string,
 	}
 	defer func() {
 		if err := errors.Join(archive.Close(), os.Remove(archive.Name())); err != nil && !errors.Is(err, os.ErrClosed) {
-			slog.Debug("cleaning up ffmpeg download", "error", err)
+			d.log.Debug("cleaning up ffmpeg download", "error", err)
 		}
 	}()
-	slog.Info("downloading ffmpeg", "url", u.Redacted(), "dir", dir)
+	d.log.Info("downloading ffmpeg", "url", u.Redacted(), "dir", dir)
 	resp, err := d.get(ctx, withoutFragment(u))
 	if err != nil {
 		return fail(err)
@@ -378,7 +382,7 @@ func (d *downloader) checksum(ctx context.Context, u *url.URL) (string, error) {
 	if d.sourceURL == nil {
 		return "", err // releases are always published with checksums
 	}
-	slog.Warn("no checksum for the ffmpeg download; it can't be verified. Add #sha256=<hex> to the source URL to verify it", "url", u.Redacted(), "reason", err)
+	d.log.Warn("no checksum for the ffmpeg download; it can't be verified. Add #sha256=<hex> to the source URL to verify it", "url", u.Redacted(), "reason", err)
 	return "", nil
 }
 
@@ -391,7 +395,7 @@ func (d *downloader) publishedChecksum(ctx context.Context, sumsURL, name string
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			slog.Warn("failed to close ffmpeg checksums", "error", err)
+			d.log.Warn("failed to close ffmpeg checksums", "error", err)
 		}
 	}()
 	sc := bufio.NewScanner(resp.Body)

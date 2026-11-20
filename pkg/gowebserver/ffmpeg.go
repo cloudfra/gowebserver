@@ -35,12 +35,13 @@ const ffmpegCheckTimeout = 30 * time.Second
 // to name ffmpeg, or the folder it's in, and ffmpeg has to run, or the
 // configuration is wrong and that's an error, rather than video features
 // quietly failing later.
-func newFFmpeg(conf FFmpeg) (*ffmpeg.FFmpeg, error) {
+func newFFmpeg(conf FFmpeg, log *slog.Logger) (*ffmpeg.FFmpeg, error) {
 	ff, err := ffmpeg.New(ffmpeg.Options{
 		Path:            conf.Path,
 		InstallOnDemand: conf.InstallOnDemand,
 		AcceptLicense:   conf.AcceptLicense,
 		SourceURL:       conf.SourceURL,
+		Logger:          log,
 	})
 	switch {
 	case conf.Path != "" && err != nil:
@@ -52,16 +53,16 @@ func newFFmpeg(conf FFmpeg) (*ffmpeg.FFmpeg, error) {
 		if err != nil {
 			return nil, fmt.Errorf("ffmpeg.path: %q doesn't run: %w", ff.Source(), err)
 		}
-		slog.Info("ffmpeg is available", "source", ff.Source(), "version", version)
+		log.Info("ffmpeg is available", "source", ff.Source(), "version", version)
 	case err == nil:
-		slog.Info("ffmpeg is available", "source", ff.Source())
+		log.Info("ffmpeg is available", "source", ff.Source())
 	case errors.Is(err, ffmpeg.ErrLicenseNotAccepted):
-		slog.Warn("ffmpeg is not installed, and ffmpeg.installOnDemand needs ffmpeg.acceptLicense to download it", "error", err)
+		log.Warn("ffmpeg is not installed, and ffmpeg.installOnDemand needs ffmpeg.acceptLicense to download it", "error", err)
 	case conf.InstallOnDemand:
 		// Asked for, so worth a warning.
-		slog.Warn("ffmpeg is unavailable", "error", err)
+		log.Warn("ffmpeg is unavailable", "error", err)
 	default:
-		slog.Info("ffmpeg is not installed; features that need it are off", "hint", "install it, or set ffmpeg.installOnDemand and ffmpeg.acceptLicense")
+		log.Info("ffmpeg is not installed; features that need it are off", "hint", "install it, or set ffmpeg.installOnDemand and ffmpeg.acceptLicense")
 	}
 	return ff, nil
 }

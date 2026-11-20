@@ -17,7 +17,6 @@ package gowebserver
 import (
 	"encoding/json"
 	"io/fs"
-	"log/slog"
 	"net/http"
 	"path"
 	"slices"
@@ -234,6 +233,6 @@ func (c *customIndexHandler) serveFolderPreview(w http.ResponseWriter, r *http.R
 	// Short: what's below the folder can change without it changing.
 	w.Header().Set("Cache-Control", "private, max-age=300")
 	if err := json.NewEncoder(w).Encode(preview); err != nil {
-		slog.Debug("failed to write folder preview", "error", err)
+		c.log.Debug("failed to write folder preview", "error", err)
 	}
 }

@@ -107,16 +107,16 @@ func (c *customIndexHandler) serveSubfolders(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	span.SetAttributes(attribute.Int("folders", len(folders)), attribute.String("sort", sortBy))
-	writeSubfolders(w, folders)
+	writeSubfolders(w, folders, c.log)
 }
 
 // writeSubfolders writes folders as a subfolderList. It's one directory
 // read, made when the panel opens, so it's never kept: a folder made a
 // moment ago is in it.
-func writeSubfolders(w http.ResponseWriter, folders []subfolder) {
+func writeSubfolders(w http.ResponseWriter, folders []subfolder, log *slog.Logger) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache")
 	if err := json.NewEncoder(w).Encode(subfolderList{Folders: folders}); err != nil {
-		slog.Debug("failed to write subfolders", "error", err)
+		log.Debug("failed to write subfolders", "error", err)
 	}
 }

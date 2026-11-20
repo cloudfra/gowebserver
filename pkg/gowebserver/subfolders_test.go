@@ -122,7 +122,7 @@ func TestSubfoldersEndpoint(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "Trips", "notes.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, true, nil)
+	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, pageOptions{enhancedList: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestSubfoldersEndpointNeedsEnhancedListing(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, "a"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, false, nil)
+	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, pageOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,19 +35,19 @@ import (
 
 // withDiagnostics turns diagnostics on for the test, into a file whose
 // contents it returns.
-func withDiagnostics(t *testing.T) (http.Handler, func() string) {
+func withDiagnostics(t *testing.T) (*diagLog, func() string) {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "diag.log")
-	h, closeDiag, err := startDiagnostics(file)
+	d, err := startDiagnostics(file, slog.Default())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := closeDiag(); err != nil {
+		if err := d.close(); err != nil {
 			t.Error(err)
 		}
 	})
-	return h, func() string {
+	return d, func() string {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -59,16 +60,16 @@ func withDiagnostics(t *testing.T) (http.Handler, func() string) {
 var secret = regexp.MustCompile(`(?i)secret|vacation|alice|beach|bob|birthday|home|users`)
 
 func TestDiagnosticsNeverWriteNames(t *testing.T) {
-	h, read := withDiagnostics(t)
+	d, read := withDiagnostics(t)
 
 	// The server's own events.
-	diagEvent("server", "thumbnail", map[string]any{
-		"file": anon("Alice beach 1.jpg"), "dir": anonPath("Secret Vacation/2024"),
+	d.event("server", "thumbnail", map[string]any{
+		"file": d.anon("Alice beach 1.jpg"), "dir": d.anonPath("Secret Vacation/2024"),
 		"err": errCategory(fmt.Errorf("ffmpeg: exit status 1: /home/users/Secret Vacation/Bob birthday.mp4: Invalid data found")),
 	})
-	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("/home/users/Secret Vacation/Bob birthday.mp4", "")})
-	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("pipe:0", "Secret Vacation/Bob birthday.mp4")})
-	diagEvent("server", "ffmpeg-frame", map[string]any{"file": diagFile("/tmp/gowebserver-video-123.mp4", "")})
+	d.event("server", "ffmpeg-frame", map[string]any{"file": d.file("/home/users/Secret Vacation/Bob birthday.mp4", "")})
+	d.event("server", "ffmpeg-frame", map[string]any{"file": d.file("pipe:0", "Secret Vacation/Bob birthday.mp4")})
+	d.event("server", "ffmpeg-frame", map[string]any{"file": d.file("/tmp/gowebserver-video-123.mp4", "")})
 
 	// The page's, with names wherever it might put them.
 	body := strings.Join([]string{
@@ -81,7 +82,7 @@ func TestDiagnosticsNeverWriteNames(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/__diag", strings.NewReader(body))
 	req.Header.Set("User-Agent", "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1 Alice")
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+	d.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status %d", rec.Code)
 	}
@@ -105,21 +106,21 @@ func TestDiagnosticsNeverWriteNames(t *testing.T) {
 	}
 	// The same name is the same token throughout, from the server or the
 	// page.
-	tok := anon("Alice beach 1.jpg")
+	tok := d.anon("Alice beach 1.jpg")
 	if !regexp.MustCompile(`^[0-9a-f]{10}\.jpg$`).MatchString(tok) {
 		t.Errorf("token %q", tok)
 	}
 	if strings.Count(log, tok) != 2 {
 		t.Errorf("token %s appears %d times, want 2 (server and page)", tok, strings.Count(log, tok))
 	}
-	if strings.Count(log, anon("Bob birthday.mp4")) != 2 {
+	if strings.Count(log, d.anon("Bob birthday.mp4")) != 2 {
 		t.Error("a video piped and read from disk has different tokens")
 	}
 }
 
 func TestDiagnosticsLines(t *testing.T) {
-	_, read := withDiagnostics(t)
-	diagEvent("server", "thumbnail", map[string]any{"ms": int64(812), "result": "made", "file": "abc.mp4", "zeta": 1.5, "err": "", "rect": []any{1.0, 2.0}, "why": "two words"})
+	d, read := withDiagnostics(t)
+	d.event("server", "thumbnail", map[string]any{"ms": int64(812), "result": "made", "file": "abc.mp4", "zeta": 1.5, "err": "", "rect": []any{1.0, 2.0}, "why": "two words"})
 	lines := strings.Split(strings.TrimSpace(read()), "\n")
 	last := lines[len(lines)-1]
 	want := regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z server thumbnail file=abc\.mp4 result=made why="two words" ms=812 rect=1,2 zeta=1\.50$`)
@@ -146,37 +147,53 @@ func TestErrCategory(t *testing.T) {
 }
 
 func TestDiagPageEndpoint(t *testing.T) {
-	if got := diagPageEndpoint("/a/"); got != "" {
+	var off *diagLog
+	if got := off.pageEndpoint(httptest.NewRequest(http.MethodGet, "/a/", nil)); got != "" {
 		t.Errorf("off: %q", got)
 	}
-	withDiagnostics(t)
+	d, _ := withDiagnostics(t)
 	for uri, want := range map[string]string{
 		"/":              "./__diag",
 		"/a/":            "./../__diag",
 		"/e/a%20b/c/?x=": "./../../../__diag",
+		"/e/a%2Fb/":      "./../../__diag",
 	} {
-		if got := diagPageEndpoint(uri); got != want {
-			t.Errorf("diagPageEndpoint(%q) = %q, want %q", uri, got, want)
+		if got := d.pageEndpoint(httptest.NewRequest(http.MethodGet, uri, nil)); got != want {
+			t.Errorf("pageEndpoint(%q) = %q, want %q", uri, got, want)
 		}
+	}
+}
+
+// Under a mount, the endpoint is the mount's: the request's path is the
+// handler's own, without the path it's mounted at.
+func TestDiagPageEndpointMounted(t *testing.T) {
+	d, _ := withDiagnostics(t)
+	var got string
+	h := http.StripPrefix("/media", http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = d.pageEndpoint(r)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/media/a/b/", nil))
+	if want := "./../../__diag"; got != want {
+		t.Errorf("pageEndpoint = %q, want %q (/media/__diag from /media/a/b/)", got, want)
 	}
 }
 
 // A folder named like a file keeps no "extension": it's part of its name.
 func TestDiagnosticsFolderNames(t *testing.T) {
-	h, read := withDiagnostics(t)
-	diagEvent("server", "thumbnail", map[string]any{"file": anon("clip.mp4"), "dir": anonDir("Vacation.com/Beach.2024")})
+	d, read := withDiagnostics(t)
+	d.event("server", "thumbnail", map[string]any{"file": d.anon("clip.mp4"), "dir": d.anonDir("Vacation.com/Beach.2024")})
 	body := `{"ev":"page","page":"https://host/e/Vacation.com/Beach.2024/"}` + "\n" +
 		`{"ev":"thumb","url":"https://host/e/Vacation.com/clip.mp4?width=256"}` + "\n" +
 		`{"ev":"js-error","name":"TypeError","line":12,"col":19,"stack":"loadTile<render<tick"}` + "\n" +
 		`{"ev":"js-error","name":"TypeError","stack":"Alice beach<x"}`
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/__diag", strings.NewReader(body)))
+	d.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/__diag", strings.NewReader(body)))
 	log := read()
 	t.Log("\n" + log)
 	if strings.Contains(log, ".com") || strings.Contains(log, ".2024") {
 		t.Error("a folder's extension is in the log")
 	}
-	if !strings.Contains(log, anon("clip.mp4")) || !strings.HasSuffix(anon("clip.mp4"), ".mp4") {
+	if !strings.Contains(log, d.anon("clip.mp4")) || !strings.HasSuffix(d.anon("clip.mp4"), ".mp4") {
 		t.Error("a file lost its extension")
 	}
 	if !strings.Contains(log, "stack=loadTile<render<tick") {
@@ -204,41 +221,44 @@ func TestErrCategoryNotStarted(t *testing.T) {
 // Off, nothing is gathered or written, and names stay as they are (the
 // callers only ask for tokens when diagnostics are on).
 func TestDiagnosticsOff(t *testing.T) {
-	if diagEnabled() {
-		t.Fatal("diagnostics on before any test turned them on")
+	var d *diagLog
+	if d.enabled() {
+		t.Fatal("a nil diagLog is on")
 	}
-	diagEvent("server", "thumbnail", map[string]any{"file": "a.jpg"}) // no file to write to, no panic
-	if got := diagPageEndpoint("/a/"); got != "" {
-		t.Errorf("page endpoint %q with diagnostics off", got)
+	d.event("server", "thumbnail", map[string]any{"file": "a.jpg"}) // no file to write to, no panic
+	if got := d.anon("a.jpg"); got != "a.jpg" {
+		t.Errorf("anon = %q with diagnostics off", got)
+	}
+	if err := d.close(); err != nil {
+		t.Error(err)
 	}
 }
 
 // The file stops growing at diagMaxBytes, and says so.
 func TestDiagnosticsFull(t *testing.T) {
-	_, read := withDiagnostics(t)
-	d := diagActive.Load()
+	d, read := withDiagnostics(t)
 	d.mu.Lock()
 	d.written = diagMaxBytes - 100
 	d.mu.Unlock()
-	diagEvent("server", "thumbnail", map[string]any{"file": anon("a.jpg"), "spec": strings.Repeat("x", 200)})
-	diagEvent("server", "thumbnail", map[string]any{"file": anon("b.jpg")})
+	d.event("server", "thumbnail", map[string]any{"file": d.anon("a.jpg"), "spec": strings.Repeat("x", 200)})
+	d.event("server", "thumbnail", map[string]any{"file": d.anon("b.jpg")})
 	log := read()
 	if !strings.Contains(log, "# diagnostics stopped") {
 		t.Errorf("no note that the file is full:\n%s", log)
 	}
-	if strings.Contains(log, anon("b.jpg")) || strings.Contains(log, strings.Repeat("x", 200)) {
+	if strings.Contains(log, d.anon("b.jpg")) || strings.Contains(log, strings.Repeat("x", 200)) {
 		t.Error("events written past the limit")
 	}
 }
 
 // A thumbnail request is an event with tokens for its file and folder.
 func TestDiagnosticsThumbnailEvent(t *testing.T) {
-	_, read := withDiagnostics(t)
+	d, read := withDiagnostics(t)
 	photos := fstest.MapFS{"Secret Vacation/Alice beach.png": {Data: encodePNG(t, stripes(64, 36))}}
-	h, _ := newTestThumbnailHandler(t, photos, "")
+	h, _ := newTestThumbnailHandlerWith(t, photos, "", &monitoringContext{diag: d})
 	decodeThumb(t, thumbGet(t, h, "/Secret%20Vacation/Alice%20beach.png?width=32", nil))
 	log := read()
-	want := "server thumbnail file=" + anon("Alice beach.png") + " dir=" + anonDir("Secret Vacation") + " kind=photo result=made"
+	want := "server thumbnail file=" + d.anon("Alice beach.png") + " dir=" + d.anonDir("Secret Vacation") + " kind=photo result=made"
 	if !strings.Contains(log, want) {
 		t.Errorf("missing %q in\n%s", want, log)
 	}

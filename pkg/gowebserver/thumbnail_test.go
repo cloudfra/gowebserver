@@ -25,6 +25,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -130,6 +131,12 @@ func (c *countingFS) Stat(name string) (fs.FileInfo, error) {
 
 func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpegPath string) (http.Handler, *atomic.Int32) {
 	t.Helper()
+	return newTestThumbnailHandlerWith(t, fsys, ffmpegPath, &monitoringContext{})
+}
+
+// newTestThumbnailHandlerWith is newTestThumbnailHandler reporting to mc.
+func newTestThumbnailHandlerWith(t *testing.T, fsys fs.FS, ffmpegPath string, mc *monitoringContext) (http.Handler, *atomic.Int32) {
+	t.Helper()
 	var baseCalls atomic.Int32
 	base := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		baseCalls.Add(1)
@@ -137,7 +144,6 @@ func newTestThumbnailHandler(t *testing.T, fsys fs.FS, ffmpegPath string) (http.
 			t.Errorf("write: %v", err)
 		}
 	})
-	mc := &monitoringContext{}
 	var ff *ffmpeg.FFmpeg // none, whatever the test machine has installed
 	if ffmpegPath != "" {
 		var err error
@@ -625,7 +631,7 @@ func TestThumbnailStoreUnsafePath(t *testing.T) {
 	// ufs would cut the path short at a # and put the database somewhere
 	// else, so such paths fall back to memory and create nothing.
 	dir := t.TempDir()
-	s, err := newThumbnailStore(filepath.Join(dir, "a#b", "thumbnails.db"))
+	s, err := newThumbnailStore(filepath.Join(dir, "a#b", "thumbnails.db"), slog.Default())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,7 +708,7 @@ func TestThumbnailStoreFallback(t *testing.T) {
 	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s, err := newThumbnailStore(filepath.Join(blocker, "thumbnails.db"))
+	s, err := newThumbnailStore(filepath.Join(blocker, "thumbnails.db"), slog.Default())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -59,22 +59,25 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 )
 
-// diagEndpoint is where the page sends its events, under the server root.
+// diagEndpoint is where the page sends its events, under the root of the
+// handler that served it (the mount root, when embedded).
 const diagEndpoint = "__diag"
 
 // diagMaxBytes is as large as the diagnostics file grows; past it events
 // are dropped, and the file says so.
 const diagMaxBytes = 256 << 20
 
+// diagLog is the diagnostics log. A nil *diagLog is diagnostics turned
+// off: every method does nothing, and names stay as they are.
 type diagLog struct {
 	key []byte // for anon; never written
+	log *slog.Logger
 
 	mu      sync.Mutex
 	f       *os.File
@@ -83,55 +86,56 @@ type diagLog struct {
 	failed  bool // a write has failed, and been reported
 }
 
-// diagActive is the diagnostics log, or nil when diagnostics are off.
-var diagActive atomic.Pointer[diagLog]
-
-// diagEnabled reports whether diagnostics are on; callers check it before
+// enabled reports whether diagnostics are on; callers check it before
 // gathering an event's fields.
-func diagEnabled() bool {
-	return diagActive.Load() != nil
+func (d *diagLog) enabled() bool {
+	return d != nil
 }
 
-// startDiagnostics opens the log at file, appending, turns diagnostics on
-// and returns the handler for the page's events and a function that turns
-// them off and closes the file.
-func startDiagnostics(file string) (http.Handler, func() error, error) {
+// startDiagnostics opens the log at file, appending, and returns it. It
+// takes the page's events as an http.Handler. log is where problems with
+// the file are logged.
+func startDiagnostics(file string, log *slog.Logger) (*diagLog, error) {
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	info, err := f.Stat()
 	if err != nil {
-		return nil, nil, errors.Join(err, f.Close())
+		return nil, errors.Join(err, f.Close())
 	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
-		return nil, nil, errors.Join(err, f.Close())
+		return nil, errors.Join(err, f.Close())
 	}
-	d := &diagLog{key: key, f: f, written: info.Size()}
+	d := &diagLog{key: key, log: log, f: f, written: info.Size()}
 	if _, err := fmt.Fprintf(f, "# gowebserver diagnostics, started %s. Names are tokens (truncated HMAC-SHA256 under a key\n"+
 		"# that is not stored), so they match only within this run, up to the next \"start\" line.\n", time.Now().UTC().Format(time.RFC3339)); err != nil {
-		return nil, nil, errors.Join(err, f.Close())
+		return nil, errors.Join(err, f.Close())
 	}
-	diagActive.Store(d)
-	slog.Warn("Diagnostics on: writing anonymized browsing events", "file", file)
-	diagEvent("server", "start", nil)
-	return http.HandlerFunc(diagHandler), func() error {
-		diagActive.CompareAndSwap(d, nil)
-		d.mu.Lock()
-		defer d.mu.Unlock()
-		return d.f.Close()
-	}, nil
+	log.Warn("Diagnostics on: writing anonymized browsing events", "file", file)
+	d.event("server", "start", nil)
+	return d, nil
+}
+
+// close stops writing and closes the file. It's safe on a nil diagLog.
+func (d *diagLog) close() error {
+	if d == nil {
+		return nil
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.full = true // nothing more is written
+	return d.f.Close()
 }
 
 // diagFirst are the fields written first, in this order; the rest follow
 // sorted by name.
 var diagFirst = []string{"file", "dir", "url", "page", "kind", "result", "ok", "err", "why", "ms"}
 
-// diagEvent writes one event, when diagnostics are on. Field values are
+// event writes one event, when diagnostics are on. Field values are
 // strings, numbers, bools or lists of those.
-func diagEvent(source, event string, fields map[string]any) {
-	d := diagActive.Load()
+func (d *diagLog) event(source, event string, fields map[string]any) {
 	if d == nil {
 		return
 	}
@@ -170,14 +174,14 @@ func (d *diagLog) write(line string) {
 	if d.written+int64(len(line)) > diagMaxBytes {
 		d.full = true
 		line = fmt.Sprintf("# diagnostics stopped: the file reached %d MB\n", diagMaxBytes>>20)
-		slog.Warn("Diagnostics stopped: the file is full", "max MB", diagMaxBytes>>20)
+		d.log.Warn("Diagnostics stopped: the file is full", "max MB", diagMaxBytes>>20)
 	}
 	n, err := d.f.WriteString(line)
 	d.written += int64(n)
 	if err != nil && !d.failed {
 		// Once: a full disk would otherwise say so for every event.
 		d.failed = true
-		slog.Error("cannot write diagnostics", "error", err)
+		d.log.Error("cannot write diagnostics", "error", err)
 	}
 }
 
@@ -291,8 +295,8 @@ func diagClean(k string, v any) (any, bool) {
 	return nil, false
 }
 
-// diagHandler takes the page's events: JSON objects, one a line.
-func diagHandler(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP takes the page's events: JSON objects, one a line.
+func (d *diagLog) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
@@ -313,7 +317,7 @@ func diagHandler(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case k == "url" || k == "page":
 				if s, ok := v.(string); ok {
-					fields[k] = anonURL(s)
+					fields[k] = d.anonURL(s)
 				}
 			case diagClientFields[k]:
 				if c, ok := diagClean(k, v); ok {
@@ -325,7 +329,7 @@ func diagHandler(w http.ResponseWriter, r *http.Request) {
 			// The browser and device, once a page rather than every line.
 			fields["browser"] = diagBrowser(r.Header.Get("User-Agent"))
 		}
-		diagEvent("client", ev, fields)
+		d.event("client", ev, fields)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -363,8 +367,7 @@ func diagBrowser(ua string) string {
 }
 
 // anon is a token for the name, keeping only its extension.
-func anon(name string) string {
-	d := diagActive.Load()
+func (d *diagLog) anon(name string) string {
 	if d == nil || name == "" || name == "." || name == "/" {
 		return name
 	}
@@ -381,30 +384,30 @@ func anon(name string) string {
 // file, or of a folder when it ends in a slash. Only the file's own name
 // keeps its extension: a folder's "extension" ("Holiday.2024") is part of
 // its name.
-func anonPath(p string) string {
+func (d *diagLog) anonPath(p string) string {
 	segs := strings.Split(p, "/")
 	for i, s := range segs {
 		if i == len(segs)-1 {
-			segs[i] = anon(s)
+			segs[i] = d.anon(s)
 		} else {
-			segs[i] = anonFolder(s)
+			segs[i] = d.anonFolder(s)
 		}
 	}
 	return strings.Join(segs, "/")
 }
 
 // anonDir anonymizes a folder's slash-separated path.
-func anonDir(p string) string {
+func (d *diagLog) anonDir(p string) string {
 	segs := strings.Split(p, "/")
 	for i, s := range segs {
-		segs[i] = anonFolder(s)
+		segs[i] = d.anonFolder(s)
 	}
 	return strings.Join(segs, "/")
 }
 
 // anonFolder is anon without the extension.
-func anonFolder(name string) string {
-	tok := anon(name)
+func (d *diagLog) anonFolder(name string) string {
+	tok := d.anon(name)
 	if i := strings.IndexByte(tok, '.'); i > 0 && tok != name {
 		tok = tok[:i]
 	}
@@ -413,7 +416,7 @@ func anonFolder(name string) string {
 
 // anonURL anonymizes a URL's path and keeps only the thumbnail query
 // parameters; the scheme and host are dropped.
-func anonURL(raw string) string {
+func (d *diagLog) anonURL(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "unparsable"
@@ -422,7 +425,7 @@ func anonURL(raw string) string {
 	if err != nil {
 		return "unparsable"
 	}
-	out := anonPath(p)
+	out := d.anonPath(p)
 	q := url.Values{}
 	for _, k := range []string{"width", "height", "fit", "format", "quality", "view"} {
 		if v := u.Query().Get(k); v != "" && diagQueryValue.MatchString(v) {
@@ -437,15 +440,15 @@ func anonURL(raw string) string {
 
 // diagFile is the token for the file ffmpeg reads (input, or pipe when
 // it's piped), matching the thumbnail's.
-func diagFile(input, pipe string) string {
+func (d *diagLog) file(input, pipe string) string {
 	if pipe != "" {
-		return anon(path.Base(pipe))
+		return d.anon(path.Base(pipe))
 	}
 	base := path.Base(strings.ReplaceAll(input, `\`, "/"))
 	if strings.HasPrefix(base, "gowebserver-video-") {
 		return "temporary-copy" + strings.ToLower(path.Ext(base))
 	}
-	return anon(base)
+	return d.anon(base)
 }
 
 // errCategory names what kind of error err is, from a fixed list.
@@ -495,15 +498,14 @@ func errCategory(err error) string {
 	return "other"
 }
 
-// diagPageEndpoint is the URL, relative to the page requested as
-// requestURI, that its events go to: the server root's diagEndpoint, so
-// it's found under a StripPrefix mount or behind a proxy's path too.
-func diagPageEndpoint(requestURI string) string {
-	if !diagEnabled() {
+// pageEndpoint is the URL, relative to the page r asked for, that its
+// events go to: diagEndpoint at the root of the handler that served it,
+// so it stays inside the path the handler is mounted at (see mountRoot).
+func (d *diagLog) pageEndpoint(r *http.Request) string {
+	if d == nil {
 		return ""
 	}
-	p, _, _ := strings.Cut(requestURI, "?")
-	return "./" + strings.Repeat("../", max(strings.Count(p, "/")-1, 0)) + diagEndpoint
+	return mountRoot(r) + diagEndpoint
 }
 
 // startFailure is why ffmpeg couldn't be started, from a fixed list, or

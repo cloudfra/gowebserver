@@ -17,6 +17,7 @@ package gowebserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -49,8 +50,13 @@ func isSupportedGit(filePath string) bool {
 	return strings.HasSuffix(strings.ToLower(filePath), ".git")
 }
 
-func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, func() error, error) {
-	ctx := context.Background()
+func newHandlerFromFS(fsSpec string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, func() error, error) {
+	return newHandlerFromFSContext(context.Background(), fsSpec, mc, pages, thumbs)
+}
+
+// newHandlerFromFSContext serves fsSpec, a ufs URI or an http(s) URL to
+// pass requests on to. The function it returns closes what it opened.
+func newHandlerFromFSContext(ctx context.Context, fsSpec string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, func() error, error) {
 	// fsSpec is probably breaking this.
 	if !isSupportedGit(fsSpec) && isSupportedHTTP(fsSpec) {
 		handler, err := newHTTPReverseProxy(fsSpec, mc)
@@ -61,19 +67,43 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 	if err != nil {
 		return nil, nilFuncWithError, err
 	}
+	h, err := newContentHandler(nFS, fsSpec, mc, pages, thumbs)
+	if err != nil {
+		return nil, nilFuncWithError, errors.Join(err, nFS.Close())
+	}
+	return h, nFS.Close, nil
+}
 
-	ci, err := newCustomIndex(http.FileServer(http.FS(nFS)), nFS, mc, enhancedList, thumbs)
+// newContentHandler serves the files in fsys, with its listings, text
+// viewer and thumbnails, and the diagnostics endpoint when mc has them on.
+// source names fsys for the thumbnail store, which keeps each source's
+// thumbnails apart.
+func newContentHandler(fsys fs.FS, source string, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, error) {
+	ci, err := newCustomIndex(http.FileServer(http.FS(fsys)), fsys, mc, pages, thumbs)
 	if err != nil {
-		return nil, nilFuncWithError, err
+		return nil, err
 	}
-	rv, err := newRichViewHandler(ci, nFS, mc)
+	rv, err := newRichViewHandler(ci, fsys, mc, pages)
 	if err != nil {
-		return nil, nilFuncWithError, err
+		return nil, err
 	}
-	if thumbs == nil {
-		return rv, nFS.Close, nil
+	var h http.Handler = rv
+	if thumbs != nil {
+		h = thumbs.handler(rv, fsys, source)
 	}
-	return thumbs.handler(rv, nFS, fsSpec), nFS.Close, nil
+	if d := mc.diagnostics(); d != nil {
+		// The page's events, at the handler's root (see diagLog.pageEndpoint).
+		files := h
+		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/"+diagEndpoint {
+				setRequestHandler(r, handlerDebug)
+				d.ServeHTTP(w, r)
+				return
+			}
+			files.ServeHTTP(w, r)
+		})
+	}
+	return h, nil
 }
 
 func cleanPath(path string) string {
@@ -229,7 +259,12 @@ type customIndexReport struct {
 	VideoThumbnails bool
 	// Diagnostics is where the page sends its diagnostics events, or ""
 	// when they're off (see diagnostics.go).
-	Diagnostics           string
+	Diagnostics string
+	// Home is the URL the breadcrumb starts at, relative to the page, or
+	// "" for the server's root; HomeTitle names it, or "" for the host
+	// name (see pageOptions).
+	Home                  string
+	HomeTitle             string
 	ApplicationVersion    string
 	ApplicationBuildstamp string
 }
@@ -238,6 +273,9 @@ type customIndexHandler struct {
 	baseHandler  http.Handler
 	baseFS       fs.FS
 	enhancedList bool
+	pages        pageOptions
+	log          *slog.Logger
+	diag         *diagLog
 	thumbs       *thumbnailer
 	metrics      *listingMetrics
 	tmpl         *template.Template
@@ -343,7 +381,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	urlPath := r.URL.Path
 	path := cleanPath(strings.TrimPrefix(urlPath, "/"))
 
-	slog.Info("customIndexHandler", "url", r.URL, "path", path)
+	c.log.Info("customIndexHandler", "url", r.URL, "path", path)
 
 	if c.redirectDirectoryToTrailingSlash(w, r, path, urlPath) {
 		return true
@@ -381,7 +419,7 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			slog.Error("failed to close file after serving custom index", "path", path, "error", err)
+			c.log.Error("failed to close file after serving custom index", "path", path, "error", err)
 		}
 	}()
 	rdf, ok := f.(fs.ReadDirFile)
@@ -410,7 +448,9 @@ func (c *customIndexHandler) serveListing(w http.ResponseWriter, r *http.Request
 		UseTimestamp:          strings.Contains(sortBy, "date"),
 		Thumbnails:            c.thumbs != nil,
 		VideoThumbnails:       c.thumbs.videos(),
-		Diagnostics:           diagPageEndpoint(r.RequestURI),
+		Diagnostics:           c.diag.pageEndpoint(r),
+		Home:                  c.pages.home(r),
+		HomeTitle:             c.pages.title,
 		ApplicationVersion:    internal.Version(),
 		ApplicationBuildstamp: internal.Buildstamp(),
 	}
@@ -567,7 +607,7 @@ func statEntries(ctx context.Context, entries []fs.DirEntry) ([]fs.FileInfo, err
 	return infos, ctx.Err()
 }
 
-func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer) (http.Handler, error) {
+func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext, pages pageOptions, thumbs *thumbnailer) (http.Handler, error) {
 	tmpl, err := createTemplate(customIndexHTML)
 	if err != nil {
 		return nil, err
@@ -579,7 +619,10 @@ func newCustomIndex(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContex
 	return &customIndexHandler{
 		baseHandler:  baseHandler,
 		baseFS:       baseFS,
-		enhancedList: enhancedList,
+		enhancedList: pages.enhancedList,
+		pages:        pages,
+		log:          mc.log(),
+		diag:         mc.diagnostics(),
 		thumbs:       thumbs,
 		metrics:      metrics,
 		tmpl:         tmpl,

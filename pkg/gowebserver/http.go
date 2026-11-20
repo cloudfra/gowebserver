@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -55,6 +56,11 @@ func newHTTPReverseProxy(httpPath string, mc *monitoringContext) (http.Handler, 
 		otelhttp.WithMeterProvider(mc.getMeterProvider()),
 		otelhttp.WithPropagators(tracePropagator))
 	reverseProxy := overlayURLProxy(mustURLParse(httpPath), &http.Client{Transport: transport})
+	if mc != nil && mc.logger != nil {
+		// An embedded handler's: its errors go to the host's logger, not
+		// the log package's.
+		reverseProxy.ErrorLog = slog.NewLogLogger(mc.logger.Handler(), slog.LevelError)
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setRequestHandler(r, handlerProxy)

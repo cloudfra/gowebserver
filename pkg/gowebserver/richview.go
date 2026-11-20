@@ -81,11 +81,17 @@ type RichViewReport struct {
 	HighlightedHTML    template.HTML
 	ApplicationVersion string
 	Oversized          bool
+	// Home and HomeTitle are the breadcrumb's start (see
+	// customIndexReport).
+	Home      string
+	HomeTitle string
 }
 
 type richViewHandler struct {
 	baseHandler http.Handler
 	baseFS      fs.FS
+	pages       pageOptions
+	log         *slog.Logger
 	metrics     *richViewMetrics
 	tmpl        *template.Template
 }
@@ -141,7 +147,7 @@ func newRichViewMetrics(mc *monitoringContext) (*richViewMetrics, error) {
 	return rm, nil
 }
 
-func newRichViewHandler(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext) (*richViewHandler, error) {
+func newRichViewHandler(baseHandler http.Handler, baseFS fs.FS, mc *monitoringContext, pages pageOptions) (*richViewHandler, error) {
 	tmpl, err := createTemplate(richViewHTML)
 	if err != nil {
 		return nil, err
@@ -153,6 +159,8 @@ func newRichViewHandler(baseHandler http.Handler, baseFS fs.FS, mc *monitoringCo
 	return &richViewHandler{
 		baseHandler: baseHandler,
 		baseFS:      baseFS,
+		pages:       pages,
+		log:         mc.log(),
 		metrics:     metrics,
 		tmpl:        tmpl,
 	}, nil
@@ -187,7 +195,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			slog.Error("failed to close file after rich view rendering", "path", fsPath, "error", err)
+			h.log.Error("failed to close file after rich view rendering", "path", fsPath, "error", err)
 		}
 	}()
 
@@ -230,10 +238,12 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Size:               size,
 			ApplicationVersion: internal.Version(),
 			Oversized:          true,
+			Home:               h.pages.home(r),
+			HomeTitle:          h.pages.title,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := h.tmpl.Execute(w, report); err != nil {
-			slog.Error("failed to execute rich view template for oversized file", "path", fsPath, "error", err)
+			h.log.Error("failed to execute rich view template for oversized file", "path", fsPath, "error", err)
 		}
 		return
 	}
@@ -316,6 +326,8 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ChromaCSS:          template.CSS(chromaCSS),
 		HighlightedHTML:    template.HTML(htmlBuf.String()),
 		ApplicationVersion: internal.Version(),
+		Home:               h.pages.home(r),
+		HomeTitle:          h.pages.title,
 	}
 
 	result = richViewHighlighted
@@ -323,7 +335,7 @@ func (h *richViewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer rendered()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.Execute(w, report); err != nil {
-		slog.Error("failed to execute rich view template", "path", fsPath, "error", err)
+		h.log.Error("failed to execute rich view template", "path", fsPath, "error", err)
 	}
 }
 

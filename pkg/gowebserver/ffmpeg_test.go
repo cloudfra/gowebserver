@@ -15,6 +15,7 @@
 package gowebserver
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,7 +33,7 @@ func TestNewFFmpeg(t *testing.T) {
 
 	mustNew := func(conf FFmpeg) *ffmpeg.FFmpeg {
 		t.Helper()
-		ff, err := newFFmpeg(conf)
+		ff, err := newFFmpeg(conf, slog.Default())
 		if err != nil {
 			t.Fatalf("newFFmpeg(%+v): %v", conf, err)
 		}
@@ -95,7 +96,7 @@ func TestNewFFmpegBadPath(t *testing.T) {
 		notProgram:                      "is not a program that can be run",
 		failing:                         "doesn't run",
 	} {
-		ff, err := newFFmpeg(FFmpeg{Path: path})
+		ff, err := newFFmpeg(FFmpeg{Path: path}, slog.Default())
 		if err == nil || !strings.Contains(err.Error(), want) || !strings.HasPrefix(err.Error(), "ffmpeg.path: ") {
 			t.Errorf("newFFmpeg(%q) = %v, %v; want an error with %q", path, ff, err, want)
 		}

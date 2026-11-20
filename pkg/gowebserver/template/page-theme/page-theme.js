@@ -15,6 +15,20 @@ function escapeHTML(s) {
 function decode(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
 function label(s) { s = decode(s); return s.slice(-2) === '.d' ? s.slice(0, -2) : s; }
 var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
+// Where the breadcrumb starts. A handler embedded in another program
+// says, in #crumbs' data-home, where its root is relative to the page
+// ("./../../"), so the crumbs never leave the path it's mounted at, and
+// names it in data-title; otherwise it's the server's root, named for
+// the host.
+var HOME = (function () {
+  var nav = $('crumbs'), rel = nav && nav.getAttribute('data-home');
+  if (!rel) return '/';
+  var up = (rel.match(/\.\.\//g) || []).length;
+  var segs = location.pathname.replace(/[^/]*$/, '').split('/');
+  segs.splice(Math.max(1, segs.length - 1 - up), up);
+  return segs.join('/') || '/';
+})();
+var HOME_TITLE = ($('crumbs') && $('crumbs').getAttribute('data-title')) || '';
 
 // ===== Theme =====
 (function () {
@@ -43,7 +57,7 @@ var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"
 
 // ===== Header: breadcrumbs, title, sticky toolbar =====
 (function () {
-  var parts = location.pathname.split('/').filter(Boolean);
+  var parts = location.pathname.slice(HOME.length).split('/').filter(Boolean);
   var crumbs = $('crumbs');
   // Parent folders shown after home, by screen width: 4 on wide
   // screens, 3 on medium, 2 on phones. Deeper ones collapse into an
@@ -52,14 +66,14 @@ var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"
   var wide = matchMedia('(min-width: 1100px)'), medium = matchMedia('(min-width: 700px)');
   function renderCrumbs() {
     var limit = wide.matches ? 4 : medium.matches ? 3 : 2;
-    var ancestors = [], href = '/';
+    var ancestors = [], href = HOME;
     parts.slice(0, -1).forEach(function (p) {
       href += p + '/';
       ancestors.push({ href: href, name: label(p) });
     });
-    var html = '<a href="/">' +
+    var html = '<a href="' + escapeHTML(HOME) + '">' +
       '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>' +
-      '<span>' + escapeHTML(location.host || 'Home') + '</span></a>';
+      '<span>' + escapeHTML(HOME_TITLE || location.host || 'Home') + '</span></a>';
     var hidden = ancestors.slice(0, Math.max(0, ancestors.length - limit));
     if (hidden.length) {
       var path = hidden.map(function (a) { return a.name; }).join(' / ');
@@ -81,7 +95,7 @@ var SEP ='<svg class="sep" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"
   // A folder's name comes from the URL the browser asked for, which
   // includes the serve path the server doesn't see.
   if ($('title').hasAttribute('data-from-path')) {
-    var name = parts.length ? label(parts[parts.length - 1]) : (location.host || '/');
+    var name = parts.length ? label(parts[parts.length - 1]) : (HOME_TITLE || location.host || '/');
     $('title').textContent = name;
     $('tb-title').textContent = name;
     doc.title = name;

@@ -1,0 +1,10 @@
+:root { color-scheme: light dark; --accent: #3b6fd8; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: Canvas; color: CanvasText; }
+header { display: flex; align-items: baseline; gap: 2rem; padding: 1.5rem 2rem; border-bottom: 1px solid #8884; }
+h1 { margin: 0; font-size: 1.4rem; }
+nav { display: flex; gap: 1.25rem; }
+nav a { color: var(--accent); text-decoration: none; font-weight: 600; }
+main { padding: 2rem; }
+.card { max-width: 36rem; padding: 1.25rem 1.5rem; border: 1px solid #8884; border-radius: 12px; }
+.card dt { font-weight: 600; margin-top: .5rem; }
+.card dd { margin: 0; font-family: ui-monospace, monospace; }

@@ -53,6 +53,7 @@ type uploadHTTPHandler struct {
 	// How long an upload request took, by result.
 	requestDuration metric.Float64Histogram
 	tmpl            *template.Template
+	log             *slog.Logger
 }
 
 type uploadResponse struct {
@@ -80,13 +81,13 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := uploadTracer.Start(r.Context(), r.Method)
 	defer span.End()
 
-	logger := slog.With("url", r.URL)
+	logger := uh.log.With("url", r.URL)
 
 	if r.Method == http.MethodGet {
 		crutime := time.Now().Unix()
 		h := sha256.New()
 		if _, err := io.WriteString(h, strconv.FormatInt(crutime, 10)); err != nil {
-			slog.Error("failed to write upload token seed to hash", "crutime", crutime, "error", err)
+			logger.Error("failed to write upload token seed to hash", "crutime", crutime, "error", err)
 		}
 		token := fmt.Sprintf("%x", h.Sum(nil))
 
@@ -143,7 +144,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			defer func() {
 				if err := file.Close(); err != nil {
-					slog.Error("failed to close uploaded multipart file", "fileName", fileName, "error", err)
+					logger.Error("failed to close uploaded multipart file", "fileName", fileName, "error", err)
 				}
 			}()
 
@@ -163,7 +164,7 @@ func (uh *uploadHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			defer func() {
 				if err := f.Close(); err != nil {
-					slog.Error("failed to close uploaded destination file", "localPath", localPath, "error", err)
+					logger.Error("failed to close uploaded destination file", "localPath", localPath, "error", err)
 				}
 			}()
 			bytesWritten, err := io.Copy(f, file)
@@ -213,6 +214,7 @@ func newUploadHandler(mc *monitoringContext, uploadHTTPPath string, uploadDirect
 		uploadedBytesTotal: uploadedBytesTotal,
 		uploadedFilesTotal: uploadedFilesTotal,
 		tmpl:               tmpl,
+		log:                mc.log(),
 	}, nil
 }
 

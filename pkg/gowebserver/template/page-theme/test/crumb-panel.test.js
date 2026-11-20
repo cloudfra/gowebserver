@@ -36,7 +36,7 @@ function setup(opts) {
     '/Photos/': [{ name: '2023' }, { name: '2024' }, { name: '2025' }],
   };
   let observer = null;
-  const pg = page(HTML, {
+  const pg = page(opts.html || HTML, {
     location: { pathname: opts.pathname || '/Photos/2024/Rome/', search: opts.search || '' },
     media: opts.media || { [FINE]: true, '(min-width: 1100px)': true, '(min-width: 700px)': true },
     globals: {
@@ -348,4 +348,21 @@ test('a serve path of more than one segment links and marks as the page does', a
   await t.settle();
   assert.deepEqual(t.entries(), [['a/b', '/a/b/'], ['c d', '/c%20d/']]);
   assert.deepEqual(t.current(), ['a/b']);
+});
+
+// Embedded at /media/, the home crumb is the mount's: it lists the
+// mount's top level, asked of the mount, and every link stays under it.
+test('embedded, the home crumb lists the mount\'s top level', async () => {
+  const t = setup({
+    html: HTML.replace('<nav id="crumbs">', '<nav id="crumbs" data-home="./../../" data-title="Media">'),
+    pathname: '/media/Photos/2024/',
+    dirs: { '/media/': [{ name: 'Music' }, { name: 'Photos' }], '/media/Photos/': [{ name: '2024' }] },
+  });
+  t.hover(t.crumb('Media'));
+  t.pg.tick(DWELL);
+  await t.settle();
+  assert.deepEqual(t.asked, ['/media/?folders']);
+  assert.deepEqual(t.entries(), [['Music', '/media/Music/'], ['Photos', '/media/Photos/']]);
+  assert.deepEqual(t.current(), ['Photos']);
+  assert.equal(t.panel.querySelector('.cp-head').textContent, 'Media');
 });

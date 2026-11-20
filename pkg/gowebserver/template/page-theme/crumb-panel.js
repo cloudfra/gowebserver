@@ -40,10 +40,10 @@
   // What a crumb's panel lists: {head, list} with list a promise of
   // [{name, href, archive, current}].
   function contents(a) {
-    var href = a.getAttribute('href') || '/';
+    var href = a.getAttribute('href') || HOME;
     if (a.classList.contains('more')) {
       // The folders the ellipsis stands for: every one above its link.
-      var segs = href.split('/').filter(Boolean), up = '/', list = [];
+      var segs = href.slice(HOME.length).split('/').filter(Boolean), up = HOME, list = [];
       segs.forEach(function (s) {
         up += s + '/';
         list.push({ name: label(s), href: up });
@@ -53,20 +53,20 @@
     // The folder to mark is the one on the way to this page: for the
     // home crumb, the top folder this page is in, which can be more than
     // one segment (a serve path like /a/b).
-    var parent = '/', here = decode(href === '/' ? location.pathname : href);
-    if (href !== '/') {
+    var parent = HOME, here = decode(href === HOME ? location.pathname : href);
+    if (href !== HOME) {
       var m = /^(.*\/)([^/]+)\/$/.exec(href);
       if (!m) return null;
       parent = m[1];
     }
-    var head = parent === '/' ? (location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
+    var head = parent === HOME ? (HOME_TITLE || location.host || 'Home') : label(parent.split('/').filter(Boolean).pop());
     return {
       head: head,
       list: folders(parent).then(function (fs) {
         return fs && fs.map(function (f) {
           var path = f.name + (f.archive ? '.d' : '') + '/';
           var to = parent + path.split('/').map(encodeURIComponent).join('/');
-          return { name: f.name, archive: f.archive, href: to, current: here.indexOf(parent + path) === 0 };
+          return { name: f.name, archive: f.archive, href: to, current: here.indexOf(decode(parent) + path) === 0 };
         });
       }),
     };

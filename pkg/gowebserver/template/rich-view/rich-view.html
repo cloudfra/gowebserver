@@ -24,7 +24,7 @@
 
 <body>
   <header class="hero" id="hero">
-    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"{{if .Home}} data-home="{{.Home}}"{{end}}{{if .HomeTitle}} data-title="{{.HomeTitle}}"{{end}}></nav>
     <h1 class="title" id="title">{{.FileName}}</h1>
     <p class="meta">
       {{if .Language}}<span class="lang">{{.Language}}</span>{{end}}

@@ -143,7 +143,7 @@ func TestFolderPreviewEndpoint(t *testing.T) {
 	}
 	write("Trip/b.jpg")
 	write("Trip/clip.mp4")
-	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, true, nil)
+	h, closeFS, err := newHandlerFromFS(root, &monitoringContext{}, pageOptions{enhancedList: true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

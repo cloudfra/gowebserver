@@ -132,9 +132,9 @@ func TestConfigLogger(t *testing.T) {
 }
 
 func TestRunApplication(t *testing.T) {
-	httpPortFlag = new(int)
-	httpsPortFlag = new(int)
-	closer := gomainTesting.Main(runApplication)
+	closer := gomainTesting.Main(func(wait func()) error {
+		return runApplication(wait, []string{"-http.port=0", "-https.port=0"})
+	})
 
 	ch := make(chan error)
 	go func() {

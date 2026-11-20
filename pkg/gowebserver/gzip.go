@@ -16,6 +16,7 @@ package gowebserver
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"log/slog"
 	"mime"
@@ -38,14 +39,38 @@ var gzipWriters = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) 
 // one (206), or one to a Range or HEAD request is passed on untouched, so
 // seeking in a video and sendfile still work.
 func gzipHandler(next http.Handler) http.Handler {
+	return gzipHandlerLog(next, slog.Default())
+}
+
+// Compress compresses h's responses with gzip for a client that accepts
+// it, as the standalone server does: only text-like content (pages,
+// scripts, styles, JSON, SVG...), and never a response that already has
+// a Content-Encoding, a partial one (206), a 304, or one to a Range or
+// HEAD request, so seeking in a video and sendfile still work. Each
+// compressed response, and each that could have been, has
+// "Vary: Accept-Encoding".
+//
+// Wrap a host's whole mux in it, API responses and all. Nested, as when
+// it wraps a mux that has a Compress of its own inside, only the
+// outermost compresses. It logs nothing.
+func Compress(h http.Handler) http.Handler {
+	return gzipHandlerLog(h, slog.New(slog.DiscardHandler))
+}
+
+// gzipping marks a request whose response a gzipHandler further out
+// compresses.
+type gzipping struct{}
+
+// gzipHandlerLog is gzipHandler, logging to log.
+func gzipHandlerLog(next http.Handler, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodHead || r.Header.Get("Range") != "" {
+		if r.Method == http.MethodHead || r.Header.Get("Range") != "" || r.Context().Value(gzipping{}) != nil {
 			next.ServeHTTP(w, r)
 			return
 		}
-		gw := &gzipResponseWriter{ResponseWriter: w, accepts: acceptsGzip(r.Header.Get("Accept-Encoding"))}
+		gw := &gzipResponseWriter{ResponseWriter: w, accepts: acceptsGzip(r.Header.Get("Accept-Encoding")), log: log}
 		defer gw.close()
-		next.ServeHTTP(gw, r)
+		next.ServeHTTP(gw, r.WithContext(context.WithValue(r.Context(), gzipping{}, true)))
 	})
 }
 
@@ -114,6 +139,7 @@ type gzipResponseWriter struct {
 	// otelhttp's writer writes the status ahead of every first Write.
 	pending int
 	gz      *gzip.Writer // nil unless compressing
+	log     *slog.Logger
 }
 
 // decide chooses whether to compress, from the header the handler set and
@@ -227,7 +253,7 @@ func (w *gzipResponseWriter) Flush() {
 	if w.gz != nil {
 		if err := w.gz.Flush(); err != nil {
 			// Usually the client has gone; the next write says so too.
-			slog.Debug("gzip flush failed", "error", err)
+			w.log.Debug("gzip flush failed", "error", err)
 		}
 	}
 	if f, ok := w.ResponseWriter.(http.Flusher); ok {
@@ -247,7 +273,7 @@ func (w *gzipResponseWriter) close() {
 		return
 	}
 	if err := w.gz.Close(); err != nil {
-		slog.Debug("gzip close failed", "error", err)
+		w.log.Debug("gzip close failed", "error", err)
 	}
 	w.gz.Reset(io.Discard)
 	gzipWriters.Put(w.gz)
