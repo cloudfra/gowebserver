@@ -17,3 +17,9 @@
 })();
 
 applyFilter($('filter').value || '');
+
+// ===== A link to a video =====
+// An address naming a video and a time (#v=NAME&t=1:02:13, see vpHash)
+// opens the slideshow there, on load or when the address changes.
+slideshow.openFromHash();
+addEventListener('hashchange', function () { slideshow.openFromHash(); });

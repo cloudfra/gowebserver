@@ -102,8 +102,12 @@ async function clearOfScrubber(p, mode) {
   assert.equal(g.on, true, mode + ': below the video it comes up');
   assert.equal(g.opacity, '1', mode);
   assert.ok(g.bottom <= g.stripTop + 1, mode + ': and stays under the video: ' + JSON.stringify(g));
-  const hit = await p.evaluate(({ x, y }) => document.elementFromPoint(x, y).tagName, { x: g.x, y: g.bottom - 15 });
-  assert.equal(hit, 'VIDEO', mode + ': the scrubber is still the video\'s');
+  // The video's controls are the dock over it (player.js).
+  const hit = await p.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y);
+    return el.tagName === 'VIDEO' || !!el.closest('.vdock');
+  }, { x: g.x, y: g.bottom - 15 });
+  assert.equal(hit, true, mode + ': the scrubber is still the video\'s');
   await mouseTo(p, g.x, g.vh / 2);
 }
 

@@ -25,7 +25,7 @@ docker run -p 3000:3000 \
 
 ## Reading them
 
-- **Handler** is what answered a request: `file`, `listing`, `thumbnail`, `richview`, `upload`, `proxy` or `index`. Everything under a served path has one route, so this is what tells a directory listing from a video being watched.
+- **Handler** is what answered a request: `file`, `listing`, `thumbnail`, `videometa` (a video's metadata, preview sprite or subtitles as WebVTT), `richview`, `upload`, `proxy` or `index`. Everything under a served path has one route, so this is what tells a directory listing from a video being watched.
 - **Time to first byte** is the server's own work. Request duration also has the time the client took to download the body, which for a large file says nothing about the server.
 - **Stages** split one kind of work into its steps, each a histogram labeled `stage`. The same steps are the spans of a request's trace (`listing.read`, `thumbnail.decode`, `ffmpeg.frame` and so on), so a slow stage on the dashboard can be looked up as a slow span.
 - Panels that name an alert show the number that alert watches.

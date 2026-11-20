@@ -437,11 +437,11 @@
       // [kind, url, name, icon, size, date]; kind is 0 a file, 1 a file
       // the text viewer shows, 2 a folder, 3 an archive (opened as one).
       files: [
-        {{- range $.DirEntries}}{{if not .IsMedia}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
+        {{- range $.DirEntries}}{{if and (not .IsMedia) (not .Sidecar)}}{{.ListJS $.UseTimestamp}},{{end}}{{end -}}
       ],
-      // [isVideo, url, name, size, unix mtime]
+      // [isVideo, url, name, size, unix mtime, a video's sidecars (badges, see videometa.go)]
       media: [
-        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{end}}{{end -}}
+        {{- range $.DirEntries}}{{if .IsImage}}[0,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}],{{else if .IsVideo}}[1,{{urlEncode .Name}},{{.Name}},{{.Size}},{{.ModTime.Unix}}{{if .Badges}},{{.Badges}}{{end}}],{{end}}{{end -}}
       ]
     };
   </script>
@@ -465,6 +465,8 @@
       {{include "grid.js"}}
 
       {{include "scrubber.js"}}
+
+      {{include "player.js"}}
 
       {{include "slideshow.js"}}
 

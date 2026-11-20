@@ -79,6 +79,11 @@ tests:
         values: 0+10x30
       - series: http_server_time_to_first_byte_seconds_bucket{job="gowebserver", instance="a:8080", handler="thumbnail", le="+Inf"}
         values: 0+10x30
+      # A video's preview sprite is made with ffmpeg on its first request.
+      - series: http_server_time_to_first_byte_seconds_bucket{job="gowebserver", instance="a:8080", handler="videometa", le="2.5"}
+        values: 0+0x30
+      - series: http_server_time_to_first_byte_seconds_bucket{job="gowebserver", instance="a:8080", handler="videometa", le="+Inf"}
+        values: 0+10x30
       # Files start at once.
       - series: http_server_time_to_first_byte_seconds_bucket{job="gowebserver", instance="a:8080", handler="file", le="0.001"}
         values: 0+10x30

@@ -211,7 +211,9 @@ func isAudio(name string) bool {
 }
 
 func isVideo(name string) bool {
-	return strings.HasPrefix(mime.TypeByExtension(filepath.Ext(name)), "video")
+	// The videos with metadata are videos whatever the host's MIME table
+	// says (see servedTypes).
+	return isMetaVideo(name) || strings.HasPrefix(mime.TypeByExtension(filepath.Ext(name)), "video")
 }
 
 func isMedia(name string) bool {

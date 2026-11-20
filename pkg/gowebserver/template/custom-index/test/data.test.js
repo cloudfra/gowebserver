@@ -54,7 +54,7 @@ test('escapeHTML', () => {
 
 test('media entries are unpacked from the compact array', () => {
   const t = setup(ROWS, MEDIA);
-  assert.deepEqual(plain(t.all[1]), { video: true, url: 'clip.mp4', name: 'clip.mp4', size: 20, t: 200, lower: 'clip.mp4', pos: 0, row: -1 });
+  assert.deepEqual(plain(t.all[1]), { video: true, url: 'clip.mp4', name: 'clip.mp4', size: 20, t: 200, side: 0, lower: 'clip.mp4', pos: 0, row: -1 });
   assert.equal(t.all[0].url, 'a%20b.jpg');
   assert.equal(t.all[2].lower, 'photo.png');
 });
