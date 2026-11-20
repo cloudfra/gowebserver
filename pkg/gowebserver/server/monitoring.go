@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gowebserver
+package server
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cloudfra/gowebserver/internal"
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,7 +37,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func setupMonitoring(m Monitoring, debugEndpoint string) (*monitoringContext, error) {
+func setupMonitoring(m gowebserver.Monitoring, debugEndpoint string) (*monitoringContext, error) {
 	mc := &monitoringContext{
 		handlers: map[string]http.Handler{},
 	}
@@ -114,7 +115,7 @@ func setupMonitoring(m Monitoring, debugEndpoint string) (*monitoringContext, er
 	return mc, nil
 }
 
-func newPrometheusExporter(_ Monitoring, r *resource.Resource) (*otelprom.Exporter, *sdkmetric.MeterProvider, http.Handler, error) {
+func newPrometheusExporter(_ gowebserver.Monitoring, r *resource.Resource) (*otelprom.Exporter, *sdkmetric.MeterProvider, http.Handler, error) {
 	registry := prometheus.NewRegistry()
 	if err := registry.Register(collectors.NewBuildInfoCollector()); err != nil {
 		return nil, nil, nil, err
@@ -142,29 +143,17 @@ func newPrometheusExporter(_ Monitoring, r *resource.Resource) (*otelprom.Export
 	return prometheusExporter, provider, h, nil
 }
 
-// monitoringContext is where the server reports what it does: metrics,
-// traces, logs and diagnostics.
+// monitoringContext is what the standalone server reports to and serves
+// for monitoring: its Prometheus exporter, OTLP tracer and debug
+// endpoints, handed to the WebServer as a gowebserver.Instrumentation.
 type monitoringContext struct {
 	handlers     map[string]http.Handler
 	promExporter *otelprom.Exporter
 	promProvider metric.MeterProvider
 	tp           *sdktrace.TracerProvider
-
-	// An embedded handler's (see NewHandler): set, they are used instead
-	// of the above and of the otel globals, which are never touched.
-	meterProvider  metric.MeterProvider
-	tracerProvider trace.TracerProvider
-	// logger is where everything is logged; nil is slog's default
-	// logger, which the standalone server sets up.
-	logger *slog.Logger
-	// diag is the diagnostics log, nil when they're off.
-	diag *diagLog
 }
 
 func (m *monitoringContext) getTraceProvider() trace.TracerProvider {
-	if m != nil && m.tracerProvider != nil {
-		return m.tracerProvider
-	}
 	if m == nil || m.tp == nil {
 		return otel.GetTracerProvider()
 	}
@@ -172,29 +161,22 @@ func (m *monitoringContext) getTraceProvider() trace.TracerProvider {
 }
 
 func (m *monitoringContext) getMeterProvider() metric.MeterProvider {
-	if m != nil && m.meterProvider != nil {
-		return m.meterProvider
-	}
 	if m == nil || m.promProvider == nil {
 		return otel.GetMeterProvider()
 	}
 	return m.promProvider
 }
 
-// log is the logger to log to.
-func (m *monitoringContext) log() *slog.Logger {
-	if m == nil || m.logger == nil {
-		return slog.Default()
+// instrumentation is m for a gowebserver.WebServer, with wrap around its
+// mux.
+func (m *monitoringContext) instrumentation(wrap func(http.Handler) http.Handler) gowebserver.Instrumentation {
+	return gowebserver.Instrumentation{
+		MeterProvider:  m.getMeterProvider(),
+		TracerProvider: m.getTraceProvider(),
+		Handlers:       m.handlers,
+		Wrap:           wrap,
+		Shutdown:       m.shutdown,
 	}
-	return m.logger
-}
-
-// diagnostics is the diagnostics log, nil when they're off.
-func (m *monitoringContext) diagnostics() *diagLog {
-	if m == nil {
-		return nil
-	}
-	return m.diag
 }
 
 func (m *monitoringContext) shutdown() {
@@ -207,13 +189,13 @@ func (m *monitoringContext) shutdown() {
 	}
 	if m.promExporter != nil {
 		if err := m.promExporter.Shutdown(ctx); err != nil {
-			m.log().Error("cannot shutdown prometheus exporter", "error", err)
+			slog.Error("cannot shutdown prometheus exporter", "error", err)
 		}
 		m.promExporter = nil
 	}
 	if m.tp != nil {
 		if err := m.tp.Shutdown(ctx); err != nil {
-			m.log().Error("cannot shutdown trace provider", "error", err)
+			slog.Error("cannot shutdown trace provider", "error", err)
 		}
 	}
 }

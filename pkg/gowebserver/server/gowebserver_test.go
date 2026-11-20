@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gowebserver
+package server
 
 import (
 	"log/slog"
@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 
 	"github.com/cloudfra/certtool/pkg/certtool"
 	gomainTesting "github.com/cloudfra/gomain/testing"
@@ -58,9 +60,9 @@ func TestBuildCertificateHostnames(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			conf := &Config{
-				HTTPS: HTTPS{
-					Certificate: Certificate{
+			conf := &gowebserver.Config{
+				HTTPS: gowebserver.HTTPS{
+					Certificate: gowebserver.Certificate{
 						CertificateHosts: tc.hosts,
 					},
 				},
@@ -99,7 +101,7 @@ func TestBuildCertificateHostnames(t *testing.T) {
 	if err != nil {
 		t.Skip("cannot get interface addresses:", err)
 	}
-	conf := &Config{HTTPS: HTTPS{Certificate: Certificate{}}}
+	conf := &gowebserver.Config{HTTPS: gowebserver.HTTPS{Certificate: gowebserver.Certificate{}}}
 	got := buildCertificateHostnames(conf)
 	gotSet := map[string]bool{}
 	for _, h := range got {
@@ -150,15 +152,15 @@ func TestRunApplication(t *testing.T) {
 }
 
 func TestCreateCertificate(t *testing.T) {
-	dir := mustTempDir(t)
-	cfg := &Config{
+	dir := t.TempDir()
+	cfg := &gowebserver.Config{
 		Verbose:           false,
-		Serve:             []Serve{},
+		Serve:             []gowebserver.Serve{},
 		ConfigurationFile: "",
-		HTTP:              HTTP{},
-		HTTPS: HTTPS{
+		HTTP:              gowebserver.HTTP{},
+		HTTPS: gowebserver.HTTPS{
 			Port: 0,
-			Certificate: Certificate{
+			Certificate: gowebserver.Certificate{
 				RootPrivateKeyFilePath:   filepath.Join(dir, "root-private.key"),
 				RootCertificateFilePath:  filepath.Join(dir, "root-public.cert"),
 				PrivateKeyFilePath:       filepath.Join(dir, "private.key"),
@@ -168,10 +170,10 @@ func TestCreateCertificate(t *testing.T) {
 				ForceOverwrite:           true,
 			},
 		},
-		Monitoring: Monitoring{
-			Metrics: Metrics{},
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{},
 		},
-		Upload: Serve{},
+		Upload: gowebserver.Serve{},
 	}
 	if err := createCertificate(cfg); err != nil {
 		t.Error(err)
@@ -192,12 +194,12 @@ func TestCreateCertificate(t *testing.T) {
 }
 
 func ExampleWebServer_Serve() {
-	conf := &Config{
+	conf := &gowebserver.Config{
 		Verbose: false,
-		HTTP: HTTP{
+		HTTP: gowebserver.HTTP{
 			Port: 0,
 		},
-		HTTPS: HTTPS{
+		HTTPS: gowebserver.HTTPS{
 			Port: 0,
 		},
 	}
@@ -235,30 +237,30 @@ func TestWebServerFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	backback := filepath.Dir(filepath.Dir(cwd))
-	conf := &Config{
+	conf := &gowebserver.Config{
 		Verbose: true,
-		Serve: []Serve{
+		Serve: []gowebserver.Serve{
 			{Source: cwd, Endpoint: "/cwd"},
 			{Source: backback, Endpoint: "/root"},
 		},
 		EnhancedList: true,
-		HTTP:         HTTP{Port: 8082},
-		HTTPS:        HTTPS{Port: 0},
-		Monitoring: Monitoring{
-			Metrics: Metrics{
+		HTTP:         gowebserver.HTTP{Port: 8082},
+		HTTPS:        gowebserver.HTTPS{Port: 0},
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{
 				Enabled: true,
 				Path:    "/metrics",
 			},
-			Trace: Trace{
+			Trace: gowebserver.Trace{
 				Enabled: true,
 				URI:     "http://jaeger:4318/v1/traces",
 			},
 		},
-		Upload: Serve{
+		Upload: gowebserver.Serve{
 			Source:   "/tmp/upload",
 			Endpoint: "/upload",
 		},
-		Debug: Debug{Endpoint: "/debug", Shutdown: true},
+		Debug: gowebserver.Debug{Endpoint: "/debug", Shutdown: true},
 	}
 
 	syncFunc := configLogger(conf.Verbose)

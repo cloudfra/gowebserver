@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !openbsd
+//go:build plan9 || js || aix
 
-package gowebserver
+package server
 
 import (
-	"go.opentelemetry.io/contrib/instrumentation/host"
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func startHostMetrics() error {
-	return host.Start()
+func newTraceProvider(m gowebserver.Monitoring, r *resource.Resource, sp sdktrace.SpanProcessor) (*sdktrace.TracerProvider, error) {
+	return nil, nil
 }

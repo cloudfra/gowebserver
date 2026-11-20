@@ -65,6 +65,10 @@ func newHandlerFromFSContext(ctx context.Context, fsSpec, source string, mc *mon
 
 	nFS, err := ufs.New(ctx, fsSpec)
 	if err != nil {
+		if strings.Contains(err.Error(), "cannot find a ufs file system driver") {
+			// The program left the driver out (see Options.Path).
+			err = fmt.Errorf("%w (import its ufs driver: _ \"github.com/cloudfra/ufs/drivers/gitfs\" for git, drivers/gcsfs for gs://, or drivers/all)", err)
+		}
 		return nil, nilFuncWithError, err
 	}
 	if source == "" {

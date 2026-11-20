@@ -28,7 +28,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -152,43 +151,6 @@ func TestDefaultServeMuxEmpty(t *testing.T) {
 		if _, pattern := http.DefaultServeMux.Handler(httptest.NewRequest(http.MethodGet, p, nil)); pattern != "" {
 			t.Errorf("http.DefaultServeMux routes %s to %q", p, pattern)
 		}
-	}
-}
-
-// The standalone server's pprof endpoints still answer, on its own mux.
-func TestPprofHandlers(t *testing.T) {
-	mux := http.NewServeMux()
-	for p, h := range pprofHandlers("/debug") {
-		mux.Handle(p, h)
-	}
-	for target, want := range map[string]string{
-		"/debug/pprof/":                    "goroutine",
-		"/debug/pprof/heap?debug=1":        "heap profile",
-		"/debug/pprof/goroutine?debug=2":   "goroutine",
-		"/debug/pprof/symbol":              "num_symbols: 1",
-		"/debug/pprof/profile?seconds=0.1": "",
-		"/debug/pprof/trace?seconds=0.1":   "",
-	} {
-		rec := mountGet(t, mux, http.MethodGet, target, nil)
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), want) || rec.Body.Len() == 0 {
-			t.Errorf("GET %s: %d, %d bytes, want %q in it", target, rec.Code, rec.Body.Len(), want)
-		}
-	}
-	if rec := mountGet(t, mux, http.MethodGet, "/debug/pprof/cmdline", nil); !strings.Contains(rec.Body.String(), os.Args[0]) {
-		t.Errorf("cmdline %q", rec.Body.String())
-	}
-	if rec := mountGet(t, mux, http.MethodGet, "/debug/pprof/nothing", nil); rec.Code != http.StatusNotFound {
-		t.Errorf("an unknown profile: %d", rec.Code)
-	}
-	pc := uintptr(0)
-	if pcs := make([]uintptr, 1); runtime.Callers(1, pcs) == 1 {
-		pc = pcs[0]
-	}
-	req := httptest.NewRequest(http.MethodPost, "/debug/pprof/symbol", strings.NewReader("0x"+strconv.FormatUint(uint64(pc), 16)))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-	if !strings.Contains(rec.Body.String(), "TestPprofHandlers") {
-		t.Errorf("symbol: %q", rec.Body.String())
 	}
 }
 

@@ -26,10 +26,12 @@ import (
 
 	"github.com/cloudfra/gowebserver/pkg/ffmpeg"
 	"github.com/cloudfra/ufs"
-	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	_ "github.com/cloudfra/ufs/drivers/all" // Import all supported ufs drivers for use in gowebserver.
+	// The local folder and archive drivers; the server package, the
+	// standalone binary, imports all of them (cloud storage, git...), and
+	// a program that embeds a Handler imports what it needs.
+	_ "github.com/cloudfra/ufs/drivers/core"
 )
 
 // WebServer is a convenience wrapper for Go's HTTP/HTTPS Web serving API.
@@ -39,6 +41,7 @@ type WebServer interface {
 }
 
 type webServerImpl struct {
+	wrap                func(http.Handler) http.Handler // Instrumentation.Wrap
 	httpAddr            string
 	httpsAddr           string
 	metricsEnabled      bool
@@ -271,7 +274,10 @@ func (ws *webServerImpl) Serve(wait func()) error {
 		}
 	}()
 
-	httpHandler := cors.Default().Handler(gzipHandler(serverMux))
+	httpHandler := gzipHandler(serverMux)
+	if ws.wrap != nil {
+		httpHandler = ws.wrap(httpHandler)
+	}
 
 	httpPort, err := getPort(httpSocket)
 	if err != nil {
@@ -327,8 +333,17 @@ func newHTTPServer(h http.Handler) *http.Server {
 	}
 }
 
-// New creates a new [WebServer] with the specified [Config].
+// New creates a new [WebServer] with the specified [Config], reporting
+// to the otel globals and with no routes but its content's, the upload
+// page and the debug shutdown. The standalone server (package server)
+// adds its exporters, debug endpoints and CORS with [NewInstrumented].
 func New(conf *Config) (WebServer, error) {
+	return NewInstrumented(conf, Instrumentation{})
+}
+
+// NewInstrumented creates a new [WebServer] with the specified [Config]
+// that reports to, and adds the routes and wrapper of, in.
+func NewInstrumented(conf *Config, in Instrumentation) (WebServer, error) {
 	if conf == nil {
 		conf = &Config{}
 	}
@@ -353,9 +368,11 @@ func New(conf *Config) (WebServer, error) {
 		uploadPath = dir
 	}
 
-	monitoringCtx, err := setupMonitoring(conf.Monitoring, conf.Debug.Endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("cannot setup monitoring '%+v', %w", conf.Monitoring, err)
+	monitoringCtx := &monitoringContext{
+		handlers:       in.Handlers,
+		meterProvider:  in.MeterProvider,
+		tracerProvider: in.TracerProvider,
+		stop:           in.Shutdown,
 	}
 	ff, err := newFFmpeg(conf.FFmpeg, slog.Default(), ffmpegConfigNames)
 	if err != nil {
@@ -366,6 +383,7 @@ func New(conf *Config) (WebServer, error) {
 		return nil, fmt.Errorf("cannot setup request metrics, %w", err)
 	}
 	ws := &webServerImpl{
+		wrap:                in.Wrap,
 		requestMetrics:      requestMetrics,
 		httpAddr:            toAddr(conf.HTTP.Port),
 		httpsAddr:           toAddr(conf.HTTPS.Port),

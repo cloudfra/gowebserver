@@ -14,17 +14,19 @@
 
 //go:build !(plan9 || js || aix)
 
-package gowebserver
+package server
 
 import (
 	"context"
+
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func newTraceProvider(m Monitoring, r *resource.Resource, sp sdktrace.SpanProcessor) (*sdktrace.TracerProvider, error) {
+func newTraceProvider(m gowebserver.Monitoring, r *resource.Resource, sp sdktrace.SpanProcessor) (*sdktrace.TracerProvider, error) {
 	ctx := context.Background()
 	if len(m.Trace.URI) == 0 {
 		return nil, nil

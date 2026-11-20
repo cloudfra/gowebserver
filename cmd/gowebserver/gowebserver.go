@@ -16,9 +16,9 @@
 package main
 
 import (
-	"github.com/cloudfra/gowebserver/pkg/gowebserver"
+	"github.com/cloudfra/gowebserver/pkg/gowebserver/server"
 )
 
 func main() {
-	gowebserver.Run()
+	server.Run()
 }

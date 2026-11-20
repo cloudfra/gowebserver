@@ -14,7 +14,7 @@
 
 //go:build openbsd
 
-package gowebserver
+package server
 
 func startHostMetrics() error {
 	return nil

@@ -27,29 +27,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"go.uber.org/zap"
 )
 
-// isBenignSyncError reports whether err is the well-known spurious failure
-// returned by (*zap.Logger).Sync (and the underlying os.File.Sync) when
-// flushing stdout/stderr on Linux: those file descriptors are not
-// syncable, and the OS returns EINVAL even though nothing is wrong. See
-// https://github.com/uber-go/zap/issues/328 and
-// https://github.com/uber-go/zap/issues/991.
-func isBenignSyncError(err error) bool {
-	return errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.ENOTTY)
-}
-
+// checkError logs err, if there is one.
 func checkError(err error) {
 	if err != nil {
 		slog.Error("error", "error", err)
-		if syncErr := zap.S().Sync(); syncErr != nil && !isBenignSyncError(syncErr) {
-			slog.Error("failed to sync logger after reporting error", "error", syncErr)
-		}
 	}
 }
 

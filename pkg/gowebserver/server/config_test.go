@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gowebserver
+package server
 
 import (
 	_ "embed"
@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cloudfra/gowebserver/pkg/gowebserver"
 
 	gowsTesting "github.com/cloudfra/gowebserver/internal/gowebserver/testing"
 	"github.com/google/go-cmp/cmp"
@@ -37,7 +39,7 @@ var (
 )
 
 func TestEmptyConfig(t *testing.T) {
-	conf := &Config{}
+	conf := &gowebserver.Config{}
 
 	if diff := cmp.Diff(emptyConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
 		t.Errorf("config.String() mismatch (-want +got):\n%s", diff)
@@ -45,19 +47,19 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestPopulatedConfig(t *testing.T) {
-	conf := &Config{
+	conf := &gowebserver.Config{
 		Verbose:      true,
 		EnhancedList: true,
-		Serve: []Serve{{
+		Serve: []gowebserver.Serve{{
 			Source:   "/home/folder",
 			Endpoint: "/serving",
 		}},
-		HTTP: HTTP{
+		HTTP: gowebserver.HTTP{
 			Port: 1000,
 		},
-		HTTPS: HTTPS{
+		HTTPS: gowebserver.HTTPS{
 			Port: 2000,
-			Certificate: Certificate{
+			Certificate: gowebserver.Certificate{
 				RootPrivateKeyFilePath:   "root-private-key.pem",
 				RootCertificateFilePath:  "root-public-certificate.pem",
 				PrivateKeyFilePath:       "private-key.pem",
@@ -67,30 +69,30 @@ func TestPopulatedConfig(t *testing.T) {
 				ForceOverwrite:           true,
 			},
 		},
-		Monitoring: Monitoring{
-			Metrics: Metrics{
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{
 				Enabled: true,
 				Path:    "/prometheus",
 			},
-			Trace: Trace{
+			Trace: gowebserver.Trace{
 				Enabled: true,
 				URI:     "remotehost",
 			},
 		},
-		Upload: Serve{
+		Upload: gowebserver.Serve{
 			Source:   "/home/upload",
 			Endpoint: "/postage",
 		},
-		FFmpeg: FFmpeg{
+		FFmpeg: gowebserver.FFmpeg{
 			AcceptLicense:   true,
 			Path:            "/usr/bin/ffmpeg",
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
-		Thumbnails: Thumbnails{
+		Thumbnails: gowebserver.Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
-		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Debug: gowebserver.Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
 	if diff := cmp.Diff(populatedConfigYaml, conf.String(), gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -105,29 +107,29 @@ func TestNoDefaultConfig(t *testing.T) {
 	filename := filepath.Join(dir, "config.yaml")
 	gowsTesting.MustFile(t, filename, []byte(noDefaultsConfigFile))
 
-	got := &Config{}
+	got := &gowebserver.Config{}
 
 	if err := loadWithConfigFile(filename, got); err != nil {
 		t.Fatal(err)
 	}
 
-	want := &Config{
+	want := &gowebserver.Config{
 		Verbose:      true,
 		EnhancedList: true,
-		Serve: []Serve{
+		Serve: []gowebserver.Serve{
 			{
 				Source:   "/home/example",
 				Endpoint: "/serving",
 			},
 		},
 		ConfigurationFile: "",
-		Debug:             Debug{Endpoint: "/zdebug", Shutdown: true, Diagnostics: "diag.log"},
-		HTTP: HTTP{
+		Debug:             gowebserver.Debug{Endpoint: "/zdebug", Shutdown: true, Diagnostics: "diag.log"},
+		HTTP: gowebserver.HTTP{
 			Port: 1,
 		},
-		HTTPS: HTTPS{
+		HTTPS: gowebserver.HTTPS{
 			Port: 2,
-			Certificate: Certificate{
+			Certificate: gowebserver.Certificate{
 				RootPrivateKeyFilePath:   "root-private.pem",
 				RootCertificateFilePath:  "root-public.pem",
 				PrivateKeyFilePath:       "private.pem",
@@ -137,17 +139,17 @@ func TestNoDefaultConfig(t *testing.T) {
 				ForceOverwrite:           false,
 			},
 		},
-		Monitoring: Monitoring{
-			Metrics: Metrics{
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{
 				Enabled: false,
 				Path:    "/metrics",
 			},
-			Trace: Trace{
+			Trace: gowebserver.Trace{
 				Enabled: true,
 				URI:     "somewhere",
 			},
 		},
-		Upload: Serve{
+		Upload: gowebserver.Serve{
 			Source:   "dropsite",
 			Endpoint: "/upload.jspx",
 		},
@@ -163,28 +165,28 @@ func TestPopulatedYamlConfig(t *testing.T) {
 	filename := filepath.Join(dir, "config.yaml")
 	gowsTesting.MustFile(t, filename, []byte(populatedConfigYaml))
 
-	got := &Config{}
+	got := &gowebserver.Config{}
 
 	if err := loadWithConfigFile(filename, got); err != nil {
 		t.Fatal(err)
 	}
 
-	want := &Config{
+	want := &gowebserver.Config{
 		Verbose:      true,
 		EnhancedList: true,
-		Serve: []Serve{
+		Serve: []gowebserver.Serve{
 			{
 				Source:   "/home/folder",
 				Endpoint: "/serving",
 			},
 		},
 		ConfigurationFile: "",
-		HTTP: HTTP{
+		HTTP: gowebserver.HTTP{
 			Port: 1000,
 		},
-		HTTPS: HTTPS{
+		HTTPS: gowebserver.HTTPS{
 			Port: 2000,
-			Certificate: Certificate{
+			Certificate: gowebserver.Certificate{
 				RootPrivateKeyFilePath:   "root-private-key.pem",
 				RootCertificateFilePath:  "root-public-certificate.pem",
 				PrivateKeyFilePath:       "private-key.pem",
@@ -194,31 +196,31 @@ func TestPopulatedYamlConfig(t *testing.T) {
 				ForceOverwrite:           false,
 			},
 		},
-		Monitoring: Monitoring{
-			Metrics: Metrics{
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{
 				Enabled: true,
 				Path:    "/prometheus",
 			},
-			Trace: Trace{
+			Trace: gowebserver.Trace{
 				Enabled: true,
 				URI:     "remotehost",
 			},
 		},
 
-		Upload: Serve{
+		Upload: gowebserver.Serve{
 			Source:   "/home/upload",
 			Endpoint: "/postage",
 		},
-		FFmpeg: FFmpeg{
+		FFmpeg: gowebserver.FFmpeg{
 			AcceptLicense:   true,
 			Path:            "/usr/bin/ffmpeg",
 			InstallOnDemand: true,
 			SourceURL:       "https://example.com/ffmpeg.tar.xz",
 		},
-		Thumbnails: Thumbnails{
+		Thumbnails: gowebserver.Thumbnails{
 			CachePath: "/var/cache/gowebserver/thumbnails.db",
 		},
-		Debug: Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
+		Debug: gowebserver.Debug{Endpoint: "/debugging", Shutdown: true, Diagnostics: "/var/log/gowebserver-diagnostics.log"},
 	}
 
 	if diff := cmp.Diff(want, got, gowsTesting.IgnoreCarriageReturns()); diff != "" {
@@ -236,22 +238,22 @@ func TestDefaultConfiguration(t *testing.T) {
 	}
 
 	httpPort, httpsPort := defaultPorts()
-	want := &Config{
+	want := &gowebserver.Config{
 		Verbose:      false,
 		EnhancedList: false,
-		Serve: []Serve{
+		Serve: []gowebserver.Serve{
 			{
 				Source:   "",
 				Endpoint: "/",
 			},
 		},
 		ConfigurationFile: "",
-		HTTP: HTTP{
+		HTTP: gowebserver.HTTP{
 			Port: httpPort,
 		},
-		HTTPS: HTTPS{
+		HTTPS: gowebserver.HTTPS{
 			Port: httpsPort,
-			Certificate: Certificate{
+			Certificate: gowebserver.Certificate{
 				RootPrivateKeyFilePath:   "",
 				RootCertificateFilePath:  "",
 				PrivateKeyFilePath:       "web.key",
@@ -261,21 +263,21 @@ func TestDefaultConfiguration(t *testing.T) {
 				ForceOverwrite:           false,
 			},
 		},
-		Monitoring: Monitoring{
-			Metrics: Metrics{
+		Monitoring: gowebserver.Monitoring{
+			Metrics: gowebserver.Metrics{
 				Enabled: true,
 				Path:    "/metrics",
 			},
-			Trace: Trace{
+			Trace: gowebserver.Trace{
 				Enabled: false,
 				URI:     "",
 			},
 		},
-		Upload: Serve{
+		Upload: gowebserver.Serve{
 			Source:   "uploaded-files",
 			Endpoint: "/upload.asp",
 		},
-		Thumbnails: Thumbnails{
+		Thumbnails: gowebserver.Thumbnails{
 			Enabled: true,
 		},
 	}
@@ -308,7 +310,7 @@ func TestMovedSettings(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			filename := filepath.Join(t.TempDir(), "config.yaml")
 			gowsTesting.MustFile(t, filename, []byte(tc.yaml))
-			err := loadWithConfigFile(filename, &Config{})
+			err := loadWithConfigFile(filename, &gowebserver.Config{})
 			if !errors.Is(err, errSettingMoved) {
 				t.Fatalf("loading %q: %v, want errSettingMoved", tc.yaml, err)
 			}
@@ -324,7 +326,7 @@ func TestMovedSettings(t *testing.T) {
 	for _, ok := range []string{"debug:\n  endpoint: /debug\n  shutdown: true\n", "verbose: true\n", ""} {
 		filename := filepath.Join(t.TempDir(), "config.yaml")
 		gowsTesting.MustFile(t, filename, []byte(ok))
-		if err := loadWithConfigFile(filename, &Config{}); err != nil {
+		if err := loadWithConfigFile(filename, &gowebserver.Config{}); err != nil {
 			t.Errorf("loading %q: %v", ok, err)
 		}
 	}

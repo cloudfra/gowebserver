@@ -44,7 +44,11 @@ type Options struct {
 	FS fs.FS
 	// Path is the content to serve as the standalone server's -path takes
 	// it: a folder, an archive (zip, tar, 7z, rar), a git repository, or
-	// an http(s) URL whose server requests are passed on to. A folder
+	// an http(s) URL whose server requests are passed on to. Folders and
+	// archives need nothing more; a git repository or cloud storage needs
+	// its ufs driver imported, such as _ "github.com/cloudfra/ufs/drivers/gitfs"
+	// (or drivers/all for every one), which is left to the program so it
+	// links only what it uses. A folder
 	// that isn't there yet (a path with no extension) is served once it
 	// is; until then every request is a 404.
 	Path string
@@ -113,7 +117,8 @@ type ThumbnailOptions struct {
 	// Disabled turns thumbnails off.
 	Disabled bool
 	// CachePath is the BoltDB file that keeps thumbnails across
-	// restarts (see Options.Source). Empty keeps them in memory, for the
+	// restarts (see Options.Source), and needs ufs's bolt driver imported:
+	// _ "github.com/cloudfra/ufs/drivers/boltfs". Empty keeps them in memory, for the
 	// life of the handler. One process can't open it twice: a second
 	// handler given the same file keeps its thumbnails in memory.
 	CachePath string
