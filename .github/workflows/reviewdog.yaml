@@ -31,7 +31,9 @@ jobs:
   # result survives and dependency-review - non-blocking while private - is
   # the step that gets skipped.
   reviewdog:
-    name: runner / reviewdog
+    # The display name is the second half of the check's name, and a slash
+    # inside it makes the Checks tab show a workflow that doesn't exist.
+    name: reviewdog
     # While private, the checks cost Actions minutes on every push and
     # there is no fork-supplied code to isolate, so they go to the same
     # self-hosted pool deploy.yaml uses. A public repo can get a pull

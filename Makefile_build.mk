@@ -143,6 +143,13 @@ build/packages/release.tar.gz: $(RELEASE_BINARIES)
 	cd "$(REPOSITORY_ROOT)/build/release/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
 	touch "$(REPOSITORY_ROOT)/$@"
 
+# Release binaries are downloaded over a network, so the release attaches a
+# checksum list naming them. Build it after the tarball above: that recipe
+# packs every file in build/release/, so a SHA256SUMS written first would
+# end up inside the archive that does not list it.
+build/release/SHA256SUMS: $(RELEASE_BINARIES)
+	cd "$(REPOSITORY_ROOT)/build/release/"; sha256sum $(notdir $(RELEASE_BINARIES)) > SHA256SUMS
+
 build/packages/all-binaries.tar.gz: $(ALL_BINARIES)
 	mkdir -p "$(dir $@)"
 	cd "$(REPOSITORY_ROOT)/build/bin/"; tar -cvf - * | gzip -9 - > "$(REPOSITORY_ROOT)/$@"
@@ -405,7 +412,15 @@ system-info:
 	@uname -a
 	@echo ""
 	@echo "Storage Metrics"
-	@df -h
+	@# df waits forever on a mount that stopped answering, which held a CI runner
+	@# for its whole 20 minutes twice, so it gets 10 s.
+	@# Windows has its own timeout, which only waits, so it keeps plain df. A host
+	@# with no timeout at all (macOS) keeps plain df for the same reason.
+	@if [ "$(OS)" != "Windows_NT" ] && command -v timeout >/dev/null 2>&1; then \
+		timeout 10 df -h || echo "df gave up after 10 s: a mount on this machine isn't answering"; \
+	else \
+		df -h; \
+	fi
 
 sync-upstream:
 	-git fetch origin; git add -A; git commit -m"Save pending changes."; git rebase -i origin/main

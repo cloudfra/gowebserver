@@ -32,7 +32,17 @@ permissions: read-all
 jobs:
   analysis:
     name: Scorecard analysis
-    runs-on: ubuntu-latest
+    # While private, this scan costs Actions minutes on every push to main and
+    # there is no fork-supplied code to isolate, so it goes to the same
+    # self-hosted pool deploy.yaml uses. A public repo can be scanned by
+    # anyone, so it moves back to a GitHub-hosted VM. fromJSON because
+    # runs-on wants a list of labels, and 'linux' because the pool also has
+    # Windows runners that can't run these steps. scorecard-action is a
+    # container action, which the Linux nodes of that pool can run.
+    runs-on: >-
+      ${{ fromJSON(github.event.repository.private
+      && '["self-hosted", "linux"]'
+      || '["ubuntu-latest"]') }}
     timeout-minutes: 10
     # https://github.com/ossf/scorecard-action#additional-permissions-for-private-repositories
     # security-events:write/id-token:write (needed for publish_results/Code
