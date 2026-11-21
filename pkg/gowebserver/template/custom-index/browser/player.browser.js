@@ -331,9 +331,16 @@ test('the captions menu turns the subtitles on', async () => {
   const p = b.page;
   await p.waitForSelector('#ss-stage .vd-cc:not([hidden])');
   await p.click('#ss-stage .vd-cc');
+  // Once it has faded and risen into place.
+  await p.waitForFunction(() => { const m = document.querySelector('#ss-stage .vd-menu'); return getComputedStyle(m).opacity === '1' && getComputedStyle(m).transform === 'none'; });
   const items = await p.$$eval('#ss-stage .vd-menu [role=menuitemradio]', (els) => els.map((e) => e.textContent));
   assert.deepEqual(items, ['Off', 'English']);
-  await p.click('#ss-stage .vd-menu [role=menuitemradio]:nth-child(2)');
+  // Chosen with the keys, as the menu offers: the focus starts on the
+  // choice (Off). In this suite Firefox drops the first mouse press in
+  // the popover; clicks on its items are the unit tests'.
+  assert.equal(await p.evaluate(() => document.activeElement.textContent), 'Off');
+  await p.keyboard.press('ArrowDown');
+  await p.keyboard.press('Enter');
   assert.equal(await p.getAttribute('#ss-stage .vd-cc', 'aria-pressed'), 'true');
   if (ffmpeg) await seekPaused(p, 12);
   await p.waitForFunction(() => !document.querySelector('#ss-stage .vd-cap').hidden);

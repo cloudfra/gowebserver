@@ -315,11 +315,11 @@ function VideoDock(opts) {
     '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
     '</div>' +
     '</div>' +
-    '<div class="vd-row">' +
+    '<div class="vd-row"><span class="vd-cluster vd-left">' +
     btn('vd-play', 'Play', vpIcon('play'), 'K') +
     '<span class="vd-time"><span class="vd-cur">0:00</span><span class="vd-sep">/</span><span class="vd-dur">0:00</span></span>' +
     '<span class="vd-chap"></span>' +
-    '<span class="vd-gap"></span>' +
+    '</span><span class="vd-gap"></span><span class="vd-cluster vd-right">' +
     '<span class="vd-group vd-mk" hidden>' +
     btn('vd-prev-mk', 'Previous marker', vpIcon('prev-mk'), '[') +
     btn('vd-mk-menu', 'Markers', vpIcon('markers'), '', ' aria-haspopup="menu" aria-expanded="false"') +
@@ -336,7 +336,7 @@ function VideoDock(opts) {
     btn('vd-rate', 'Speed', '<span class="vd-rate-text">1×</span>', '&lt; &gt;', ' aria-haspopup="menu" aria-expanded="false"') +
     btn('vd-more', 'More', vpIcon('more'), '', ' aria-haspopup="menu" aria-expanded="false"') +
     '</span>' +
-    btn('vd-full', 'Full screen', vpIcon('full'), 'F') +
+    btn('vd-full', 'Full screen', vpIcon('full'), 'F') + '</span>' +
     '</div>' +
     '</div>' +
     '<div class="vd-menu" role="menu" hidden><div class="vd-menu-title"></div><div class="vd-menu-list"></div></div>' +
