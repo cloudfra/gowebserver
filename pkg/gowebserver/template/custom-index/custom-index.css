@@ -3116,7 +3116,11 @@ main {
 
 /* ===== Video dock (player.js) =====
  * Laid over the current video, where the browser's own controls would
- * be, on a scrim that fades up from the bottom edge. The timeline runs
+ * be. Rather than a scrim across the whole bottom, a soft shadow lies
+ * behind each thing there is to read (the timeline, the controls at
+ * either end, the preview, the menus), so the picture stays visible
+ * between them and white icons hold their contrast over a white frame
+ * (at least 3:1, the non-text minimum). The timeline runs
  * the video's width: chapters as segments with gaps, markers as pins
  * that read over any picture, played in the accent. Under it, the one
  * solid control, play, then the time; the rest are quieter, in groups
@@ -3126,8 +3130,8 @@ main {
  * theme, and so is the dock. */
 .vdock {
   --vd-ink: #f6f7f9;
-  --vd-ink-2: rgba(246, 247, 249, 0.74);
-  --vd-ink-3: rgba(246, 247, 249, 0.5);
+  --vd-ink-2: rgba(246, 247, 249, 0.84);
+  --vd-ink-3: rgba(246, 247, 249, 0.62);
   --vd-glass: rgba(22, 24, 30, 0.9);
   --vd-line: rgba(255, 255, 255, 0.12);
   --vd-played: var(--accent);
@@ -3135,6 +3139,9 @@ main {
   --vd-buffered: rgba(255, 255, 255, 0.44);
   --vd-hover: rgba(255, 255, 255, 0.3);
   --vd-rail: 4px;
+  /* The shadow behind what's read: how dark, and how far it feathers. */
+  --vd-shade: rgba(4, 5, 8, 0.7);
+  --vd-feather: 14px;
   position: absolute;
   z-index: 2;
   display: flex;
@@ -3153,10 +3160,10 @@ main {
 }
 
 .vd-panel {
-  padding: 48px 10px 6px;
-  border-radius: 0 0 3px 3px;
-  background: linear-gradient(to top, rgba(5, 6, 9, 0.84) 0%, rgba(5, 6, 9, 0.56) 46%, rgba(5, 6, 9, 0.18) 80%, rgba(5, 6, 9, 0) 100%);
-  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  padding: 40px 12px 8px;
+  pointer-events: none;
   transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
 }
 
@@ -3174,6 +3181,21 @@ main {
   cursor: pointer;
   touch-action: none;
   outline: none;
+  pointer-events: auto;
+}
+
+/* A gentle band hugging the timeline: a blurred, rounded shadow, which
+   feathers without the steps a gradient this dark would show. */
+.vd-tl::before {
+  content: "";
+  position: absolute;
+  inset: 4px -6px;
+  z-index: -1;
+  border-radius: 999px;
+  background: var(--vd-shade);
+  opacity: 0.7;
+  filter: blur(calc(var(--vd-feather) * 0.75));
+  pointer-events: none;
 }
 
 .vd-tl:focus-visible {
@@ -3284,7 +3306,7 @@ main {
   overflow: hidden;
   border-radius: 10px;
   background: #0c0d10;
-  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
 }
 
 .vd-pop-img {
@@ -3307,7 +3329,7 @@ main {
   padding: 5px 10px 6px;
   border-radius: 9px;
   background: var(--vd-glass);
-  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 24px 2px rgba(0, 0, 0, 0.5);
 }
 
 .vd-pop-label {
@@ -3331,42 +3353,127 @@ main {
 .vd-row {
   display: flex;
   align-items: center;
-  gap: 2px;
   min-width: 0;
   height: 52px;
 }
 
+/* The controls at either end, each over its own feathered shadow. */
+.vd-cluster {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.vd-left {
+  flex: 0 1 auto;
+}
+
+.vd-right {
+  flex: none;
+}
+
+.vd-cluster::before {
+  content: "";
+  position: absolute;
+  inset: -12px -18px;
+  z-index: -1;
+  border-radius: 28px;
+  background: var(--vd-shade);
+  filter: blur(var(--vd-feather));
+  pointer-events: none;
+}
+
 .vd-btn {
+  --vd-push: 0px;
   flex: none;
   position: relative;
+  isolation: isolate;
   width: 40px;
   height: 40px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: transparent;
   color: var(--vd-ink-2);
   font: 650 0.8125rem/1 var(--font-ui);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: color 0.15s, background-color 0.15s, transform 0.18s var(--ease);
+  transition: color 0.16s;
 }
 
-.vd-btn:hover,
-.vd-btn[aria-expanded="true"] {
+/* The highlight: a soft disc that grows and fades in behind the icon.
+   Only it and the icon move; the button's own box never does, so a
+   pointer resting at its edge stays on it (as the page's buttons). */
+.vd-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  opacity: 0;
+  transform: scale(0.55);
+  transition: opacity 0.18s var(--ease-out), transform 0.22s var(--ease);
+}
+
+.vd-btn > :is(svg, .vd-rate-text) {
+  transition: scale 0.2s var(--ease), translate 0.2s var(--ease), opacity 0.16s;
+}
+
+.vd-btn:is(:hover, :focus-visible, [aria-expanded="true"]) {
   color: var(--vd-ink);
-  background: rgba(255, 255, 255, 0.12);
 }
 
-.vd-btn:active {
-  transform: scale(0.92);
+.vd-btn[aria-expanded="true"]::before {
+  opacity: 1;
+  transform: none;
+}
+
+@media (hover: hover), (any-hover: hover) {
+  .vd-btn:hover {
+    --vd-push: 1.4px;
+    animation: btn-ring 0.7s var(--ease-out);
+  }
+
+  .vd-btn:hover::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  .vd-btn:hover > :is(svg, .vd-rate-text) {
+    scale: 1.1;
+  }
+
+  /* What some icons do besides: the captions lift, the speed leans on. */
+  .vd-cc:hover > svg {
+    translate: 0 -1px;
+  }
+
+  .vd-rate:hover > .vd-rate-text {
+    translate: 1px 0;
+  }
+}
+
+/* Pressed: the icon gives a little, and the disc darkens. */
+.vd-btn:active > :is(svg, .vd-rate-text) {
+  scale: 0.92;
+  transition-duration: 0.08s;
+}
+
+.vd-btn:active::before {
+  opacity: 1;
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .vd-btn:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .vd-btn svg {
@@ -3390,19 +3497,27 @@ main {
   box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
 }
 
-.vd-play:hover {
-  background: #fff;
-  color: #0d0f14;
-  transform: scale(1.05);
+.vd-play::before {
+  background: rgba(13, 15, 20, 0.1);
 }
 
-.vd-play:active {
-  transform: scale(0.94);
+.vd-play:is(:hover, :focus-visible) {
+  color: #0d0f14;
+  background: #fff;
 }
 
 .vd-play svg {
   width: 22px;
   height: 22px;
+  animation: vd-turn 0.22s var(--ease);
+}
+
+@keyframes vd-turn {
+  from {
+    opacity: 0;
+    scale: 0.6;
+    rotate: -90deg;
+  }
 }
 
 .vd-time {
@@ -3445,7 +3560,7 @@ main {
 
 .vd-gap {
   flex: 1;
-  min-width: 8px;
+  min-width: 12px;
 }
 
 .vd-group,
@@ -3479,8 +3594,9 @@ main {
 
 .vd-rate {
   width: auto;
-  min-width: 44px;
-  padding: 0 9px;
+  min-width: 46px;
+  padding: 0 10px;
+  border-radius: 20px;
 }
 
 .vd-more {
@@ -3611,10 +3727,10 @@ main {
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
-  background: rgba(24, 26, 32, 0.9);
+  background: rgba(22, 24, 30, 0.94);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   backdrop-filter: blur(24px) saturate(1.6);
-  box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 18px 56px 4px rgba(0, 0, 0, 0.6);
   pointer-events: auto;
   opacity: 0;
   transform: translateY(6px) scale(0.97);
@@ -3762,7 +3878,7 @@ main {
  * The row keeps play, the time, subtitles and full screen, and puts the
  * rest in More. Touch targets stay 44px. */
 .vdock.compact .vd-panel {
-  padding: 40px 6px 4px;
+  padding: 34px 8px 6px;
 }
 
 .vdock.compact .vd-tl {
@@ -3803,6 +3919,28 @@ main {
 @media (pointer: coarse) {
   .vd-tl {
     height: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vdock .vd-btn {
+    --vd-push: 0px !important;
+    animation: none !important;
+  }
+
+  .vdock .vd-btn::before,
+  .vdock .vd-btn:active::before {
+    transform: none;
+  }
+
+  .vdock .vd-btn > :is(svg, .vd-rate-text) {
+    scale: none !important;
+    translate: none !important;
+    rotate: none;
+  }
+
+  .vdock .vd-play svg {
+    animation: none;
   }
 }
 

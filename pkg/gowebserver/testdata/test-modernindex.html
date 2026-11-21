@@ -3654,8 +3654,8 @@
      
     .vdock {
       --vd-ink: #f6f7f9;
-      --vd-ink-2: rgba(246, 247, 249, 0.74);
-      --vd-ink-3: rgba(246, 247, 249, 0.5);
+      --vd-ink-2: rgba(246, 247, 249, 0.84);
+      --vd-ink-3: rgba(246, 247, 249, 0.62);
       --vd-glass: rgba(22, 24, 30, 0.9);
       --vd-line: rgba(255, 255, 255, 0.12);
       --vd-played: var(--accent);
@@ -3663,6 +3663,9 @@
       --vd-buffered: rgba(255, 255, 255, 0.44);
       --vd-hover: rgba(255, 255, 255, 0.3);
       --vd-rail: 4px;
+       
+      --vd-shade: rgba(4, 5, 8, 0.7);
+      --vd-feather: 14px;
       position: absolute;
       z-index: 2;
       display: flex;
@@ -3681,10 +3684,10 @@
     }
 
     .vd-panel {
-      padding: 48px 10px 6px;
-      border-radius: 0 0 3px 3px;
-      background: linear-gradient(to top, rgba(5, 6, 9, 0.84) 0%, rgba(5, 6, 9, 0.56) 46%, rgba(5, 6, 9, 0.18) 80%, rgba(5, 6, 9, 0) 100%);
-      pointer-events: auto;
+      position: relative;
+      isolation: isolate;
+      padding: 40px 12px 8px;
+      pointer-events: none;
       transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
     }
 
@@ -3702,6 +3705,20 @@
       cursor: pointer;
       touch-action: none;
       outline: none;
+      pointer-events: auto;
+    }
+
+     
+    .vd-tl::before {
+      content: "";
+      position: absolute;
+      inset: 4px -6px;
+      z-index: -1;
+      border-radius: 999px;
+      background: var(--vd-shade);
+      opacity: 0.7;
+      filter: blur(calc(var(--vd-feather) * 0.75));
+      pointer-events: none;
     }
 
     .vd-tl:focus-visible {
@@ -3810,7 +3827,7 @@
       overflow: hidden;
       border-radius: 10px;
       background: #0c0d10;
-      box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.22);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
     }
 
     .vd-pop-img {
@@ -3833,7 +3850,7 @@
       padding: 5px 10px 6px;
       border-radius: 9px;
       background: var(--vd-glass);
-      box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 24px 2px rgba(0, 0, 0, 0.5);
     }
 
     .vd-pop-label {
@@ -3857,42 +3874,125 @@
     .vd-row {
       display: flex;
       align-items: center;
-      gap: 2px;
       min-width: 0;
       height: 52px;
     }
 
+     
+    .vd-cluster {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+      pointer-events: auto;
+    }
+
+    .vd-left {
+      flex: 0 1 auto;
+    }
+
+    .vd-right {
+      flex: none;
+    }
+
+    .vd-cluster::before {
+      content: "";
+      position: absolute;
+      inset: -12px -18px;
+      z-index: -1;
+      border-radius: 28px;
+      background: var(--vd-shade);
+      filter: blur(var(--vd-feather));
+      pointer-events: none;
+    }
+
     .vd-btn {
+      --vd-push: 0px;
       flex: none;
       position: relative;
+      isolation: isolate;
       width: 40px;
       height: 40px;
       display: grid;
       place-items: center;
       padding: 0;
       border: 0;
-      border-radius: 12px;
+      border-radius: 50%;
       background: transparent;
       color: var(--vd-ink-2);
       font: 650 0.8125rem/1 var(--font-ui);
       font-variant-numeric: tabular-nums;
       cursor: pointer;
-      transition: color 0.15s, background-color 0.15s, transform 0.18s var(--ease);
+      transition: color 0.16s;
     }
 
-    .vd-btn:hover,
-    .vd-btn[aria-expanded="true"] {
+     
+    .vd-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      background: rgba(255, 255, 255, 0.16);
+      opacity: 0;
+      transform: scale(0.55);
+      transition: opacity 0.18s var(--ease-out), transform 0.22s var(--ease);
+    }
+
+    .vd-btn > :is(svg, .vd-rate-text) {
+      transition: scale 0.2s var(--ease), translate 0.2s var(--ease), opacity 0.16s;
+    }
+
+    .vd-btn:is(:hover, :focus-visible, [aria-expanded="true"]) {
       color: var(--vd-ink);
-      background: rgba(255, 255, 255, 0.12);
     }
 
-    .vd-btn:active {
-      transform: scale(0.92);
+    .vd-btn[aria-expanded="true"]::before {
+      opacity: 1;
+      transform: none;
+    }
+
+    @media (hover: hover), (any-hover: hover) {
+      .vd-btn:hover {
+        --vd-push: 1.4px;
+        animation: btn-ring 0.7s var(--ease-out);
+      }
+
+      .vd-btn:hover::before {
+        opacity: 1;
+        transform: none;
+      }
+
+      .vd-btn:hover > :is(svg, .vd-rate-text) {
+        scale: 1.1;
+      }
+
+       
+      .vd-cc:hover > svg {
+        translate: 0 -1px;
+      }
+
+      .vd-rate:hover > .vd-rate-text {
+        translate: 1px 0;
+      }
+    }
+
+     
+    .vd-btn:active > :is(svg, .vd-rate-text) {
+      scale: 0.92;
+      transition-duration: 0.08s;
+    }
+
+    .vd-btn:active::before {
+      opacity: 1;
+      transform: scale(0.94);
+      background: rgba(255, 255, 255, 0.24);
     }
 
     .vd-btn:focus-visible {
       outline: 2px solid var(--accent);
-      outline-offset: 1px;
+      outline-offset: 2px;
     }
 
     .vd-btn svg {
@@ -3916,19 +4016,27 @@
       box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
     }
 
-    .vd-play:hover {
-      background: #fff;
-      color: #0d0f14;
-      transform: scale(1.05);
+    .vd-play::before {
+      background: rgba(13, 15, 20, 0.1);
     }
 
-    .vd-play:active {
-      transform: scale(0.94);
+    .vd-play:is(:hover, :focus-visible) {
+      color: #0d0f14;
+      background: #fff;
     }
 
     .vd-play svg {
       width: 22px;
       height: 22px;
+      animation: vd-turn 0.22s var(--ease);
+    }
+
+    @keyframes vd-turn {
+      from {
+        opacity: 0;
+        scale: 0.6;
+        rotate: -90deg;
+      }
     }
 
     .vd-time {
@@ -3971,7 +4079,7 @@
 
     .vd-gap {
       flex: 1;
-      min-width: 8px;
+      min-width: 12px;
     }
 
     .vd-group,
@@ -4005,8 +4113,9 @@
 
     .vd-rate {
       width: auto;
-      min-width: 44px;
-      padding: 0 9px;
+      min-width: 46px;
+      padding: 0 10px;
+      border-radius: 20px;
     }
 
     .vd-more {
@@ -4137,10 +4246,10 @@
       padding: 6px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 14px;
-      background: rgba(24, 26, 32, 0.9);
+      background: rgba(22, 24, 30, 0.94);
       -webkit-backdrop-filter: blur(24px) saturate(1.6);
       backdrop-filter: blur(24px) saturate(1.6);
-      box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 18px 56px 4px rgba(0, 0, 0, 0.6);
       pointer-events: auto;
       opacity: 0;
       transform: translateY(6px) scale(0.97);
@@ -4286,7 +4395,7 @@
 
      
     .vdock.compact .vd-panel {
-      padding: 40px 6px 4px;
+      padding: 34px 8px 6px;
     }
 
     .vdock.compact .vd-tl {
@@ -4327,6 +4436,28 @@
     @media (pointer: coarse) {
       .vd-tl {
         height: 32px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .vdock .vd-btn {
+        --vd-push: 0px !important;
+        animation: none !important;
+      }
+
+      .vdock .vd-btn::before,
+      .vdock .vd-btn:active::before {
+        transform: none;
+      }
+
+      .vdock .vd-btn > :is(svg, .vd-rate-text) {
+        scale: none !important;
+        translate: none !important;
+        rotate: none;
+      }
+
+      .vdock .vd-play svg {
+        animation: none;
       }
     }
 
@@ -4671,51 +4802,57 @@
       </symbol>
       <symbol id="vd-prev-ch" viewBox="0 0 24 24">
         <path d="M6 5.5v13" />
-        <path d="M18 6.8v10.4a.8.8 0 01-1.24.67l-7.5-5.2a.8.8 0 010-1.33l7.5-5.2A.8.8 0 0118 6.8z" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), 0px); transition: transform 0.2s var(--ease)" d="M18 6.8v10.4a.8.8 0 01-1.24.67l-7.5-5.2a.8.8 0 010-1.33l7.5-5.2A.8.8 0 0118 6.8z" />
       </symbol>
       <symbol id="vd-next-ch" viewBox="0 0 24 24">
         <path d="M18 5.5v13" />
-        <path d="M6 6.8v10.4a.8.8 0 001.24.67l7.5-5.2a.8.8 0 000-1.33l-7.5-5.2A.8.8 0 006 6.8z" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), 0px); transition: transform 0.2s var(--ease)" d="M6 6.8v10.4a.8.8 0 001.24.67l7.5-5.2a.8.8 0 000-1.33l-7.5-5.2A.8.8 0 006 6.8z" />
       </symbol>
       <symbol id="vd-prev-mk" viewBox="0 0 24 24">
-        <path d="M10.5 7l-5 5 5 5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), 0px); transition: transform 0.2s var(--ease)" d="M10.5 7l-5 5 5 5" />
         <path d="M17 8.5l3.5 3.5-3.5 3.5-3.5-3.5z" />
       </symbol>
       <symbol id="vd-next-mk" viewBox="0 0 24 24">
-        <path d="M13.5 7l5 5-5 5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), 0px); transition: transform 0.2s var(--ease)" d="M13.5 7l5 5-5 5" />
         <path d="M7 8.5l3.5 3.5L7 15.5 3.5 12z" />
       </symbol>
       <symbol id="vd-markers" viewBox="0 0 24 24">
         <path d="M4 7h8M4 12h5M4 17h8" />
-        <path d="M17 8.5l3.5 3.5-3.5 3.5-3.5-3.5z" />
+        <path style="transform: translate(0px, calc(var(--vd-push, 0px) * -0.8)); transition: transform 0.2s var(--ease)" d="M17 8.5l3.5 3.5-3.5 3.5-3.5-3.5z" />
       </symbol>
       <symbol id="vd-vol" viewBox="0 0 24 24">
         <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
-        <path d="M15.2 9.2a4 4 0 010 5.6" />
-        <path d="M17.8 6.6a7.6 7.6 0 010 10.8" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 0.6), 0px); transition: transform 0.2s var(--ease)" d="M15.2 9.2a4 4 0 010 5.6" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1.2), 0px); transition: transform 0.2s var(--ease)" d="M17.8 6.6a7.6 7.6 0 010 10.8" />
       </symbol>
       <symbol id="vd-vol-low" viewBox="0 0 24 24">
         <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
-        <path d="M15.2 9.2a4 4 0 010 5.6" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 0.8), 0px); transition: transform 0.2s var(--ease)" d="M15.2 9.2a4 4 0 010 5.6" />
       </symbol>
       <symbol id="vd-mute" viewBox="0 0 24 24">
         <path d="M4.5 9.5h2.8l4.2-3.6v12.2l-4.2-3.6H4.5a1 1 0 01-1-1v-3a1 1 0 011-1z" />
-        <path d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 0.6), 0px); transition: transform 0.2s var(--ease)" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
       </symbol>
       <symbol id="vd-cc" viewBox="0 0 24 24">
         <rect x="3" y="5.5" width="18" height="13" rx="3" />
-        <path d="M10.6 10.3a2.1 2.1 0 100 3.4M16.6 10.3a2.1 2.1 0 100 3.4" />
+        <path style="transform: translate(0px, calc(var(--vd-push, 0px) * -0.6)); transition: transform 0.2s var(--ease)" d="M10.6 10.3a2.1 2.1 0 100 3.4M16.6 10.3a2.1 2.1 0 100 3.4" />
       </symbol>
       <symbol id="vd-full" viewBox="0 0 24 24">
-        <path d="M4.5 9V5.5a1 1 0 011-1H9M15 4.5h3.5a1 1 0 011 1V9M19.5 15v3.5a1 1 0 01-1 1H15M9 19.5H5.5a1 1 0 01-1-1V15" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), calc(var(--vd-push, 0px) * -1)); transition: transform 0.2s var(--ease)" d="M4.5 9V5.5a1 1 0 011-1H9" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), calc(var(--vd-push, 0px) * -1)); transition: transform 0.2s var(--ease)" d="M15 4.5h3.5a1 1 0 011 1V9" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), calc(var(--vd-push, 0px) * 1)); transition: transform 0.2s var(--ease)" d="M19.5 15v3.5a1 1 0 01-1 1H15" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), calc(var(--vd-push, 0px) * 1)); transition: transform 0.2s var(--ease)" d="M9 19.5H5.5a1 1 0 01-1-1V15" />
       </symbol>
       <symbol id="vd-exit-full" viewBox="0 0 24 24">
-        <path d="M9 4.5V8a1 1 0 01-1 1H4.5M19.5 9H16a1 1 0 01-1-1V4.5M15 19.5V16a1 1 0 011-1h3.5M4.5 15H8a1 1 0 011 1v3.5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), calc(var(--vd-push, 0px) * 1)); transition: transform 0.2s var(--ease)" d="M9 4.5V8a1 1 0 01-1 1H4.5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), calc(var(--vd-push, 0px) * 1)); transition: transform 0.2s var(--ease)" d="M19.5 9H16a1 1 0 01-1-1V4.5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * -1), calc(var(--vd-push, 0px) * -1)); transition: transform 0.2s var(--ease)" d="M15 19.5V16a1 1 0 011-1h3.5" />
+        <path style="transform: translate(calc(var(--vd-push, 0px) * 1), calc(var(--vd-push, 0px) * -1)); transition: transform 0.2s var(--ease)" d="M4.5 15H8a1 1 0 011 1v3.5" />
       </symbol>
       <symbol id="vd-more" viewBox="0 0 24 24">
-        <circle fill="currentColor" stroke="none" cx="6" cy="12" r="1.7" />
+        <circle fill="currentColor" stroke="none" style="transform: translate(calc(var(--vd-push, 0px) * -1), 0px); transition: transform 0.2s var(--ease)" cx="6" cy="12" r="1.7" />
         <circle fill="currentColor" stroke="none" cx="12" cy="12" r="1.7" />
-        <circle fill="currentColor" stroke="none" cx="18" cy="12" r="1.7" />
+        <circle fill="currentColor" stroke="none" style="transform: translate(calc(var(--vd-push, 0px) * 1), 0px); transition: transform 0.2s var(--ease)" cx="18" cy="12" r="1.7" />
       </symbol>
       <symbol id="vd-check" viewBox="0 0 24 24">
         <path d="M5.5 12.5l4.2 4.2L18.5 7.8" />
@@ -7568,11 +7705,11 @@
           '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
           '</div>' +
           '</div>' +
-          '<div class="vd-row">' +
+          '<div class="vd-row"><span class="vd-cluster vd-left">' +
           btn('vd-play', 'Play', vpIcon('play'), 'K') +
           '<span class="vd-time"><span class="vd-cur">0:00</span><span class="vd-sep">/</span><span class="vd-dur">0:00</span></span>' +
           '<span class="vd-chap"></span>' +
-          '<span class="vd-gap"></span>' +
+          '</span><span class="vd-gap"></span><span class="vd-cluster vd-right">' +
           '<span class="vd-group vd-mk" hidden>' +
           btn('vd-prev-mk', 'Previous marker', vpIcon('prev-mk'), '[') +
           btn('vd-mk-menu', 'Markers', vpIcon('markers'), '', ' aria-haspopup="menu" aria-expanded="false"') +
@@ -7589,7 +7726,7 @@
           btn('vd-rate', 'Speed', '<span class="vd-rate-text">1×</span>', '&lt; &gt;', ' aria-haspopup="menu" aria-expanded="false"') +
           btn('vd-more', 'More', vpIcon('more'), '', ' aria-haspopup="menu" aria-expanded="false"') +
           '</span>' +
-          btn('vd-full', 'Full screen', vpIcon('full'), 'F') +
+          btn('vd-full', 'Full screen', vpIcon('full'), 'F') + '</span>' +
           '</div>' +
           '</div>' +
           '<div class="vd-menu" role="menu" hidden><div class="vd-menu-title"></div><div class="vd-menu-list"></div></div>' +
