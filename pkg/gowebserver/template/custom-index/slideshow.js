@@ -207,13 +207,16 @@ var slideshow = (function () {
       shownFull = state;
     }
     dlg.classList.toggle('is-fs', on);
+    // The page's scrollbar gutter would leave a stripe down the screen.
+    root.classList.toggle('ss-fs', on);
     if (!on) hideStrip();
   }
-  // Entering or leaving full screen changes the room the media has.
-  doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
-  doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
+  // Entering or leaving full screen changes the room the media has,
+  // measured once the page has dropped its scrollbar's gutter.
   doc.addEventListener('fullscreenchange', syncFullscreenButton);
   doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+  doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
+  doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
 
   function measure() {
     W = stage.clientWidth;
@@ -243,21 +246,24 @@ var slideshow = (function () {
     // An info sheet over the bottom of a small stage takes the room
     // below instead, so the photo shows above it.
     var room = info.room(), below = info.roomBelow();
-    // In full screen the controls float over the media instead, all but
-    // the filmstrip under a video (videoBand).
-    if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: Math.max(videoBand(video), below), l: 0 };
+    // In full screen the controls float over the media instead, a
+    // video's too: it covers the screen, and the filmstrip comes up
+    // over it (stripZone).
+    if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: below, l: 0 };
     return { t: 76, r: 96 + room, b: Math.max(CFG.thumbs ? 104 : 64, below), l: 96 };
   }
 
   // ---- The filmstrip and a video's own controls ----
   // Edge to edge, a video's controls (its scrubber along the bottom)
-  // are right where the filmstrip comes up, under it. So in full screen
-  // a video is fitted above a band kept for the strip (stripBand), in
-  // either fit mode, and only a pointer below the video, not on its
-  // scrubber, brings the strip up (stripZone). A stage too small to
-  // give up the band (tinyStage: a phone, or a window that small, where
-  // even the windowed strip sits on the video's bottom edge) shows no
-  // strip over a video at all (no-strip); swiping still moves on.
+  // are right where the filmstrip comes up. In full screen with a
+  // mouse, only the screen's very bottom edge (STRIP_EDGE), under the
+  // dock's buttons, brings the strip up over a video, and the dock
+  // moves up above it while it's there (--ss-band). Without a mouse
+  // there's no edge to push against: a full-screen video shows no strip
+  // (no-strip), nor does one on a stage too small to show both
+  // (tinyStage: a phone, or a window that small, where even the
+  // windowed strip sits on the video's bottom edge). Swiping and the
+  // keys still move on.
   function hasStrip() {
     return CFG.thumbs && list.length > 1;
   }
@@ -267,11 +273,9 @@ var slideshow = (function () {
     var pad = parseFloat(getComputedStyle(strip.parentNode).paddingBottom) || 0;
     return strip.offsetHeight + pad;
   }
-  function videoBand(video) {
-    return video && isFullscreen() && !tinyStage() && hasStrip() && !strip.hidden ? stripBand() : 0;
-  }
   function stripRoom() {
-    var none = !!(hasStrip() && tinyStage() && list[idx] && list[idx].video);
+    var none = !!(hasStrip() && list[idx] && list[idx].video &&
+      (tinyStage() || (isFullscreen() && !finePointer.matches)));
     // Hiding the strip under the focus would drop it on the body, out
     // of reach of the dialog's keys.
     if (none && strip.contains(doc.activeElement)) dlg.focus();
@@ -282,7 +286,7 @@ var slideshow = (function () {
     var p = insets(video);
     var bw = W - p.l - p.r, bh = H - p.t - p.b;
     // A video filling the screen takes the whole box and covers it
-    // with its picture (sizeMedia), so its controls stay inside it.
+    // with its picture (sizeMedia), so its controls stay on screen.
     if (video && isFullscreen() && fitMode !== 'inner') return { w: bw, h: bh, x: p.l, y: p.t };
     // Outer covers the screen, whatever the size.
     var f = isFullscreen() && fitMode !== 'inner' ?
@@ -303,7 +307,9 @@ var slideshow = (function () {
       }
       return;
     }
-    var r = fitRect(nw, nh, el._thumb ? Infinity : 2, video);
+    // A photo is enlarged at most twice, so a small one isn't blown up
+    // into a blur; a video in full screen fits the screen, as players do.
+    var r = fitRect(nw, nh, el._thumb || (video && isFullscreen()) ? Infinity : 2, video);
     el.style.width = r.w + 'px';
     el.style.height = r.h + 'px';
   }
@@ -326,6 +332,10 @@ var slideshow = (function () {
         if (auto && list[idx] === it) v.play().catch(function () { });
       });
       v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
+      // The backdrop and the accent follow the picture as it plays, as
+      // the page's follow what's scrolled onto the screen.
+      v.addEventListener('timeupdate', function () { if (list[idx] === it) videoAmbient(v, false); });
+      v.addEventListener('seeked', function () { if (list[idx] === it) videoAmbient(v, true); });
       v.addEventListener('ended', function () { if (auto && list[idx] === it) step(1, true); });
       if (CFG.videoThumbs) v.poster = previewURL(it);
       // A neighbor's video waits for the current slide (loadNeighbors).
@@ -428,6 +438,17 @@ var slideshow = (function () {
       if (hi.complete && hi.naturalWidth) swap();
       else if (div._pending === hi) div._pending = null;
     });
+  }
+
+  // A playing video's colors, taken again every AMBIENT_EVERY ms of
+  // playing, or at once after a seek.
+  var AMBIENT_EVERY = 3000;
+  function videoAmbient(v, now) {
+    var t = Date.now();
+    if (v.readyState < 2 || (!now && t - (v._ambAt || 0) < AMBIENT_EVERY)) return;
+    v._ambAt = t;
+    ambient.reset();
+    ambient.show(v);
   }
 
   function cancelUpgrade(div) {
@@ -621,11 +642,14 @@ var slideshow = (function () {
 
   // ---- Strip in full screen ----
   // Hidden until the pointer or a finger comes within STRIP_ZONE px
-  // of the bottom edge, and over a video, below the video. It goes
-  // again shortly after the mouse leaves that area, or a while after a
-  // touch.
-  var STRIP_ZONE = 120, stripTimer = 0;
+  // of the bottom edge, and over a video, until the mouse reaches the
+  // edge itself (STRIP_EDGE), below the dock's buttons. It goes again
+  // shortly after the pointer leaves that area (over a video, the
+  // strip), or a while after a touch.
+  var STRIP_ZONE = 120, STRIP_EDGE = 6, stripTimer = 0;
   function revealStrip(hideAfter) {
+    // How far the dock moves up out of the strip's way.
+    dlg.style.setProperty('--ss-band', stripBand() + 'px');
     dlg.classList.add('strip-on');
     clearTimeout(stripTimer);
     stripTimer = hideAfter ? setTimeout(hideStrip, hideAfter) : 0;
@@ -637,9 +661,9 @@ var slideshow = (function () {
   }
   function stripZone(e) {
     if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip')) return;
-    var top = frame.getBoundingClientRect().bottom - STRIP_ZONE;
+    var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
     var m = currentMedia();
-    if (m && m.tagName === 'VIDEO' && videoBand(true)) top = Math.max(top, m.getBoundingClientRect().bottom);
+    if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);
     var near = e.clientY > top;
     if (e.pointerType !== 'mouse') {
       if (near) revealStrip(3000);

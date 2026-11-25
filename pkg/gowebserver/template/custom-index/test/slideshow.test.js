@@ -308,18 +308,20 @@ function videoMeta(t, w, h) {
   return v;
 }
 
-test('in full screen a video sits above the filmstrip, clear of its scrubber', () => {
+test('in full screen a video covers the screen, and the strip comes up from its bottom edge', () => {
   const t = setup(100, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
   t.$('ss-full').click();
   assert.equal(t.full(), t.$('ss-frame'));
-  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 77px 0px', 'room under each video for the strip'));
+  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 0px 0px', 'no room kept for the strip'));
   const v = videoMeta(t, 1280, 800);
-  assert.equal(v.style.height, '723px', 'fitted to the room above the strip');
-  // The scrubber is a few dozen pixels above the video's bottom edge,
-  // inside the zone that brings the strip up over a photo.
-  assert.equal(pointerAt(t, 800 - 77 - 20), false, 'the pointer on the scrubber leaves the strip down');
-  assert.equal(pointerAt(t, 800 - 30), true, 'below the video it comes up');
+  assert.equal(v.style.height, '800px', 'the whole screen');
+  // The dock's buttons end a few pixels above the screen's bottom edge.
+  assert.equal(pointerAt(t, 800 - 20), false, 'the pointer on the dock leaves the strip down');
+  assert.equal(pointerAt(t, 800 - 100), false, 'so does the zone that brings it up over a photo');
+  assert.equal(pointerAt(t, 799), true, 'the bottom edge brings it up');
+  assert.equal(t.dlg.style.getPropertyValue('--ss-band'), '77px', 'and the dock moves up out of its way');
+  assert.equal(pointerAt(t, 800 - 60), true, 'it stays while the pointer is on it');
   // Out of full screen the window keeps its usual room.
   t.$('ss-full').click();
   t.$('ss-full').click();
@@ -327,58 +329,70 @@ test('in full screen a video sits above the filmstrip, clear of its scrubber', (
   assert.equal(t.slides()[0].style.padding, '76px 96px 104px 96px');
 });
 
-test('a video filling the screen still ends above the filmstrip', () => {
+test('a video filling the screen covers all of it', () => {
   const t = setup(100, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
   t.$('ss-full').click();
-  // The screen's own shape: covering the screen would make it 800 tall
-  // and put its scrubber in the strip's band.
-  const v = videoMeta(t, 1280, 800);
+  const v = videoMeta(t, 1280, 720);
   t.$('ss-full').click();
   assert.equal(t.full(), t.$('ss-frame'), 'still full screen, filling it');
   assert.equal(v.style.width, '1280px');
-  assert.equal(v.style.height, '723px', 'the room above the strip, no more');
+  assert.equal(v.style.height, '800px');
   assert.equal(v.style.objectFit, 'cover', 'the picture is cropped inside it, not the element');
-  assert.equal(pointerAt(t, 800 - 77 - 20), false, 'its scrubber leaves the strip down');
-  assert.equal(pointerAt(t, 800 - 30), true);
+  assert.equal(pointerAt(t, 800 - 20), false, 'its dock leaves the strip down');
+  assert.equal(pointerAt(t, 799), true);
   t.$('ss-full').click();
   assert.equal(v.style.objectFit, '', 'out of full screen it fits again');
 });
 
-test('a letterboxed video brings the strip up only below it', () => {
+test('a small video is fitted to the full screen, not just doubled', () => {
   const t = setup(100, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
   t.$('ss-full').click();
-  // Wide: 1280 by 320, centered in the 723 above the band, so its
-  // bottom edge (and scrubber) is at 521.5.
-  videoMeta(t, 1280, 320);
-  assert.equal(pointerAt(t, 800 - 100), true, 'the usual zone, well below the video');
-  const tall = setup(100, { stage: [1280, 800], fullscreen: true, mouse: true, videos: true });
-  tall.slideshow.open(tall.all.filter((it) => it.video), 3, null, false);
-  tall.$('ss-full').click();
-  // Nearly the room's shape: its bottom edge is a few pixels above the
-  // band, inside the usual zone.
-  videoMeta(tall, 1280, 715);
-  assert.equal(pointerAt(tall, 800 - 82), false, 'on its scrubber the strip stays down');
-  assert.equal(pointerAt(tall, 800 - 60), true);
+  const v = videoMeta(t, 320, 180);
+  assert.equal(v.style.width, '1280px');
+  assert.equal(v.style.height, '720px');
+  // In the window it's still enlarged at most twice.
+  t.$('ss-full').click();
+  t.$('ss-full').click();
+  assert.equal(v.style.width, '640px');
 });
 
-test('the band under a video grows with the screen\'s safe area', () => {
+test('the dock moves up as far as the strip reaches, safe area and all', () => {
   // An iPad's home bar: .ss-bottom pads the strip by the safe area.
   const t = setup(100, { stage: [1180, 820], fullscreen: true, mouse: true, videos: true, safeBottom: '20px' });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
   t.$('ss-full').click();
-  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 83px 0px'));
-  assert.equal(pointerAt(t, 820 - 80), true, 'the top of the strip brings it up');
+  t.slides().forEach((d) => assert.equal(d.style.padding, '0px 0px 0px 0px'));
+  assert.equal(pointerAt(t, 819), true);
+  assert.equal(t.dlg.style.getPropertyValue('--ss-band'), '83px');
 });
 
-test('a video waiting for its size gets a placeholder clear of the band', () => {
+test('a video waiting for its size gets a placeholder as big as the screen allows', () => {
   const t = setup(100, { stage: [1280, 560], fullscreen: true, mouse: true, videos: true });
   t.slideshow.open(t.all.filter((it) => it.video), 3, null, false);
   t.$('ss-full').click();
   const v = t.slides().map((d) => d.firstChild).find((m) => m.src);
   assert.equal(v.style.width, '960px');
-  assert.equal(v.style.height, (560 - 77) + 'px');
+  assert.equal(v.style.height, '540px');
+});
+
+test('a tablet in full screen shows no filmstrip over a video', () => {
+  // No mouse: no bottom edge to push against.
+  const t = setup(100, { stage: [1180, 820], fullscreen: true, videos: true });
+  t.slideshow.open(t.all, 8, null, false);
+  t.$('ss-full').click();
+  assert.equal(t.full(), t.$('ss-frame'));
+  assert.equal(t.dlg.classList.contains('no-strip'), false, 'm8 is a photo');
+  t.key('ArrowRight');
+  assert.equal(t.$('ss-name').textContent, 'm9.mp4');
+  assert.equal(t.dlg.classList.contains('no-strip'), true, 'm9 is a video');
+  assert.equal(pointerAt(t, 819, 'touch'), false, 'not even at the bottom edge');
+  // Out of full screen, the windowed strip sits under the video again.
+  t.$('ss-full').click();
+  t.$('ss-full').click();
+  assert.equal(t.full(), null);
+  assert.equal(t.dlg.classList.contains('no-strip'), false);
 });
 
 test('a photo in full screen still goes edge to edge, the strip over it', () => {

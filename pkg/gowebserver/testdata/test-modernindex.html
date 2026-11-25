@@ -671,6 +671,11 @@
     }
 
      
+    html.ss-lock.ss-fs {
+      scrollbar-gutter: auto;
+    }
+
+     
     html.has-scrub {
       scrollbar-width: none;
     }
@@ -3671,6 +3676,7 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+      transition: transform 0.36s var(--ease);
       color: var(--vd-ink);
       font: 500 0.8125rem/1.2 var(--font-ui);
       pointer-events: none;
@@ -3681,6 +3687,11 @@
     .vdock[hidden],
     .vdock [hidden] {
       display: none !important;
+    }
+
+     
+    .ss.is-fs.strip-on .vdock {
+      transform: translateY(calc(-1 * var(--ss-band, 0px)));
     }
 
     .vd-panel {
@@ -4172,7 +4183,7 @@
     .vd-volume::-webkit-slider-runnable-track {
       height: 4px;
       border-radius: 2px;
-      background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+      background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
     }
 
     .vd-volume::-webkit-slider-thumb {
@@ -4182,7 +4193,7 @@
       border: 0;
       border-radius: 50%;
       background: #fff;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 1px 4px rgba(0, 0, 0, 0.5);
       -webkit-appearance: none;
       appearance: none;
     }
@@ -4190,7 +4201,7 @@
     .vd-volume::-moz-range-track {
       height: 4px;
       border-radius: 2px;
-      background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+      background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
     }
 
     .vd-volume::-moz-range-thumb {
@@ -4199,7 +4210,7 @@
       border: 0;
       border-radius: 50%;
       background: #fff;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 1px 4px rgba(0, 0, 0, 0.5);
     }
 
      
@@ -9933,13 +9944,16 @@
             shownFull = state;
           }
           dlg.classList.toggle('is-fs', on);
+          
+          root.classList.toggle('ss-fs', on);
           if (!on) hideStrip();
         }
         
-        doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
-        doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
+        
         doc.addEventListener('fullscreenchange', syncFullscreenButton);
         doc.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+        doc.addEventListener('fullscreenchange', function () { if (isOpen) relayoutSlides(); });
+        doc.addEventListener('webkitfullscreenchange', function () { if (isOpen) relayoutSlides(); });
 
         function measure() {
           W = stage.clientWidth;
@@ -9971,10 +9985,13 @@
           var room = info.room(), below = info.roomBelow();
           
           
-          if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: Math.max(videoBand(video), below), l: 0 };
+          
+          if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: below, l: 0 };
           return { t: 76, r: 96 + room, b: Math.max(CFG.thumbs ? 104 : 64, below), l: 96 };
         }
 
+        
+        
         
         
         
@@ -9993,11 +10010,9 @@
           var pad = parseFloat(getComputedStyle(strip.parentNode).paddingBottom) || 0;
           return strip.offsetHeight + pad;
         }
-        function videoBand(video) {
-          return video && isFullscreen() && !tinyStage() && hasStrip() && !strip.hidden ? stripBand() : 0;
-        }
         function stripRoom() {
-          var none = !!(hasStrip() && tinyStage() && list[idx] && list[idx].video);
+          var none = !!(hasStrip() && list[idx] && list[idx].video &&
+            (tinyStage() || (isFullscreen() && !finePointer.matches)));
           
           
           if (none && strip.contains(doc.activeElement)) dlg.focus();
@@ -10029,7 +10044,9 @@
             }
             return;
           }
-          var r = fitRect(nw, nh, el._thumb ? Infinity : 2, video);
+          
+          
+          var r = fitRect(nw, nh, el._thumb || (video && isFullscreen()) ? Infinity : 2, video);
           el.style.width = r.w + 'px';
           el.style.height = r.h + 'px';
         }
@@ -10052,6 +10069,10 @@
               if (auto && list[idx] === it) v.play().catch(function () { });
             });
             v.addEventListener('loadeddata', function () { if (list[idx] === it) ambient.show(v); });
+            
+            
+            v.addEventListener('timeupdate', function () { if (list[idx] === it) videoAmbient(v, false); });
+            v.addEventListener('seeked', function () { if (list[idx] === it) videoAmbient(v, true); });
             v.addEventListener('ended', function () { if (auto && list[idx] === it) step(1, true); });
             if (CFG.videoThumbs) v.poster = previewURL(it);
             
@@ -10154,6 +10175,17 @@
             if (hi.complete && hi.naturalWidth) swap();
             else if (div._pending === hi) div._pending = null;
           });
+        }
+
+        
+        
+        var AMBIENT_EVERY = 3000;
+        function videoAmbient(v, now) {
+          var t = Date.now();
+          if (v.readyState < 2 || (!now && t - (v._ambAt || 0) < AMBIENT_EVERY)) return;
+          v._ambAt = t;
+          ambient.reset();
+          ambient.show(v);
         }
 
         function cancelUpgrade(div) {
@@ -10350,8 +10382,11 @@
         
         
         
-        var STRIP_ZONE = 120, stripTimer = 0;
+        
+        var STRIP_ZONE = 120, STRIP_EDGE = 6, stripTimer = 0;
         function revealStrip(hideAfter) {
+          
+          dlg.style.setProperty('--ss-band', stripBand() + 'px');
           dlg.classList.add('strip-on');
           clearTimeout(stripTimer);
           stripTimer = hideAfter ? setTimeout(hideStrip, hideAfter) : 0;
@@ -10363,9 +10398,9 @@
         }
         function stripZone(e) {
           if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip')) return;
-          var top = frame.getBoundingClientRect().bottom - STRIP_ZONE;
+          var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
           var m = currentMedia();
-          if (m && m.tagName === 'VIDEO' && videoBand(true)) top = Math.max(top, m.getBoundingClientRect().bottom);
+          if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);
           var near = e.clientY > top;
           if (e.pointerType !== 'mouse') {
             if (near) revealStrip(3000);

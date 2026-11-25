@@ -16,6 +16,13 @@ html.ss-lock {
   background: #060607;
 }
 
+/* The gutter keeps the page from shifting while the slideshow locks
+   its scrolling, but in full screen it is a stripe down the screen's
+   edge: the full-screen frame is sized to the viewport within it. */
+html.ss-lock.ss-fs {
+  scrollbar-gutter: auto;
+}
+
 /* Large media folders get the scrubber instead of the native bar. */
 html.has-scrub {
   scrollbar-width: none;
@@ -3147,6 +3154,7 @@ main {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  transition: transform 0.36s var(--ease);
   color: var(--vd-ink);
   font: 500 0.8125rem/1.2 var(--font-ui);
   pointer-events: none;
@@ -3157,6 +3165,12 @@ main {
 .vdock[hidden],
 .vdock [hidden] {
   display: none !important;
+}
+
+/* In full screen the video covers the screen, and the filmstrip comes
+   up over its bottom edge: the dock moves up out of its way. */
+.ss.is-fs.strip-on .vdock {
+  transform: translateY(calc(-1 * var(--ss-band, 0px)));
 }
 
 .vd-panel {
@@ -3653,7 +3667,7 @@ main {
 .vd-volume::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+  background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
 }
 
 .vd-volume::-webkit-slider-thumb {
@@ -3663,7 +3677,7 @@ main {
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 1px 4px rgba(0, 0, 0, 0.5);
   -webkit-appearance: none;
   appearance: none;
 }
@@ -3671,7 +3685,7 @@ main {
 .vd-volume::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, #fff var(--vol), rgba(255, 255, 255, 0.28) var(--vol));
+  background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
 }
 
 .vd-volume::-moz-range-thumb {
@@ -3680,7 +3694,7 @@ main {
   border: 0;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent), 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
 /* ---- Tooltip: the button's name and its key ---- */
