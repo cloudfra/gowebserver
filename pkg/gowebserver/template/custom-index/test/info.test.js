@@ -18,7 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, markup } = require('../../harness.js');
 
-const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // What ?info says of a photo taken by the Eiffel Tower.
 const PHOTO = {

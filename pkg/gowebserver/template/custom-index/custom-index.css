@@ -3181,7 +3181,7 @@ main {
   transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
 }
 
-.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open) .vd-panel {
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel {
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
@@ -3361,6 +3361,292 @@ main {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+}
+
+/* ---- The preview rising out of the bar, and the bar stretched into
+ * the strip of scenes (scenes.js) ----
+ * The preview grows up out of the timeline when it comes. Held and
+ * pulled up, the timeline stretches: a black strip grows up from behind
+ * it (its height follows the pull, then eases open with a little
+ * spring), the video's own bottom edge (.vd-scenes-glow, a few pixels
+ * of it, blurred wide) spilling into its top over a faint wash of the
+ * accent. The scenes unfold out of the one under the pointer (--fx, how
+ * far each is from it, and --u, how far stretched), and slide in from
+ * the side as the strip scrolls (.enter). The bar stays along the
+ * bottom, on top, with a mark (.vd-scan) at the time the strip is
+ * scrolled to. The scene nearest the time is ringed in the color the
+ * bar plays in (--vd-played); hovering one rings it faintly. */
+.vd-pop.rise {
+  transform-origin: 50% 100%;
+  animation: vd-pop-rise 0.28s var(--ease-out);
+}
+
+@keyframes vd-pop-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px) scale(0.4, 0.08);
+  }
+
+  60% {
+    opacity: 1;
+  }
+}
+
+.vdock.pulling .vd-pop,
+.vdock.scenes-open .vd-pop {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.vdock.scenes-open .vd-tl,
+.vdock.pulling .vd-tl {
+  --vd-rail: 7px;
+}
+
+.vd-scan {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: calc(var(--vd-rail) + 14px);
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--vd-played);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 12px var(--vd-played);
+  transform: translateY(-50%);
+  transition: left 0.12s linear;
+  pointer-events: none;
+}
+
+.vd-scenes {
+  --u: 0;
+  position: absolute;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 14px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--vd-played) 18%, #050506), #000 72%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 -14px 40px rgba(0, 0, 0, 0.5);
+  opacity: clamp(0, calc(var(--u) * 6), 1);
+  pointer-events: auto;
+}
+
+.vd-scenes.eased {
+  transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
+}
+
+.vd-scenes.eased:not(.open) {
+  transition: height 0.38s var(--ease), opacity 0.3s 0.08s;
+}
+
+/* The video's bottom edge, stretched across the top and blurred into a
+   glow that fades down into the black. */
+.vd-scenes-glow {
+  position: absolute;
+  top: -24px;
+  left: -10%;
+  z-index: -1;
+  width: 120%;
+  height: 110px;
+  opacity: 0;
+  filter: blur(24px) saturate(1.25);
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
+  mask-image: linear-gradient(to bottom, #000 25%, transparent);
+  pointer-events: none;
+}
+
+.vd-scenes-glow.drawn {
+  opacity: 0.6;
+}
+
+/* The row of scenes sits on the bar, its top cut off by the strip until
+   the strip is tall enough: the scenes come up out of the bar. */
+.vd-scenes-view {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--vd-scenes-base);
+  height: calc(var(--vd-scene-h) + 14px);
+  padding-top: 14px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: grab;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+.vd-scenes-view::-webkit-scrollbar {
+  display: none;
+}
+
+.vd-scenes.dragging .vd-scenes-view {
+  cursor: grabbing;
+}
+
+.vd-scenes-rail {
+  position: relative;
+  height: var(--vd-scene-h);
+}
+
+.vd-scene {
+  position: absolute;
+  top: 0;
+  width: var(--vd-scene-w);
+  height: var(--vd-scene-h);
+  opacity: clamp(0, calc(var(--u) * 1.4 - 0.2), 1);
+  transform: translateX(calc(var(--fx, 0px) * (1 - var(--u)))) scale(calc(0.6 + 0.4 * var(--u)));
+}
+
+/* The one the pull started on is the preview, grown: always there. */
+.vd-scene.on {
+  opacity: 1;
+}
+
+.vd-scenes.eased .vd-scene {
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) calc(var(--d, 0) * 30ms),
+    opacity 0.25s linear calc(var(--d, 0) * 30ms);
+}
+
+.vd-scenes.eased:not(.open) .vd-scene {
+  transition: transform 0.36s var(--ease), opacity 0.22s linear;
+}
+
+.vd-scenes.settled .vd-scene {
+  transition-delay: 0s;
+}
+
+.vd-scene.enter {
+  animation: vd-scene-in 0.42s var(--ease-out) both;
+}
+
+@keyframes vd-scene-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--ex, 0px)) scale(0.9);
+  }
+}
+
+.vd-scene.picked {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+.vd-scene-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.11) 50%, rgba(255, 255, 255, 0.04) 70%) #0c0d10;
+  background-size: 250% 100%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: transform 0.26s var(--ease), box-shadow 0.2s;
+  animation: vd-shimmer 1.4s linear infinite;
+}
+
+.vd-scene.ready .vd-scene-card {
+  animation: none;
+}
+
+@keyframes vd-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.vd-scene:hover .vd-scene-card {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--vd-played) 55%, transparent), 0 10px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* The lit scene: the bar's played color, ring for ring. */
+.vd-scene.on .vd-scene-card {
+  box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent), 0 10px 26px rgba(0, 0, 0, 0.7);
+}
+
+.vd-scene:active .vd-scene-card {
+  transform: scale(0.97);
+}
+
+.vd-scene-pic {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.vd-scene.ready .vd-scene-pic {
+  opacity: 1;
+}
+
+.vd-scene-chip {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  gap: 5px;
+  max-width: calc(100% - 12px);
+  padding: 2px 7px 3px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vd-scene-title {
+  overflow: hidden;
+  color: var(--vd-ink-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.vd-scene.on .vd-scene-chip {
+  background: var(--vd-played);
+  color: #fff;
+}
+
+.vd-scene.on .vd-scene-title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* A scene picked, growing from where it was to cover the video (its
+   start is set inline: the scene's box, scaled). Under the controls. */
+.vd-zoom {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0c0d10;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.vd-zoom.grow {
+  transition: transform 0.52s cubic-bezier(0.22, 1.1, 0.36, 1), border-radius 0.52s var(--ease);
+}
+
+.vd-zoom.fade {
+  opacity: 0;
+  transition: opacity 0.34s var(--ease-out);
+}
+
+.vd-zoom-pic {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---- The row of controls ---- */
@@ -3954,6 +4240,18 @@ main {
   }
 
   .vdock .vd-play svg {
+    animation: none;
+  }
+
+  /* The strip stretches and folds without the spring, its scenes in
+     place, fading; the preview just appears. */
+  .vdock .vd-scene,
+  .vdock .vd-scene-card {
+    transform: none !important;
+    animation: none;
+  }
+
+  .vdock .vd-pop.rise {
     animation: none;
   }
 }

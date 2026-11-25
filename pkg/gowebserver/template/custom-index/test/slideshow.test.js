@@ -18,7 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, markup } = require('../../harness.js');
 
-const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // util.js's question about the input device, spelled as it asks it.
 const FINE_POINTER = '(hover: hover) and (pointer: fine), (any-hover: hover) and (any-pointer: fine)';
