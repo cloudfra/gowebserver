@@ -3181,7 +3181,7 @@ main {
   transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
 }
 
-.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open) .vd-panel {
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel {
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
@@ -3361,6 +3361,248 @@ main {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+}
+
+/* ---- Lifting the preview, and the strip of scenes (scenes.js) ----
+ * The pointer rising from the timeline into the preview lifts it
+ * (--lift, 0 to 1): it rises a little and grows, and two cards in the
+ * accent peek out from behind it, fanning to either side, the strip it
+ * is about to become. Then the strip unfolds out of it: each scene
+ * starts folded into the preview, tilted, and springs out to its place
+ * with a little overshoot, the lit one first and the rest after it,
+ * outward (--d). Folding away runs it backward, or (a scene picked)
+ * drops the rest out of the way of the one growing over the video. */
+.vd-pop {
+  --lift: 0;
+  translate: 0 calc(var(--lift) * -12px);
+  transition: translate 0.18s var(--ease-out);
+}
+
+.vd-pop-stack {
+  position: relative;
+}
+
+.vd-pop-ghost {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vd-played) 34%, rgba(22, 24, 30, 0.92));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.5);
+  opacity: calc(var(--lift) * 0.95);
+  transform: translate(calc(var(--lift) * -44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * -9deg)) scale(0.94);
+  transition: transform 0.22s var(--ease-out), opacity 0.18s;
+  pointer-events: none;
+}
+
+.vd-pop-ghost + .vd-pop-ghost {
+  transform: translate(calc(var(--lift) * 44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * 9deg)) scale(0.94);
+}
+
+.vd-pop-frame {
+  scale: calc(1 + var(--lift) * 0.06);
+  transition: scale 0.2s var(--ease-out);
+}
+
+.vd-scenes {
+  position: absolute;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+/* The same soft shadow as behind the timeline, behind the row. */
+.vd-scenes::before {
+  content: "";
+  position: absolute;
+  inset: 14px -8px -2px;
+  z-index: -1;
+  border-radius: 24px;
+  background: var(--vd-shade);
+  filter: blur(18px);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+  pointer-events: none;
+}
+
+.vd-scenes.open::before {
+  opacity: 0.85;
+}
+
+.vd-scenes-view {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Room above for a scene lifted on hover, and its overshoot. */
+  padding: 20px 0 8px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  cursor: grab;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+.vd-scenes-view::-webkit-scrollbar {
+  display: none;
+}
+
+.vd-scenes.dragging .vd-scenes-view {
+  cursor: grabbing;
+}
+
+.vd-scenes-rail {
+  position: relative;
+  height: var(--vd-scene-h);
+}
+
+.vd-scene {
+  position: absolute;
+  top: 0;
+  width: var(--vd-scene-w);
+  height: var(--vd-scene-h);
+  opacity: 0;
+  transform: translate(var(--fx, 0px), 52px) scale(0.42) rotate(var(--fr, 0deg));
+  transition:
+    transform 0.6s cubic-bezier(0.34, 1.5, 0.5, 1) calc(var(--d, 0) * 36ms),
+    opacity 0.2s linear calc(var(--d, 0) * 36ms);
+}
+
+.vd-scenes.open .vd-scene {
+  opacity: 1;
+  transform: none;
+}
+
+.vd-scenes.settled .vd-scene {
+  transition-delay: 0s;
+}
+
+.vd-scenes.closing .vd-scene {
+  transition:
+    transform 0.3s var(--ease) calc(var(--d, 0) * 24ms),
+    opacity 0.2s linear calc(var(--d, 0) * 24ms + 80ms);
+}
+
+.vd-scenes.closing.drop .vd-scene {
+  transform: translateY(40px) scale(0.82);
+  transition-delay: 0s;
+}
+
+.vd-scenes.closing .vd-scene.picked {
+  opacity: 0;
+  transition: none;
+}
+
+.vd-scene-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.05) 70%) #0c0d10;
+  background-size: 250% 100%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 8px 26px 2px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.28s var(--ease), box-shadow 0.2s;
+  animation: vd-shimmer 1.4s linear infinite;
+}
+
+.vd-scene.ready .vd-scene-card {
+  animation: none;
+}
+
+@keyframes vd-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.vd-scene:hover .vd-scene-card {
+  transform: translateY(-7px) scale(1.05);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 16px 34px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* The lit scene: the one nearest the time previewed, or the keys'. */
+.vd-scene.on .vd-scene-card {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 2px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 30%, transparent), 0 12px 30px 4px rgba(0, 0, 0, 0.55);
+}
+
+.vd-scene.on:hover .vd-scene-card {
+  transform: translateY(-8px) scale(1.05);
+}
+
+.vd-scene:active .vd-scene-card {
+  transform: translateY(-3px) scale(0.98);
+}
+
+.vd-scene-pic {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.vd-scene.ready .vd-scene-pic {
+  opacity: 1;
+}
+
+.vd-scene-chip {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  gap: 5px;
+  max-width: calc(100% - 12px);
+  padding: 2px 7px 3px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--vd-glass);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vd-scene-title {
+  overflow: hidden;
+  color: var(--vd-ink-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.vd-scene.on .vd-scene-time {
+  color: color-mix(in srgb, var(--vd-played) 45%, #fff);
+}
+
+/* A scene picked, growing from where it was to cover the video (its
+   start is set inline: the scene's box, scaled). Under the controls. */
+.vd-zoom {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0c0d10;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.vd-zoom.grow {
+  transition: transform 0.52s cubic-bezier(0.22, 1.1, 0.36, 1), border-radius 0.52s var(--ease);
+}
+
+.vd-zoom.fade {
+  opacity: 0;
+  transition: opacity 0.34s var(--ease-out);
+}
+
+.vd-zoom-pic {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---- The row of controls ---- */
@@ -3954,6 +4196,25 @@ main {
   }
 
   .vdock .vd-play svg {
+    animation: none;
+  }
+
+  /* The scenes fade in and out where they are, with no fanning. */
+  .vdock .vd-pop {
+    translate: none;
+  }
+
+  .vdock .vd-pop-ghost {
+    display: none;
+  }
+
+  .vdock .vd-pop-frame {
+    scale: none;
+  }
+
+  .vdock .vd-scene,
+  .vdock .vd-scene-card {
+    transform: none !important;
     animation: none;
   }
 }

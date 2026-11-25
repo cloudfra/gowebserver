@@ -5,9 +5,11 @@
 // server): its chapters as segments, its markers as ticks (or bands, for
 // a stretch of time) in their group's color, what's buffered, and on
 // hover or drag a preview frame with the time and the nearest chapter or
-// marker. The metadata is asked for (VIDEO?meta) only when a video
-// becomes the current slide, never for the listing, and once per video
-// per page. There is one dock, which the slideshow moves into the
+// marker; and from that preview, the pointer rising into it (or S),
+// the strip of scenes, a frame a minute (scenes.js), where one picked
+// grows to fill the video and plays. The metadata is asked for
+// (VIDEO?meta) only when a video becomes the current slide, never for
+// the listing, and once per video per page. There is one dock, which the slideshow moves into the
 // current slide over its video (attach), so it moves with a swipe and
 // sits where the browser's controls would. Every URL is the video's own,
 // or one the metadata gives relative to it, so the page works wherever
@@ -218,6 +220,7 @@ function vpKey(e) {
     case 'c': case 'C': return 'captions';
     case 'm': case 'M': return 'mute';
     case 'f': case 'F': return 'fullscreen';
+    case 's': case 'S': return 'scenes';
     case 'PageUp': return 'slide:-1';
     case 'PageDown': return 'slide:1';
   }
@@ -311,7 +314,8 @@ function VideoDock(opts) {
     '<div class="vd-rail"><div class="vd-bands"></div><div class="vd-segs"></div><div class="vd-ticks"></div></div>' +
     '<div class="vd-head"></div>' +
     '<div class="vd-pop" aria-hidden="true" hidden>' +
-    '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
+    '<div class="vd-pop-stack"><i class="vd-pop-ghost"></i><i class="vd-pop-ghost"></i>' +
+    '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div></div>' +
     '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
     '</div>' +
     '</div>' +
@@ -349,7 +353,7 @@ function VideoDock(opts) {
   var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), rateText = q('.vd-rate-text');
   var btnCC = q('.vd-cc'), btnFull = q('.vd-full'), btnMore = q('.vd-more'), btnMarkers = q('.vd-mk-menu');
   var menu = q('.vd-menu'), menuTitle = q('.vd-menu-title'), menuList = q('.vd-menu-list');
-  var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip');
+  var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip'), panel = q('.vd-panel');
 
   var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
   var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;
@@ -435,6 +439,8 @@ function VideoDock(opts) {
 
   function detach() {
     closeMenu(false, true);
+    scenes.close('now');
+    endZoom();
     hidePop();
     hideTip();
     preview.reset();
@@ -457,6 +463,10 @@ function VideoDock(opts) {
   // video, or one on a touch screen, gets the compact row: what doesn't
   // fit goes in the More menu.
   function place(r) {
+    // The strip is laid out for the dock's size: a new one folds it.
+    if (scenes.busy() && (r.w !== placedW || r.h !== placedH)) scenes.close('now');
+    placedW = r.w;
+    placedH = r.h;
     el.style.left = r.x + 'px';
     el.style.top = r.y + 'px';
     el.style.width = r.w + 'px';
@@ -464,6 +474,8 @@ function VideoDock(opts) {
     el.classList.toggle('compact', r.w < 600 || !finePointer.matches);
     el.classList.toggle('tiny', r.w < 380);
   }
+
+  var placedW = 0, placedH = 0;
 
   // ---- The metadata ----
   function loadMeta(item) {
@@ -685,6 +697,7 @@ function VideoDock(opts) {
         break;
       case 'mute': v.muted = !v.muted; break;
       case 'fullscreen': opts.fullscreen(); break;
+      case 'scenes': return openScenes(v.currentTime, null);
       case 'slide': opts.slide(n); break;
       default: return false;
     }
@@ -696,6 +709,7 @@ function VideoDock(opts) {
   function key(e) {
     if (!v) return false;
     var tag = e.target && e.target.tagName;
+    if (scenes.key(e)) return true;
     if (menuOpen() && e.key === 'Escape') { closeMenu(true); return true; }
     if (tag === 'INPUT' && /^Arrow|^Page|^Home|^End/.test(e.key)) return false;
     if ((tag === 'BUTTON' || tag === 'A') && (e.key === ' ' || e.key === 'Enter')) return false;
@@ -708,7 +722,7 @@ function VideoDock(opts) {
   // Whether the controls should stay up: while the video is paused, a
   // menu is open or the timeline is being dragged.
   function holdsChrome() {
-    return !!v && (v.paused || menuOpen() || dragging);
+    return !!v && (v.paused || menuOpen() || dragging || scenes.busy() || !!zoom);
   }
 
   // ---- The preview over the timeline ----
@@ -717,10 +731,13 @@ function VideoDock(opts) {
   // one, a frame of the video itself, from a second, muted copy of it
   // that seeks to the time under the pointer (one seek at a time, the
   // latest wanted next); and with neither, no picture at all, just the
-  // time and the chapter, never an empty box.
+  // time and the chapter, never an empty box. The scenes' strip draws
+  // its pictures from the same two (drawImage, grab): the copy seeks for
+  // the preview first, then for the scenes in the order they asked.
   var preview = (function () {
     var sheets = Object.create(null); // image URL -> {img, ready, failed}
     var sv = null, busy = false, want = null, drawn = false, shownT = -1, svFailed = false;
+    var jobs = []; // the scenes' frames to grab: {t, done, dead}
 
     function sheet(url) {
       var s = sheets[url];
@@ -728,8 +745,8 @@ function VideoDock(opts) {
       s = sheets[url] = { ready: false, failed: false };
       var img = new Image();
       img.decoding = 'async';
-      img.onload = function () { s.ready = true; refreshPop(); };
-      img.onerror = function () { s.failed = true; refreshPop(); };
+      img.onload = function () { s.ready = true; refreshPop(); scenes.refresh(); };
+      img.onerror = function () { s.failed = true; refreshPop(); scenes.refresh(); };
       img.src = url;
       s.img = img;
       return s;
@@ -757,9 +774,40 @@ function VideoDock(opts) {
       return { w: w, h: Math.max(40, Math.min(176, Math.round(w * vh / vw))) };
     }
 
-    function frame(t) {
-      if (svFailed || !v || !it) return;
-      want = t;
+    // Draws the sprite's or the track's frame at t into canvas c,
+    // covering it: 'done', or 'wait' while its image loads, or 'none'
+    // when there's no image to wait for.
+    function drawImage(t, c) {
+      var th = vpThumbAt(meta && meta.thumbnails, thumbCues, t);
+      if (!th || !th.w || !th.h || !th.url) return 'none';
+      var s = sheet(th.url);
+      if (s.failed) return 'none';
+      if (!s.ready) return 'wait';
+      var k = vpCover(th.w, th.h, c.width, c.height);
+      try {
+        c.getContext('2d').drawImage(s.img, th.x + k.x, th.y + k.y, k.w, k.h, 0, 0, c.width, c.height);
+        return 'done';
+      } catch (e) {
+        return 'none';
+      }
+    }
+
+    // Grabs the video's own frame at t, after the preview's, and hands
+    // the copy to done once it's there to draw. cancel() takes it back.
+    function grab(t, done) {
+      var job = { t: t, done: done, dead: false };
+      if (svFailed || !v || !it) return job;
+      jobs.push(job);
+      copy();
+      next();
+      return job;
+    }
+
+    function cancel(job) {
+      if (job) job.dead = true;
+    }
+
+    function copy() {
       if (!sv) {
         sv = doc.createElement('video');
         sv.muted = true;
@@ -771,16 +819,30 @@ function VideoDock(opts) {
         sv.addEventListener('error', function () { svFailed = true; busy = false; });
         sv.src = v.currentSrc || it.url;
       }
+    }
+
+    function frame(t) {
+      if (svFailed || !v || !it) return;
+      want = t;
+      copy();
       next();
     }
 
     function next() {
-      if (!sv || busy || want == null || sv.readyState < 1) return;
-      if (Math.abs(want - shownT) < 0.2 && drawn) return;
-      busy = true;
-      var t = want;
+      if (!sv || busy || sv.readyState < 1) return;
+      var t, job = null;
+      if (want != null && !(Math.abs(want - shownT) < 0.2 && drawn)) {
+        t = want;
+      } else {
+        while (jobs.length && jobs[0].dead) jobs.shift();
+        if (!jobs.length) return;
+        job = jobs.shift();
+        t = job.t;
+      }
       want = null;
+      busy = true;
       sv._t = t;
+      sv._job = job;
       // A seek to the keyframe is enough for a preview, and much faster.
       if (sv.fastSeek) sv.fastSeek(t); else sv.currentTime = t;
     }
@@ -790,6 +852,13 @@ function VideoDock(opts) {
       if (!sv) return;
       var go = function () {
         if (!sv || !sv.videoWidth) { next(); return; }
+        var job = sv._job;
+        sv._job = null;
+        if (job) {
+          if (!job.dead) job.done(sv);
+          next();
+          return;
+        }
         var s = size(), dpr = Math.min(window.devicePixelRatio || 1, 2);
         if (popCanvas.width !== Math.round(s.w * dpr)) { popCanvas.width = Math.round(s.w * dpr); popCanvas.height = Math.round(s.h * dpr); }
         try {
@@ -813,6 +882,7 @@ function VideoDock(opts) {
       sv = null;
       busy = false;
       want = null;
+      jobs = [];
       drawn = false;
       shownT = -1;
       svFailed = false;
@@ -821,6 +891,7 @@ function VideoDock(opts) {
 
     return {
       image: image, frame: frame, reset: reset, size: size, imageComing: imageComing,
+      drawImage: drawImage, grab: grab, cancel: cancel,
       hasFrame: function () { return drawn; },
       canFrame: function () { return !svFailed && !!popCanvas.getContext; }
     };
@@ -884,8 +955,172 @@ function VideoDock(opts) {
   function hidePop() {
     pop.hidden = true;
     hoverT = null;
+    lifting = false;
+    setLift(0);
     if (v) update();
   }
+
+  // ---- The scenes ----
+  // The pointer leaving the timeline upward, with the preview up, lifts
+  // the preview with it: it rises a little and the cards behind it peek
+  // out (--lift, 0 to 1), and once the pointer is up in it (vpLift), it
+  // unfolds into the strip of scenes (scenes.js). A finger scrubbing
+  // drags up off the timeline for the same. Back down, or off to the
+  // side, and it settles again.
+  var lifting = false, resumeAfterScenes = false, zoom = null;
+  var scenes = SceneStrip(panel, tl, {
+    duration: duration,
+    aspect: function () {
+      return v && v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : 16 / 9;
+    },
+    compact: function () { return el.classList.contains('compact'); },
+    label: function (t) {
+      var h = vpHover(layout, t, 0);
+      return h.chapter ? h.chapter.title : '';
+    },
+    paint: paintScene,
+    cancel: function (c) {
+      if (c._job) { preview.cancel(c._job); c._job = null; }
+    },
+    pick: pickScene,
+    closed: function (why) {
+      el.classList.remove('scenes-open');
+      if (why !== 'pick' && resumeAfterScenes && v) v.play().catch(function () { });
+      resumeAfterScenes = false;
+      if (opts.activity) opts.activity();
+    }
+  });
+
+  function setLift(p) {
+    pop.style.setProperty('--lift', p > 0 ? p.toFixed(3) : '0');
+    pop.classList.toggle('lifting', p > 0);
+  }
+
+  // The preview's middle, in the window.
+  function popCenter() {
+    return tl.getBoundingClientRect().left + (parseFloat(pop.style.left) || 0);
+  }
+
+  function liftAt(x, y, open) {
+    return vpLift(tl.getBoundingClientRect().top - y, x - popCenter(), (pop.offsetWidth || 176) / 2, open);
+  }
+
+  // Opens the strip on time t, unfolding from client x (by default,
+  // where t is on the timeline).
+  function openScenes(t, x) {
+    var dur = duration();
+    if (!v || !(dur > 0)) return false;
+    closeMenu(false, true);
+    hideTip();
+    if (x == null) {
+      var r = tl.getBoundingClientRect();
+      x = r.left + r.width * Math.min(1, t / dur);
+    }
+    hidePop();
+    var ok = scenes.open(t, x);
+    if (ok) el.classList.add('scenes-open');
+    if (opts.activity) opts.activity();
+    return ok;
+  }
+
+  // A scene's picture: the sprite's frame, or while that loads, nothing
+  // yet (the strip asks again: scenes.refresh), or without one, the
+  // video's own frame, grabbed by the preview's copy of it.
+  function paintScene(t, c, done) {
+    var got = c.getContext ? preview.drawImage(t, c) : 'none';
+    if (got === 'done') { done(); return; }
+    if (got === 'wait' || c._job || !preview.canFrame()) return;
+    c._job = preview.grab(t, function (src) {
+      c._job = null;
+      var k = vpCover(src.videoWidth, src.videoHeight, c.width, c.height);
+      try {
+        c.getContext('2d').drawImage(src, k.x, k.y, k.w, k.h, 0, 0, c.width, c.height);
+        done();
+      } catch (e) { }
+    });
+  }
+
+  // A scene picked: its picture grows from where it is out to the
+  // video's box (the dock's), the video goes there meanwhile, and once
+  // both are done the picture fades off the video, now playing.
+  function pickScene(t, card) {
+    if (!v) return;
+    endZoom();
+    resumeAfterScenes = false;
+    var z = doc.createElement('div'), zc = doc.createElement('canvas');
+    z.className = 'vd-zoom';
+    z.setAttribute('aria-hidden', 'true');
+    zc.className = 'vd-zoom-pic';
+    if (card && card._painted && card.width) {
+      zc.width = card.width;
+      zc.height = card.height;
+      try { zc.getContext('2d').drawImage(card, 0, 0); } catch (e) { }
+    } else {
+      z.classList.add('blank');
+    }
+    z.appendChild(zc);
+    el.insertBefore(z, el.firstChild);
+    var cr = card && card.getBoundingClientRect(), dr = el.getBoundingClientRect();
+    var still = reducedMotion.matches;
+    if (cr && cr.width > 0 && dr.width > 0 && !still) {
+      var sx = cr.width / dr.width, sy = cr.height / dr.height;
+      z.style.transform = 'translate(' + (cr.left - dr.left) + 'px,' + (cr.top - dr.top) + 'px) scale(' + sx + ',' + sy + ')';
+      z.style.borderRadius = (10 / sx).toFixed(1) + 'px / ' + (10 / sy).toFixed(1) + 'px';
+      void z.offsetWidth;
+    }
+    z.classList.add('grow');
+    z.style.transform = '';
+    z.style.borderRadius = '';
+    var video = v, waits = 2;
+    zoom = { el: z, video: video, timers: [], onSeeked: null };
+    var done = function () {
+      if (--waits || !zoom || zoom.el !== z) return;
+      video.play().catch(function () { });
+      z.classList.add('fade');
+      zoom.timers.push(setTimeout(endZoom, still ? 0 : 380));
+    };
+    zoom.onSeeked = function () {
+      video.removeEventListener('seeked', zoom.onSeeked);
+      done();
+    };
+    video.addEventListener('seeked', zoom.onSeeked);
+    // The growing takes as long as its transition; a seek that never
+    // comes back (a video that can't seek) waits no more than a moment.
+    zoom.timers.push(setTimeout(done, still ? 0 : 560));
+    zoom.timers.push(setTimeout(function () {
+      if (zoom && zoom.el === z && waits > 0) { waits = 1; zoom.onSeeked(); }
+    }, 1600));
+    seekTo(t);
+    showFlash(vpFmtTime(t, duration() >= 3600));
+  }
+
+  function endZoom() {
+    if (!zoom) return;
+    zoom.timers.forEach(clearTimeout);
+    zoom.video.removeEventListener('seeked', zoom.onSeeked);
+    zoom.el.remove();
+    zoom = null;
+    if (opts.activity) opts.activity();
+  }
+
+  doc.addEventListener('pointermove', function (e) {
+    if (scenes.isOpen()) { scenes.pointer(e); return; }
+    if (!lifting || !v) return;
+    var l = liftAt(e.clientX, e.clientY, VP_LIFT_OPEN);
+    if (l.state === 'rail') {
+      // Back on the timeline its own pointermove takes over; below it,
+      // the pointer went past.
+      if (e.clientY > tl.getBoundingClientRect().bottom) hidePop();
+      return;
+    }
+    if (l.state === 'away') { hidePop(); return; }
+    if (l.state === 'open') { openScenes(hoverT, popCenter()); return; }
+    setLift(l.p);
+  });
+  doc.addEventListener('pointerout', function (e) {
+    if (lifting && !e.relatedTarget) hidePop();
+  });
+  doc.addEventListener('pointerdown', function (e) { scenes.press(e); }, true);
 
   // ---- The pointer on the timeline ----
   tl.addEventListener('pointerdown', function (e) {
@@ -903,13 +1138,28 @@ function VideoDock(opts) {
     if (opts.activity) opts.activity();
   });
   tl.addEventListener('pointermove', function (e) {
-    if (!v) return;
+    if (!v || scenes.isOpen()) return;
+    // A finger scrubbing that drags up off the timeline unearths the
+    // scenes at the time it was on.
+    if (dragging && e.pointerType !== 'mouse' && hoverT != null) {
+      var l = liftAt(e.clientX, e.clientY, VP_LIFT_TOUCH);
+      if (l.state === 'open') {
+        dragging = false;
+        el.classList.remove('scrubbing');
+        try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
+        resumeAfterScenes = !wasPaused;
+        openScenes(hoverT, popCenter());
+        return;
+      }
+      if (l.state === 'rising') { setLift(l.p); return; }
+    }
+    if (lifting) { lifting = false; setLift(0); }
     var t = timeAt(e.clientX);
     if (dragging) {
       if (v.fastSeek) v.fastSeek(t); else v.currentTime = t;
     }
     if (dragging || e.pointerType === 'mouse' || e.pointerType === 'pen') showPop(t, e.clientX);
-    if (dragging) update(t);
+    if (dragging) { setLift(0); update(t); }
   });
   function endDrag(e) {
     if (!dragging) return;
@@ -921,7 +1171,15 @@ function VideoDock(opts) {
   }
   tl.addEventListener('pointerup', endDrag);
   tl.addEventListener('pointercancel', endDrag);
-  tl.addEventListener('pointerleave', function () { if (!dragging) hidePop(); });
+  tl.addEventListener('pointerleave', function (e) {
+    if (dragging) return;
+    // Out of the top, toward the preview: it may be lifted (see above).
+    if (!pop.hidden && hoverT != null && e.pointerType !== 'touch' && e.clientY <= tl.getBoundingClientRect().top + 1) {
+      lifting = true;
+      return;
+    }
+    hidePop();
+  });
   tl.addEventListener('keydown', function (e) {
     if (!v) return;
     var t = vpSliderKey(e, v.currentTime, duration());

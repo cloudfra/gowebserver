@@ -3702,7 +3702,7 @@
       transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
     }
 
-    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open) .vd-panel {
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel {
       opacity: 0;
       transform: translateY(10px);
       pointer-events: none;
@@ -3879,6 +3879,239 @@
       font-weight: 650;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.01em;
+    }
+
+     
+    .vd-pop {
+      --lift: 0;
+      translate: 0 calc(var(--lift) * -12px);
+      transition: translate 0.18s var(--ease-out);
+    }
+
+    .vd-pop-stack {
+      position: relative;
+    }
+
+    .vd-pop-ghost {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--vd-played) 34%, rgba(22, 24, 30, 0.92));
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.5);
+      opacity: calc(var(--lift) * 0.95);
+      transform: translate(calc(var(--lift) * -44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * -9deg)) scale(0.94);
+      transition: transform 0.22s var(--ease-out), opacity 0.18s;
+      pointer-events: none;
+    }
+
+    .vd-pop-ghost + .vd-pop-ghost {
+      transform: translate(calc(var(--lift) * 44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * 9deg)) scale(0.94);
+    }
+
+    .vd-pop-frame {
+      scale: calc(1 + var(--lift) * 0.06);
+      transition: scale 0.2s var(--ease-out);
+    }
+
+    .vd-scenes {
+      position: absolute;
+      z-index: 3;
+      pointer-events: auto;
+    }
+
+     
+    .vd-scenes::before {
+      content: "";
+      position: absolute;
+      inset: 14px -8px -2px;
+      z-index: -1;
+      border-radius: 24px;
+      background: var(--vd-shade);
+      filter: blur(18px);
+      opacity: 0;
+      transition: opacity 0.3s var(--ease-out);
+      pointer-events: none;
+    }
+
+    .vd-scenes.open::before {
+      opacity: 0.85;
+    }
+
+    .vd-scenes-view {
+      overflow-x: auto;
+      overflow-y: hidden;
+       
+      padding: 20px 0 8px;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      touch-action: pan-x;
+      cursor: grab;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+      mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    }
+
+    .vd-scenes-view::-webkit-scrollbar {
+      display: none;
+    }
+
+    .vd-scenes.dragging .vd-scenes-view {
+      cursor: grabbing;
+    }
+
+    .vd-scenes-rail {
+      position: relative;
+      height: var(--vd-scene-h);
+    }
+
+    .vd-scene {
+      position: absolute;
+      top: 0;
+      width: var(--vd-scene-w);
+      height: var(--vd-scene-h);
+      opacity: 0;
+      transform: translate(var(--fx, 0px), 52px) scale(0.42) rotate(var(--fr, 0deg));
+      transition:
+        transform 0.6s cubic-bezier(0.34, 1.5, 0.5, 1) calc(var(--d, 0) * 36ms),
+        opacity 0.2s linear calc(var(--d, 0) * 36ms);
+    }
+
+    .vd-scenes.open .vd-scene {
+      opacity: 1;
+      transform: none;
+    }
+
+    .vd-scenes.settled .vd-scene {
+      transition-delay: 0s;
+    }
+
+    .vd-scenes.closing .vd-scene {
+      transition:
+        transform 0.3s var(--ease) calc(var(--d, 0) * 24ms),
+        opacity 0.2s linear calc(var(--d, 0) * 24ms + 80ms);
+    }
+
+    .vd-scenes.closing.drop .vd-scene {
+      transform: translateY(40px) scale(0.82);
+      transition-delay: 0s;
+    }
+
+    .vd-scenes.closing .vd-scene.picked {
+      opacity: 0;
+      transition: none;
+    }
+
+    .vd-scene-card {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 10px;
+      background: linear-gradient(110deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.05) 70%) #0c0d10;
+      background-size: 250% 100%;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 8px 26px 2px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      transition: transform 0.28s var(--ease), box-shadow 0.2s;
+      animation: vd-shimmer 1.4s linear infinite;
+    }
+
+    .vd-scene.ready .vd-scene-card {
+      animation: none;
+    }
+
+    @keyframes vd-shimmer {
+      from {
+        background-position: 100% 0;
+      }
+
+      to {
+        background-position: -150% 0;
+      }
+    }
+
+    .vd-scene:hover .vd-scene-card {
+      transform: translateY(-7px) scale(1.05);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 16px 34px 4px rgba(0, 0, 0, 0.6);
+    }
+
+     
+    .vd-scene.on .vd-scene-card {
+      transform: translateY(-4px);
+      box-shadow: 0 0 0 2px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 30%, transparent), 0 12px 30px 4px rgba(0, 0, 0, 0.55);
+    }
+
+    .vd-scene.on:hover .vd-scene-card {
+      transform: translateY(-8px) scale(1.05);
+    }
+
+    .vd-scene:active .vd-scene-card {
+      transform: translateY(-3px) scale(0.98);
+    }
+
+    .vd-scene-pic {
+      display: block;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.3s var(--ease-out);
+    }
+
+    .vd-scene.ready .vd-scene-pic {
+      opacity: 1;
+    }
+
+    .vd-scene-chip {
+      position: absolute;
+      left: 6px;
+      bottom: 6px;
+      display: flex;
+      gap: 5px;
+      max-width: calc(100% - 12px);
+      padding: 2px 7px 3px;
+      overflow: hidden;
+      border-radius: 7px;
+      background: var(--vd-glass);
+      font-size: 0.6875rem;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .vd-scene-title {
+      overflow: hidden;
+      color: var(--vd-ink-2);
+      font-weight: 500;
+      text-overflow: ellipsis;
+    }
+
+    .vd-scene.on .vd-scene-time {
+      color: color-mix(in srgb, var(--vd-played) 45%, #fff);
+    }
+
+     
+    .vd-zoom {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #0c0d10;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
+
+    .vd-zoom.grow {
+      transition: transform 0.52s cubic-bezier(0.22, 1.1, 0.36, 1), border-radius 0.52s var(--ease);
+    }
+
+    .vd-zoom.fade {
+      opacity: 0;
+      transition: opacity 0.34s var(--ease-out);
+    }
+
+    .vd-zoom-pic {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
      
@@ -4468,6 +4701,25 @@
       }
 
       .vdock .vd-play svg {
+        animation: none;
+      }
+
+       
+      .vdock .vd-pop {
+        translate: none;
+      }
+
+      .vdock .vd-pop-ghost {
+        display: none;
+      }
+
+      .vdock .vd-pop-frame {
+        scale: none;
+      }
+
+      .vdock .vd-scene,
+      .vdock .vd-scene-card {
+        transform: none !important;
         animation: none;
       }
     }
@@ -8102,6 +8354,446 @@
       
       
       
+
+      
+      
+      
+      
+      var VP_SCENE_MIN = 5;
+      var VP_SCENE_STEPS = [30, 20, 15, 10, 5];
+      
+      
+      
+      
+      
+      var VP_LIFT_OPEN = 56;
+      var VP_LIFT_TOUCH = 72;
+      var VP_LIFT_SIDE = 32;
+      
+      var VP_SCENE_EXTRA = 3;
+
+      
+      function vpSceneStep(dur) {
+        if (!(dur > 0)) return 0;
+        if (dur >= VP_SCENE_MIN * 60) return 60;
+        for (var i = 0; i < VP_SCENE_STEPS.length; i++) {
+          if (Math.ceil(dur / VP_SCENE_STEPS[i] - 1e-9) >= VP_SCENE_MIN) return VP_SCENE_STEPS[i];
+        }
+        return dur / VP_SCENE_MIN;
+      }
+
+      
+      
+      function vpSceneCount(dur, step) {
+        if (!(dur > 0) || !(step > 0)) return 0;
+        return Math.max(1, Math.ceil(dur / step - 1e-9));
+      }
+
+      
+      function vpSceneNearest(t, step, n) {
+        if (!(n > 0)) return -1;
+        return Math.max(0, Math.min(n - 1, Math.round((t || 0) / step)));
+      }
+
+      
+      
+      
+      function vpSceneWindow(scroll, view, pitch, pad, n, extra) {
+        if (!(n > 0) || !(pitch > 0)) return [0, 0];
+        var lo = Math.floor((scroll - pad) / pitch) - extra;
+        var hi = Math.ceil((scroll + view - pad) / pitch) + extra;
+        return [Math.max(0, Math.min(n, lo)), Math.max(0, Math.min(n, hi))];
+      }
+
+      
+      
+      
+      function vpSceneScroll(i, n, fw, pitch, pad, anchor, view) {
+        var total = pad * 2 + Math.max(0, n - 1) * pitch + fw;
+        var x = pad + i * pitch + fw / 2 - anchor;
+        return Math.max(0, Math.min(Math.max(0, total - view), Math.round(x)));
+      }
+
+      
+      
+      
+      
+      
+      function vpLift(dy, dx, half, open) {
+        if (!(dy > 0)) return { state: 'rail', p: 0 };
+        if (Math.abs(dx) > half + VP_LIFT_SIDE) return { state: 'away', p: 0 };
+        if (dy >= open) return { state: 'open', p: 1 };
+        return { state: 'rising', p: dy / open };
+      }
+
+      
+      
+      function vpCover(sw, sh, dw, dh) {
+        if (!(sw > 0 && sh > 0 && dw > 0 && dh > 0)) return { x: 0, y: 0, w: sw || 0, h: sh || 0 };
+        var s = Math.max(dw / sw, dh / sh), w = dw / s, h = dh / s;
+        return { x: (sw - w) / 2, y: (sh - h) / 2, w: w, h: h };
+      }
+
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      function SceneStrip(host, tl, opts) {
+        var el = doc.createElement('div');
+        el.className = 'vd-scenes';
+        el.hidden = true;
+        el.setAttribute('role', 'listbox');
+        el.setAttribute('aria-label', 'Scenes');
+        el.setAttribute('aria-orientation', 'horizontal');
+        el.innerHTML = '<div class="vd-scenes-view"><div class="vd-scenes-rail"></div></div>';
+        host.insertBefore(el, tl);
+        var view = el.firstChild, rail = view.firstChild;
+
+        var GAP = 12, PAD = 16;
+        var state = 'closed'; 
+        var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1, anchorX = 0;
+        var mounted = new Map(); 
+        var closeTimer = 0, awayTimer = 0, settleTimer = 0, rafPending = false;
+        var drag = null, dragged = false;
+
+        function isOpen() { return state === 'open'; }
+
+        function sceneT(i) { return Math.min(i * step, Math.max(0, opts.duration() - 0.05)); }
+
+        
+        function measure() {
+          fw = opts.compact() ? 112 : 160;
+          var a = opts.aspect();
+          if (!(a > 0)) a = 16 / 9;
+          
+          fh = Math.round(Math.max(fw * 0.42, Math.min(fw, fw / a)));
+          pitch = fw + GAP;
+          el.style.setProperty('--vd-scene-w', fw + 'px');
+          el.style.setProperty('--vd-scene-h', fh + 'px');
+          
+          el.style.left = tl.offsetLeft + 'px';
+          el.style.width = (tl.offsetWidth || tl.getBoundingClientRect().width) + 'px';
+          el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop + 8) + 'px';
+          rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
+        }
+
+        function viewWidth() {
+          return view.clientWidth || view.getBoundingClientRect().width || 0;
+        }
+
+        function frame(i) {
+          var f = doc.createElement('div');
+          f.className = 'vd-scene';
+          f.setAttribute('role', 'option');
+          f.id = 'vd-scene-' + i;
+          f._i = i;
+          f.style.left = (PAD + i * pitch) + 'px';
+          var t = sceneT(i), title = opts.label(t) || '';
+          var long = opts.duration() >= 3600;
+          f.innerHTML = '<div class="vd-scene-card"><canvas class="vd-scene-pic"></canvas>' +
+            '<span class="vd-scene-chip"><span class="vd-scene-time"></span><span class="vd-scene-title"></span></span></div>';
+          f.querySelector('.vd-scene-time').textContent = vpFmtTime(t, long);
+          var titleEl = f.querySelector('.vd-scene-title');
+          titleEl.textContent = title;
+          titleEl.hidden = !title;
+          f.setAttribute('aria-label', vpFmtTime(t, long) + (title ? ', ' + title : ''));
+          f.setAttribute('aria-selected', String(i === sel));
+          if (i === sel) f.classList.add('on');
+          var c = f.querySelector('canvas'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+          c.width = Math.round(fw * dpr);
+          c.height = Math.round(fh * dpr);
+          c._t = t;
+          return f;
+        }
+
+        function paint(f) {
+          var c = f.querySelector('canvas');
+          if (!c || c._painted) return;
+          opts.paint(c._t, c, function () {
+            c._painted = true;
+            f.classList.add('ready');
+          });
+        }
+
+        
+        
+        
+        function render() {
+          if (state === 'closed') return;
+          var w = vpSceneWindow(view.scrollLeft, viewWidth(), pitch, PAD, n, VP_SCENE_EXTRA);
+          mounted.forEach(function (f, i) {
+            if (i >= w[0] && i < w[1]) return;
+            var c = f.querySelector('canvas');
+            if (c && !c._painted) opts.cancel(c);
+            f.remove();
+            mounted.delete(i);
+          });
+          var added = [];
+          for (var i = w[0]; i < w[1]; i++) {
+            if (mounted.has(i)) continue;
+            var f = frame(i);
+            rail.appendChild(f);
+            mounted.set(i, f);
+            added.push(f);
+          }
+          added.sort(function (a, b) { return Math.abs(a._i - sel) - Math.abs(b._i - sel); }).forEach(paint);
+          el.dataset.mounted = String(mounted.size);
+        }
+
+        function schedule() {
+          if (rafPending) return;
+          rafPending = true;
+          requestAnimationFrame(function () { rafPending = false; render(); });
+        }
+
+        
+        
+        
+        function open(t, x) {
+          var dur = opts.duration();
+          step = vpSceneStep(dur);
+          n = vpSceneCount(dur, step);
+          if (!n) return false;
+          clearTimeout(closeTimer);
+          clearTimeout(settleTimer);
+          clearMounted();
+          state = 'open';
+          sel = vpSceneNearest(t, step, n);
+          el.hidden = false;
+          el.classList.remove('open', 'closing', 'settled');
+          el.dataset.count = String(n);
+          el.dataset.step = String(step);
+          measure();
+          var vr = view.getBoundingClientRect();
+          anchorX = x;
+          var anchor = x - vr.left;
+          if (!(anchor > 0)) anchor = viewWidth() / 2;
+          view.scrollLeft = vpSceneScroll(sel, n, fw, pitch, PAD, anchor, viewWidth());
+          render();
+          
+          
+          fanFrom(anchorX, 1);
+          void el.offsetWidth;
+          el.classList.add('open');
+          el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+          
+          settleTimer = setTimeout(function () { if (state === 'open') el.classList.add('settled'); }, reducedMotion.matches ? 0 : 700);
+          return true;
+        }
+
+        
+        
+        function fanFrom(x, dir) {
+          var span = 0, rows = [];
+          mounted.forEach(function (f, i) {
+            var r = f.getBoundingClientRect(), d = Math.abs(i - sel);
+            span = Math.max(span, d);
+            rows.push([f, (x - (r.left + r.width / 2)) || (sel - i) * pitch, d, i - sel]);
+          });
+          rows.forEach(function (row) {
+            var d = Math.min(row[2], 6);
+            row[0].style.setProperty('--fx', Math.round(row[1]) + 'px');
+            
+            row[0].style.setProperty('--fr', Math.max(-15, Math.min(15, row[3] * 5)) + 'deg');
+            row[0].style.setProperty('--d', String(dir > 0 ? d : Math.min(span, 6) - d));
+          });
+        }
+
+        function clearMounted() {
+          mounted.forEach(function (f) {
+            var c = f.querySelector('canvas');
+            if (c && !c._painted) opts.cancel(c);
+            f.remove();
+          });
+          mounted.clear();
+        }
+
+        
+        
+        function close(why) {
+          if (state !== 'open') {
+            if (why === 'now' && state === 'closing') finish();
+            return;
+          }
+          state = 'closing';
+          clearTimeout(awayTimer);
+          clearTimeout(settleTimer);
+          drag = null;
+          el.removeAttribute('aria-activedescendant');
+          if (why === 'now' || reducedMotion.matches) {
+            finish();
+          } else {
+            fanFrom(why === 'pick' ? NaN : anchorX, -1);
+            el.classList.remove('settled');
+            el.classList.add('closing');
+            el.classList.toggle('drop', why === 'pick');
+            el.classList.remove('open');
+            closeTimer = setTimeout(finish, 420);
+          }
+          if (opts.closed) opts.closed(why);
+        }
+
+        function finish() {
+          clearTimeout(closeTimer);
+          state = 'closed';
+          clearMounted();
+          el.classList.remove('open', 'closing', 'drop', 'settled');
+          el.hidden = true;
+          el.dataset.mounted = '0';
+        }
+
+        
+        function light(i, scroll) {
+          if (!(n > 0)) return;
+          i = Math.max(0, Math.min(n - 1, i));
+          var was = mounted.get(sel);
+          if (was) { was.classList.remove('on'); was.setAttribute('aria-selected', 'false'); }
+          sel = i;
+          if (scroll) {
+            var left = PAD + i * pitch, vw = viewWidth(), to = view.scrollLeft;
+            if (left < to + PAD) to = left - PAD;
+            else if (left + fw > to + vw - PAD) to = left + fw - vw + PAD;
+            if (to !== view.scrollLeft) {
+              if (view.scrollTo && !reducedMotion.matches) view.scrollTo({ left: to, behavior: 'smooth' });
+              else view.scrollLeft = to;
+            }
+            render();
+          }
+          var f = mounted.get(sel);
+          if (f) { f.classList.add('on'); f.setAttribute('aria-selected', 'true'); }
+          el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+        }
+
+        function pick(i) {
+          if (state !== 'open' || !(n > 0)) return;
+          light(i, false);
+          var f = mounted.get(sel);
+          var card = f && f.querySelector('.vd-scene-pic');
+          if (f) f.classList.add('picked');
+          opts.pick(sceneT(sel), card || null);
+          close('pick');
+        }
+
+        
+        function key(e) {
+          if (state !== 'open') return false;
+          var per = Math.max(1, Math.floor(viewWidth() / pitch));
+          switch (e.key) {
+            case 'Escape': close('key'); return true;
+            case 'ArrowLeft': light(sel - 1, true); return true;
+            case 'ArrowRight': light(sel + 1, true); return true;
+            case 'PageUp': light(sel - per, true); return true;
+            case 'PageDown': light(sel + per, true); return true;
+            case 'Home': light(0, true); return true;
+            case 'End': light(n - 1, true); return true;
+            case 'Enter': case ' ': pick(sel); return true;
+            
+            
+            case 'ArrowUp': case 'ArrowDown': return true;
+          }
+          return false;
+        }
+
+        
+        view.addEventListener('scroll', schedule, { passive: true });
+        
+        view.addEventListener('wheel', function (e) {
+          if (state !== 'open') return;
+          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            view.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewWidth() : 1);
+            schedule();
+          }
+          e.preventDefault();
+        }, { passive: false });
+        
+        view.addEventListener('pointerdown', function (e) {
+          if (state !== 'open' || e.pointerType !== 'mouse' || e.button > 0) return;
+          drag = { id: e.pointerId, x: e.clientX, left: view.scrollLeft, moved: false };
+          dragged = false;
+        });
+        view.addEventListener('pointermove', function (e) {
+          if (!drag || drag.id !== e.pointerId) return;
+          var dx = e.clientX - drag.x;
+          if (!drag.moved && Math.abs(dx) > 4) {
+            drag.moved = true;
+            el.classList.add('dragging');
+            try { view.setPointerCapture(e.pointerId); } catch (err) { }
+          }
+          if (drag.moved) {
+            view.scrollLeft = drag.left - dx;
+            schedule();
+          }
+        });
+        function endDrag(e) {
+          if (!drag || drag.id !== e.pointerId) return;
+          dragged = drag.moved;
+          drag = null;
+          el.classList.remove('dragging');
+        }
+        view.addEventListener('pointerup', endDrag);
+        view.addEventListener('pointercancel', endDrag);
+        rail.addEventListener('click', function (e) {
+          if (dragged) { dragged = false; return; }
+          var f = e.target.closest && e.target.closest('.vd-scene');
+          if (f && state === 'open') pick(f._i);
+        });
+
+        
+        
+        function pointer(e) {
+          if (state !== 'open' || e.pointerType !== 'mouse' || drag) return;
+          var r = view.getBoundingClientRect();
+          if (!(r.width > 0)) return;
+          if (e.clientY > r.bottom + 6 && e.clientX >= r.left - 24 && e.clientX <= r.right + 24) {
+            close('down');
+            return;
+          }
+          var out = e.clientX < r.left - 56 || e.clientX > r.right + 56 || e.clientY < r.top - 56 || e.clientY > r.bottom + 6;
+          if (!out) { clearTimeout(awayTimer); awayTimer = 0; return; }
+          if (!awayTimer) awayTimer = setTimeout(function () { awayTimer = 0; close('away'); }, 240);
+        }
+        
+        function press(e) {
+          if (state === 'open' && !el.contains(e.target)) close('outside');
+        }
+
+        return {
+          el: el, open: open, close: close, key: key, pointer: pointer, press: press,
+          isOpen: isOpen, busy: function () { return state !== 'closed'; },
+          
+          refresh: function () { mounted.forEach(paint); },
+          lit: function () { return sel; }
+        };
+      }
+
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
 
       var VP_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -8306,6 +8998,7 @@
           case 'c': case 'C': return 'captions';
           case 'm': case 'M': return 'mute';
           case 'f': case 'F': return 'fullscreen';
+          case 's': case 'S': return 'scenes';
           case 'PageUp': return 'slide:-1';
           case 'PageDown': return 'slide:1';
         }
@@ -8399,7 +9092,8 @@
           '<div class="vd-rail"><div class="vd-bands"></div><div class="vd-segs"></div><div class="vd-ticks"></div></div>' +
           '<div class="vd-head"></div>' +
           '<div class="vd-pop" aria-hidden="true" hidden>' +
-          '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
+          '<div class="vd-pop-stack"><i class="vd-pop-ghost"></i><i class="vd-pop-ghost"></i>' +
+          '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div></div>' +
           '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
           '</div>' +
           '</div>' +
@@ -8437,7 +9131,7 @@
         var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), rateText = q('.vd-rate-text');
         var btnCC = q('.vd-cc'), btnFull = q('.vd-full'), btnMore = q('.vd-more'), btnMarkers = q('.vd-mk-menu');
         var menu = q('.vd-menu'), menuTitle = q('.vd-menu-title'), menuList = q('.vd-menu-list');
-        var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip');
+        var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip'), panel = q('.vd-panel');
 
         var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
         var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;
@@ -8523,6 +9217,8 @@
 
         function detach() {
           closeMenu(false, true);
+          scenes.close('now');
+          endZoom();
           hidePop();
           hideTip();
           preview.reset();
@@ -8545,6 +9241,10 @@
         
         
         function place(r) {
+          
+          if (scenes.busy() && (r.w !== placedW || r.h !== placedH)) scenes.close('now');
+          placedW = r.w;
+          placedH = r.h;
           el.style.left = r.x + 'px';
           el.style.top = r.y + 'px';
           el.style.width = r.w + 'px';
@@ -8552,6 +9252,8 @@
           el.classList.toggle('compact', r.w < 600 || !finePointer.matches);
           el.classList.toggle('tiny', r.w < 380);
         }
+
+        var placedW = 0, placedH = 0;
 
         
         function loadMeta(item) {
@@ -8773,6 +9475,7 @@
               break;
             case 'mute': v.muted = !v.muted; break;
             case 'fullscreen': opts.fullscreen(); break;
+            case 'scenes': return openScenes(v.currentTime, null);
             case 'slide': opts.slide(n); break;
             default: return false;
           }
@@ -8784,6 +9487,7 @@
         function key(e) {
           if (!v) return false;
           var tag = e.target && e.target.tagName;
+          if (scenes.key(e)) return true;
           if (menuOpen() && e.key === 'Escape') { closeMenu(true); return true; }
           if (tag === 'INPUT' && /^Arrow|^Page|^Home|^End/.test(e.key)) return false;
           if ((tag === 'BUTTON' || tag === 'A') && (e.key === ' ' || e.key === 'Enter')) return false;
@@ -8796,9 +9500,11 @@
         
         
         function holdsChrome() {
-          return !!v && (v.paused || menuOpen() || dragging);
+          return !!v && (v.paused || menuOpen() || dragging || scenes.busy() || !!zoom);
         }
 
+        
+        
         
         
         
@@ -8809,6 +9515,7 @@
         var preview = (function () {
           var sheets = Object.create(null); 
           var sv = null, busy = false, want = null, drawn = false, shownT = -1, svFailed = false;
+          var jobs = []; 
 
           function sheet(url) {
             var s = sheets[url];
@@ -8816,8 +9523,8 @@
             s = sheets[url] = { ready: false, failed: false };
             var img = new Image();
             img.decoding = 'async';
-            img.onload = function () { s.ready = true; refreshPop(); };
-            img.onerror = function () { s.failed = true; refreshPop(); };
+            img.onload = function () { s.ready = true; refreshPop(); scenes.refresh(); };
+            img.onerror = function () { s.failed = true; refreshPop(); scenes.refresh(); };
             img.src = url;
             s.img = img;
             return s;
@@ -8845,9 +9552,40 @@
             return { w: w, h: Math.max(40, Math.min(176, Math.round(w * vh / vw))) };
           }
 
-          function frame(t) {
-            if (svFailed || !v || !it) return;
-            want = t;
+          
+          
+          
+          function drawImage(t, c) {
+            var th = vpThumbAt(meta && meta.thumbnails, thumbCues, t);
+            if (!th || !th.w || !th.h || !th.url) return 'none';
+            var s = sheet(th.url);
+            if (s.failed) return 'none';
+            if (!s.ready) return 'wait';
+            var k = vpCover(th.w, th.h, c.width, c.height);
+            try {
+              c.getContext('2d').drawImage(s.img, th.x + k.x, th.y + k.y, k.w, k.h, 0, 0, c.width, c.height);
+              return 'done';
+            } catch (e) {
+              return 'none';
+            }
+          }
+
+          
+          
+          function grab(t, done) {
+            var job = { t: t, done: done, dead: false };
+            if (svFailed || !v || !it) return job;
+            jobs.push(job);
+            copy();
+            next();
+            return job;
+          }
+
+          function cancel(job) {
+            if (job) job.dead = true;
+          }
+
+          function copy() {
             if (!sv) {
               sv = doc.createElement('video');
               sv.muted = true;
@@ -8859,16 +9597,30 @@
               sv.addEventListener('error', function () { svFailed = true; busy = false; });
               sv.src = v.currentSrc || it.url;
             }
+          }
+
+          function frame(t) {
+            if (svFailed || !v || !it) return;
+            want = t;
+            copy();
             next();
           }
 
           function next() {
-            if (!sv || busy || want == null || sv.readyState < 1) return;
-            if (Math.abs(want - shownT) < 0.2 && drawn) return;
-            busy = true;
-            var t = want;
+            if (!sv || busy || sv.readyState < 1) return;
+            var t, job = null;
+            if (want != null && !(Math.abs(want - shownT) < 0.2 && drawn)) {
+              t = want;
+            } else {
+              while (jobs.length && jobs[0].dead) jobs.shift();
+              if (!jobs.length) return;
+              job = jobs.shift();
+              t = job.t;
+            }
             want = null;
+            busy = true;
             sv._t = t;
+            sv._job = job;
             
             if (sv.fastSeek) sv.fastSeek(t); else sv.currentTime = t;
           }
@@ -8878,6 +9630,13 @@
             if (!sv) return;
             var go = function () {
               if (!sv || !sv.videoWidth) { next(); return; }
+              var job = sv._job;
+              sv._job = null;
+              if (job) {
+                if (!job.dead) job.done(sv);
+                next();
+                return;
+              }
               var s = size(), dpr = Math.min(window.devicePixelRatio || 1, 2);
               if (popCanvas.width !== Math.round(s.w * dpr)) { popCanvas.width = Math.round(s.w * dpr); popCanvas.height = Math.round(s.h * dpr); }
               try {
@@ -8901,6 +9660,7 @@
             sv = null;
             busy = false;
             want = null;
+            jobs = [];
             drawn = false;
             shownT = -1;
             svFailed = false;
@@ -8909,6 +9669,7 @@
 
           return {
             image: image, frame: frame, reset: reset, size: size, imageComing: imageComing,
+            drawImage: drawImage, grab: grab, cancel: cancel,
             hasFrame: function () { return drawn; },
             canFrame: function () { return !svFailed && !!popCanvas.getContext; }
           };
@@ -8972,8 +9733,172 @@
         function hidePop() {
           pop.hidden = true;
           hoverT = null;
+          lifting = false;
+          setLift(0);
           if (v) update();
         }
+
+        
+        
+        
+        
+        
+        
+        
+        var lifting = false, resumeAfterScenes = false, zoom = null;
+        var scenes = SceneStrip(panel, tl, {
+          duration: duration,
+          aspect: function () {
+            return v && v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : 16 / 9;
+          },
+          compact: function () { return el.classList.contains('compact'); },
+          label: function (t) {
+            var h = vpHover(layout, t, 0);
+            return h.chapter ? h.chapter.title : '';
+          },
+          paint: paintScene,
+          cancel: function (c) {
+            if (c._job) { preview.cancel(c._job); c._job = null; }
+          },
+          pick: pickScene,
+          closed: function (why) {
+            el.classList.remove('scenes-open');
+            if (why !== 'pick' && resumeAfterScenes && v) v.play().catch(function () { });
+            resumeAfterScenes = false;
+            if (opts.activity) opts.activity();
+          }
+        });
+
+        function setLift(p) {
+          pop.style.setProperty('--lift', p > 0 ? p.toFixed(3) : '0');
+          pop.classList.toggle('lifting', p > 0);
+        }
+
+        
+        function popCenter() {
+          return tl.getBoundingClientRect().left + (parseFloat(pop.style.left) || 0);
+        }
+
+        function liftAt(x, y, open) {
+          return vpLift(tl.getBoundingClientRect().top - y, x - popCenter(), (pop.offsetWidth || 176) / 2, open);
+        }
+
+        
+        
+        function openScenes(t, x) {
+          var dur = duration();
+          if (!v || !(dur > 0)) return false;
+          closeMenu(false, true);
+          hideTip();
+          if (x == null) {
+            var r = tl.getBoundingClientRect();
+            x = r.left + r.width * Math.min(1, t / dur);
+          }
+          hidePop();
+          var ok = scenes.open(t, x);
+          if (ok) el.classList.add('scenes-open');
+          if (opts.activity) opts.activity();
+          return ok;
+        }
+
+        
+        
+        
+        function paintScene(t, c, done) {
+          var got = c.getContext ? preview.drawImage(t, c) : 'none';
+          if (got === 'done') { done(); return; }
+          if (got === 'wait' || c._job || !preview.canFrame()) return;
+          c._job = preview.grab(t, function (src) {
+            c._job = null;
+            var k = vpCover(src.videoWidth, src.videoHeight, c.width, c.height);
+            try {
+              c.getContext('2d').drawImage(src, k.x, k.y, k.w, k.h, 0, 0, c.width, c.height);
+              done();
+            } catch (e) { }
+          });
+        }
+
+        
+        
+        
+        function pickScene(t, card) {
+          if (!v) return;
+          endZoom();
+          resumeAfterScenes = false;
+          var z = doc.createElement('div'), zc = doc.createElement('canvas');
+          z.className = 'vd-zoom';
+          z.setAttribute('aria-hidden', 'true');
+          zc.className = 'vd-zoom-pic';
+          if (card && card._painted && card.width) {
+            zc.width = card.width;
+            zc.height = card.height;
+            try { zc.getContext('2d').drawImage(card, 0, 0); } catch (e) { }
+          } else {
+            z.classList.add('blank');
+          }
+          z.appendChild(zc);
+          el.insertBefore(z, el.firstChild);
+          var cr = card && card.getBoundingClientRect(), dr = el.getBoundingClientRect();
+          var still = reducedMotion.matches;
+          if (cr && cr.width > 0 && dr.width > 0 && !still) {
+            var sx = cr.width / dr.width, sy = cr.height / dr.height;
+            z.style.transform = 'translate(' + (cr.left - dr.left) + 'px,' + (cr.top - dr.top) + 'px) scale(' + sx + ',' + sy + ')';
+            z.style.borderRadius = (10 / sx).toFixed(1) + 'px / ' + (10 / sy).toFixed(1) + 'px';
+            void z.offsetWidth;
+          }
+          z.classList.add('grow');
+          z.style.transform = '';
+          z.style.borderRadius = '';
+          var video = v, waits = 2;
+          zoom = { el: z, video: video, timers: [], onSeeked: null };
+          var done = function () {
+            if (--waits || !zoom || zoom.el !== z) return;
+            video.play().catch(function () { });
+            z.classList.add('fade');
+            zoom.timers.push(setTimeout(endZoom, still ? 0 : 380));
+          };
+          zoom.onSeeked = function () {
+            video.removeEventListener('seeked', zoom.onSeeked);
+            done();
+          };
+          video.addEventListener('seeked', zoom.onSeeked);
+          
+          
+          zoom.timers.push(setTimeout(done, still ? 0 : 560));
+          zoom.timers.push(setTimeout(function () {
+            if (zoom && zoom.el === z && waits > 0) { waits = 1; zoom.onSeeked(); }
+          }, 1600));
+          seekTo(t);
+          showFlash(vpFmtTime(t, duration() >= 3600));
+        }
+
+        function endZoom() {
+          if (!zoom) return;
+          zoom.timers.forEach(clearTimeout);
+          zoom.video.removeEventListener('seeked', zoom.onSeeked);
+          zoom.el.remove();
+          zoom = null;
+          if (opts.activity) opts.activity();
+        }
+
+        doc.addEventListener('pointermove', function (e) {
+          if (scenes.isOpen()) { scenes.pointer(e); return; }
+          if (!lifting || !v) return;
+          var l = liftAt(e.clientX, e.clientY, VP_LIFT_OPEN);
+          if (l.state === 'rail') {
+            
+            
+            if (e.clientY > tl.getBoundingClientRect().bottom) hidePop();
+            return;
+          }
+          if (l.state === 'away') { hidePop(); return; }
+          if (l.state === 'open') { openScenes(hoverT, popCenter()); return; }
+          setLift(l.p);
+        });
+        doc.addEventListener('pointerout', function (e) {
+          if (lifting && !e.relatedTarget) hidePop();
+        });
+        doc.addEventListener('pointerdown', function (e) { scenes.press(e); }, true);
 
         
         tl.addEventListener('pointerdown', function (e) {
@@ -8991,13 +9916,28 @@
           if (opts.activity) opts.activity();
         });
         tl.addEventListener('pointermove', function (e) {
-          if (!v) return;
+          if (!v || scenes.isOpen()) return;
+          
+          
+          if (dragging && e.pointerType !== 'mouse' && hoverT != null) {
+            var l = liftAt(e.clientX, e.clientY, VP_LIFT_TOUCH);
+            if (l.state === 'open') {
+              dragging = false;
+              el.classList.remove('scrubbing');
+              try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
+              resumeAfterScenes = !wasPaused;
+              openScenes(hoverT, popCenter());
+              return;
+            }
+            if (l.state === 'rising') { setLift(l.p); return; }
+          }
+          if (lifting) { lifting = false; setLift(0); }
           var t = timeAt(e.clientX);
           if (dragging) {
             if (v.fastSeek) v.fastSeek(t); else v.currentTime = t;
           }
           if (dragging || e.pointerType === 'mouse' || e.pointerType === 'pen') showPop(t, e.clientX);
-          if (dragging) update(t);
+          if (dragging) { setLift(0); update(t); }
         });
         function endDrag(e) {
           if (!dragging) return;
@@ -9009,7 +9949,15 @@
         }
         tl.addEventListener('pointerup', endDrag);
         tl.addEventListener('pointercancel', endDrag);
-        tl.addEventListener('pointerleave', function () { if (!dragging) hidePop(); });
+        tl.addEventListener('pointerleave', function (e) {
+          if (dragging) return;
+          
+          if (!pop.hidden && hoverT != null && e.pointerType !== 'touch' && e.clientY <= tl.getBoundingClientRect().top + 1) {
+            lifting = true;
+            return;
+          }
+          hidePop();
+        });
         tl.addEventListener('keydown', function (e) {
           if (!v) return;
           var t = vpSliderKey(e, v.currentTime, duration());
