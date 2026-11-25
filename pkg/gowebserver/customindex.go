@@ -51,8 +51,9 @@ func isSupportedGit(filePath string) bool {
 }
 
 // newHandlerFromFS serves the content at fsSpec: the file browser, the
-// text viewer, thumbnails (when thumbs is set) and videos' metadata (with
-// ff, which may be nil, for what needs ffmpeg).
+// text viewer, thumbnails (when thumbs is set), videos' metadata and every
+// photo's, video's and song's details (with ff, which may be nil, for
+// what needs ffmpeg).
 func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, thumbs *thumbnailer, ff *ffmpeg.FFmpeg) (http.Handler, func() error, error) {
 	ctx := context.Background()
 	// fsSpec is probably breaking this.
@@ -78,7 +79,8 @@ func newHandlerFromFS(fsSpec string, mc *monitoringContext, enhancedList bool, t
 	if thumbs != nil {
 		h = thumbs.handler(rv, nFS, fsSpec)
 	}
-	return newVideoMetaHandler(h, nFS, fsSpec, thumbs, ff), nFS.Close, nil
+	vm := newVideoMetaHandler(h, nFS, fsSpec, thumbs, ff)
+	return newMediaInfoHandler(vm, nFS, vm), nFS.Close, nil
 }
 
 func cleanPath(path string) string {

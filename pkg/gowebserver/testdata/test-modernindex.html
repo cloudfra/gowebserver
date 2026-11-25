@@ -4461,6 +4461,684 @@
       }
     }
 
+     
+    .ssi {
+      --ssi-ink: #f3f4f7;
+      --ssi-ink-2: rgba(243, 244, 247, 0.72);
+      --ssi-ink-3: rgba(243, 244, 247, 0.5);
+      --ssi-line: rgba(255, 255, 255, 0.09);
+      --ssi-glass: rgba(18, 19, 24, 0.78);
+      position: absolute;
+      z-index: 5;
+      top: max(72px, calc(env(safe-area-inset-top) + 60px));
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 18px;
+      background: var(--ssi-glass);
+      box-shadow: 0 20px 48px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      -webkit-backdrop-filter: blur(22px) saturate(1.5);
+      backdrop-filter: blur(22px) saturate(1.5);
+      color: var(--ssi-ink);
+      font: 400 0.8125rem/1.45 var(--font-ui);
+      cursor: auto;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(24px) scale(0.98);
+      transform-origin: 100% 0;
+      pointer-events: none;
+      transition: opacity 0.22s var(--ease-out), transform 0.38s var(--ease), visibility 0s linear 0.38s;
+    }
+
+    .ss.info-on .ssi {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      pointer-events: auto;
+      transition: opacity 0.28s var(--ease-out), transform 0.42s var(--ease), visibility 0s;
+    }
+
+     
+    .ss.info-docked .ss-next {
+      right: calc(var(--ssi-room) + max(6px, env(safe-area-inset-right)));
+    }
+
+    .ss.info-docked .ss-bottom {
+      right: var(--ssi-room);
+    }
+
+    .ssi-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 10px 6px 18px;
+      flex: none;
+    }
+
+    .ssi-title {
+      flex: 1;
+      margin: 0;
+      font: 600 0.9375rem/1.2 var(--font-display);
+      letter-spacing: 0.01em;
+    }
+
+    .ssi-x {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--ssi-ink-2);
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s, transform 0.2s var(--ease);
+    }
+
+    .ssi-x:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--ssi-ink);
+    }
+
+    .ssi-x:active {
+      transform: scale(0.9);
+    }
+
+    .ssi-x svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+    }
+
+    .ssi-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 4px 18px 18px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .ssi :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+     
+    .ssi-loc {
+      margin: 4px 0 14px;
+    }
+
+    .ssi-map {
+      position: relative;
+      margin: 0 0 10px;
+      aspect-ratio: 5 / 3;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0c121c;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      isolation: isolate;
+    }
+
+    .ssi-map-art,
+    .ssi-map svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .ssi-map svg {
+      display: block;
+      opacity: 0;
+      transition: opacity 0.4s var(--ease-out);
+    }
+
+    .ssi-map.drawn svg {
+      opacity: 1;
+    }
+
+    .ssi-sea {
+      fill: #0c1420;
+    }
+
+    .ssi-grid {
+      fill: none;
+      stroke: rgba(150, 180, 230, 0.09);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .ssi-land,
+    .ssi-here {
+      stroke-width: 0.8;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .ssi-land {
+      fill: #252b37;
+      stroke: rgba(255, 255, 255, 0.16);
+    }
+
+    .ssi-here {
+      fill: color-mix(in oklab, var(--accent) 16%, #2b313d);
+      stroke: color-mix(in oklab, var(--accent) 55%, transparent);
+    }
+
+    .ssi-fov {
+      fill: color-mix(in oklab, var(--accent) 34%, transparent);
+      stroke: none;
+    }
+
+    .ssi-acc {
+      fill: color-mix(in oklab, var(--accent) 16%, transparent);
+      stroke: color-mix(in oklab, var(--accent) 60%, transparent);
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+     
+    .ssi-pin {
+      --pin: 26px;
+      position: absolute;
+      left: 50%;
+      top: var(--pin-y, 50%);
+      z-index: 1;
+      width: var(--pin);
+      height: var(--pin);
+      margin: calc(var(--pin) * -1) 0 0 calc(var(--pin) / -2);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s var(--ease-out), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .ssi-map.drawn .ssi-pin,
+    .ssi-map.no-map .ssi-pin {
+      opacity: 1;
+      transform: none;
+    }
+
+    .ssi-pin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50% 50% 50% 0;
+      background: var(--accent);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 255, 255, 0.9);
+      transform: rotate(-45deg) scale(0.78);
+    }
+
+    .ssi-pin::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      margin: -6px 0 0 -3.5px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .ssi-map::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: var(--pin-y, 50%);
+      width: 40px;
+      height: 40px;
+      margin: -20px 0 0 -20px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ssi-map.drawn::after {
+      animation: ssi-pulse 2.4s var(--ease-out) 0.4s infinite;
+    }
+
+    @keyframes ssi-pulse {
+      0% {
+        opacity: 0.7;
+        transform: scale(0.2);
+      }
+
+      70%,
+      100% {
+        opacity: 0;
+        transform: scale(1.4);
+      }
+    }
+
+    .ssi-map.no-map .ssi-map-art::before {
+      content: "Map unavailable";
+      position: absolute;
+      inset: auto 0 10px;
+      text-align: center;
+      color: var(--ssi-ink-3);
+      font-size: 0.75rem;
+    }
+
+    .ssi-zoom {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      border-radius: 9px;
+      overflow: hidden;
+      background: rgba(14, 15, 19, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+
+    .ssi-zbtn {
+      width: 28px;
+      height: 26px;
+      border: 0;
+      background: transparent;
+      color: var(--ssi-ink);
+      font: 500 1rem/1 var(--font-ui);
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+    }
+
+    .ssi-zbtn + .ssi-zbtn {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .ssi-zbtn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .ssi-zbtn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .ssi-where {
+      font-weight: 600;
+      font-size: 0.9375rem;
+      line-height: 1.3;
+    }
+
+    .ssi-coords {
+      margin-top: 2px;
+      color: var(--ssi-ink-2);
+      font-size: 0.75rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ssi-osm {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      color: color-mix(in oklab, var(--accent) 85%, #fff);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .ssi-osm:hover {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .ssi-osm svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+     
+    .ssi-facts {
+      margin: 0;
+      display: grid;
+      gap: 0;
+    }
+
+    .ssi-fact {
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid var(--ssi-line);
+    }
+
+    .ssi-loc + .ssi-facts > .ssi-fact:first-child,
+    .ssi-body > .ssi-facts:first-child > .ssi-fact:first-child {
+      border-top: 0;
+    }
+
+    .ssi-fact dt {
+      color: var(--ssi-ink-3);
+      font-size: 0.75rem;
+      padding-top: 1px;
+    }
+
+    .ssi-fact dd {
+      margin: 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ssi-name dd {
+      font-weight: 500;
+    }
+
+    .ssi-dim {
+      display: block;
+      color: var(--ssi-ink-2);
+      font-size: 0.75rem;
+    }
+
+    .ssi-dim:empty {
+      display: none;
+    }
+
+    .ssi-skel {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .ssi-skel i {
+      height: 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      animation: ssi-wait 1.2s ease-in-out infinite alternate;
+    }
+
+    .ssi-skel i:nth-child(2) {
+      width: 72%;
+      animation-delay: 0.15s;
+    }
+
+    .ssi-skel i:nth-child(3) {
+      width: 48%;
+      animation-delay: 0.3s;
+    }
+
+    @keyframes ssi-wait {
+      to {
+        opacity: 0.4;
+      }
+    }
+
+    .ssi-note {
+      margin: 10px 0 0;
+      color: var(--ssi-ink-3);
+      font-size: 0.75rem;
+    }
+
+     
+    .ssi-text {
+      margin-top: 14px;
+    }
+
+    .ssi-text h3,
+    .ssi-group h3 {
+      margin: 0 0 6px;
+      color: var(--ssi-ink-3);
+      font: 600 0.6875rem/1.2 var(--font-ui);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ssi-lang {
+      margin-left: 4px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      letter-spacing: 0.04em;
+    }
+
+    .ssi-prose {
+      max-height: 260px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+      box-shadow: inset 0 0 0 1px var(--ssi-line);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .ssi-ts {
+      display: inline-block;
+      min-width: 5.2em;
+      color: color-mix(in oklab, var(--accent) 80%, #fff);
+      font-size: 0.75rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+     
+    .ssi-more,
+    .ssi-tags {
+      margin-top: 14px;
+      border-top: 1px solid var(--ssi-line);
+    }
+
+    .ssi-more > summary,
+    .ssi-tags > summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 2px 10px;
+      list-style: none;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .ssi-more > summary::-webkit-details-marker,
+    .ssi-tags > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .ssi-sum {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ssi-sum-t {
+      font-weight: 600;
+    }
+
+    .ssi-sum .ssi-dim {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ssi-tags > summary .ssi-sum-t {
+      flex: 1;
+    }
+
+    .ssi-count {
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ssi-ink-2);
+      font-size: 0.6875rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ssi-chev {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: var(--ssi-ink-2);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.3s var(--ease);
+    }
+
+    details[open] > summary > .ssi-chev {
+      transform: rotate(90deg);
+    }
+
+    summary:hover .ssi-chev {
+      stroke: var(--ssi-ink);
+    }
+
+    .ssi-more[open] > .ssi-more-body,
+    .ssi-tags[open] > .ssi-raw {
+      animation: ssi-open 0.32s var(--ease-out);
+    }
+
+    @keyframes ssi-open {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+    }
+
+    .ssi-group {
+      margin-bottom: 14px;
+    }
+
+    .ssi-group .ssi-fact {
+      grid-template-columns: 108px 1fr;
+      padding: 5px 0;
+    }
+
+    .ssi-group .ssi-fact:first-child {
+      border-top: 0;
+    }
+
+    .ssi-raw {
+      margin: 0 0 4px;
+      font-size: 0.6875rem;
+      line-height: 1.45;
+    }
+
+    .ssi-raw > div:not(.ssi-raw-group) {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 10px;
+      padding: 3px 0;
+    }
+
+    .ssi-raw dt {
+      color: var(--ssi-ink-2);
+      font-family: var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+
+    .ssi-raw dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .ssi-raw-group {
+      margin: 10px 0 2px;
+      color: var(--ssi-ink-3);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+     
+    .ss-btn .i-dot,
+    .ss-btn .i-stem {
+      stroke-width: 2.2;
+    }
+
+    .ss-btn .i-dot {
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .ss-btn:is(:hover, :focus-visible) .i-dot {
+      transform: translateY(-1.6px);
+    }
+
+    #ss-info[aria-expanded="true"] {
+      background: var(--accent);
+      border-color: transparent;
+      color: #0e0f12;
+    }
+
+     
+    .ss.info-sheet .ssi {
+      top: auto;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: auto;
+      height: var(--ssi-sheet, 56%);
+      border-width: 1px 0 0;
+      border-radius: 20px 20px 0 0;
+      padding-bottom: env(safe-area-inset-bottom);
+      transform: translateY(100%);
+      transform-origin: 50% 100%;
+    }
+
+    .ss.info-sheet.info-on .ssi {
+      transform: none;
+    }
+
+    .ss.info-sheet .ssi-head::before {
+      content: "";
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      width: 36px;
+      height: 4px;
+      margin-left: -18px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .ss.info-sheet .ssi-head {
+      padding-top: 16px;
+    }
+
+    .ss.info-sheet .ssi-map {
+      aspect-ratio: 2 / 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ssi,
+      .ss.info-on .ssi,
+      .ss.info-sheet .ssi {
+        transform: none;
+      }
+
+      .ssi-map.drawn::after,
+      .ssi-skel i {
+        animation: none;
+      }
+
+      .ssi-pin {
+        transform: none;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
 
       *,
@@ -4918,11 +5596,20 @@
           <div class="ss-sub" id="ss-sub"></div>
         </div>
         <button class="ss-btn" id="ss-auto" type="button" aria-label="Play slideshow" aria-pressed="false" data-key="Space"><svg viewBox="0 0 24 24"><polygon class="i-play" points="7 4 19 12 7 20 7 4" /></svg></button>
+        <button class="ss-btn" id="ss-info" type="button" aria-label="Details" aria-expanded="false" aria-controls="ss-panel" data-key="I"><svg viewBox="0 0 24 24"><circle class="i-ring" cx="12" cy="12" r="9" /><path class="i-dot" d="M12 7.6v.1" /><path class="i-stem" d="M12 11v5.5" /></svg></button>
         <button class="ss-btn opt" id="ss-full" type="button" aria-label="Full screen" data-key="F"><svg viewBox="0 0 24 24"><path class="i-tl" d="M4 9V4h5" /><path class="i-tr" d="M20 9V4h-5" /><path class="i-bl" d="M4 15v5h5" /><path class="i-br" d="M20 15v5h-5" /></svg></button>
         <a class="ss-btn opt" id="ss-open" href="#" target="_blank" rel="noopener" aria-label="Open original"><svg viewBox="0 0 24 24"><path class="i-launch" d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></svg></a>
         <a class="ss-btn" id="ss-dl" href="#" download aria-label="Download"><svg viewBox="0 0 24 24"><defs><clipPath id="ss-dl-clip"><rect x="0" y="0" width="24" height="23.7" /></clipPath></defs><g clip-path="url(#ss-dl-clip)"><path class="i-drop" d="M12 4v11M7 10l5 5 5-5" /></g><path class="i-gl" d="M5 20h7" /><path class="i-gr" d="M12 20h7" /></svg></a>
         <button class="ss-btn" id="ss-close" type="button" aria-label="Close" data-key="Esc"><svg viewBox="0 0 24 24"><path class="i-x1" d="M6 6l12 12" /><path class="i-x2" d="M18 6L6 18" /></svg></button>
       </div>
+      
+      <aside class="ssi" id="ss-panel" aria-labelledby="ss-panel-title" aria-hidden="true">
+        <div class="ssi-head">
+          <h2 class="ssi-title" id="ss-panel-title">Details</h2>
+          <button class="ssi-x" id="ss-panel-close" type="button" aria-label="Close details"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+        </div>
+        <div class="ssi-body" id="ss-panel-body"></div>
+      </aside>
       <button class="ss-btn ss-nav ss-prev" id="ss-prev" type="button" aria-label="Previous" data-key="←"><svg viewBox="0 0 24 24"><polyline class="i-back" points="15 18 9 12 15 6" /></svg></button>
       <button class="ss-btn ss-nav ss-next" id="ss-next" type="button" aria-label="Next" data-key="→"><svg viewBox="0 0 24 24"><polyline class="i-fwd" points="9 18 15 12 9 6" /></svg></button>
       <div class="ss-bottom">
@@ -8585,6 +9272,459 @@
       }
 
       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      function InfoPanel(opts) {
+        opts = opts || {};
+        var panel = $('ss-panel'), body = $('ss-panel-body'), btn = $('ss-info');
+        var dlg = $('ss');
+        var on = false, sheet = false, cur = null, token = 0, timer = 0, ctrl = null;
+        var cache = new Map(), CACHE_MAX = 60;
+        
+        
+        
+        var SPANS = [360, 48, 12], level = 2;
+        var moreOpen = false, tagsOpen = false;
+        var WIDTH = 360, GAP = 14, DOCK_MIN_W = 900, DOCK_MIN_H = 480;
+        var FETCH_AFTER = 120;
+
+        
+        
+        
+        
+        var sheetH = 0;
+        function fit(w, h) {
+          sheet = w < DOCK_MIN_W || h < DOCK_MIN_H;
+          sheetH = Math.min(Math.round(h * 0.56), 520);
+          sync();
+        }
+        
+        
+        function room() {
+          return on && !sheet ? WIDTH + 2 * GAP : 0;
+        }
+        function roomBelow() {
+          return on && sheet ? sheetH : 0;
+        }
+        function sync() {
+          dlg.classList.toggle('info-on', on);
+          dlg.classList.toggle('info-sheet', sheet);
+          dlg.classList.toggle('info-docked', on && !sheet);
+          dlg.style.setProperty('--ssi-room', room() + 'px');
+          if (sheetH) dlg.style.setProperty('--ssi-sheet', sheetH + 'px');
+          btn.setAttribute('aria-expanded', String(on));
+          btn.setAttribute('aria-label', on ? 'Hide details' : 'Details');
+          panel.setAttribute('aria-hidden', String(!on));
+          if ('inert' in panel) panel.inert = !on;
+        }
+
+        
+        function open() {
+          if (on) return;
+          on = true;
+          sync();
+          if (opts.layout) opts.layout();
+          if (cur) load(cur, true);
+        }
+        
+        function close(quiet) {
+          if (!on) return;
+          var inside = panel.contains(doc.activeElement);
+          on = false;
+          abort();
+          sync();
+          if (!quiet && opts.layout) opts.layout();
+          if (inside && !quiet) (btn.offsetParent !== null ? btn : dlg).focus();
+        }
+        function toggle() {
+          if (on) close(); else open();
+        }
+
+        btn.addEventListener('click', toggle);
+        $('ss-panel-close').addEventListener('click', function () { close(); });
+        body.addEventListener('toggle', function (e) {
+          if (e.target.classList.contains('ssi-more')) moreOpen = e.target.open;
+          if (e.target.classList.contains('ssi-tags')) tagsOpen = e.target.open;
+        }, true);
+        body.addEventListener('click', function (e) {
+          var z = e.target.closest && e.target.closest('[data-zoom]');
+          if (!z) return;
+          level = Math.max(0, Math.min(SPANS.length - 1, level + Number(z.getAttribute('data-zoom'))));
+          var m = body.querySelector('.ssi-map');
+          if (m && m._loc) drawMap(m, m._loc, m._country);
+        });
+
+        
+        function show(it) {
+          cur = it;
+          if (on) load(it, false);
+        }
+
+        function abort() {
+          clearTimeout(timer);
+          if (ctrl) { try { ctrl.abort(); } catch (e) { } }
+          ctrl = null;
+        }
+
+        function infoURL(it) {
+          return it.url + '?info';
+        }
+
+        
+        
+        
+        function load(it, now) {
+          abort();
+          var t = ++token;
+          var kept = cache.get(it.url);
+          if (kept) {
+            render(it, kept, 'ok');
+            return;
+          }
+          render(it, null, 'loading');
+          timer = setTimeout(function () { fetchInfo(it, t); }, now ? 0 : FETCH_AFTER);
+        }
+
+        function fetchInfo(it, t) {
+          if (typeof fetch !== 'function') return;
+          ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+          var start = performance.now();
+          fetch(infoURL(it), ctrl ? { signal: ctrl.signal } : undefined).then(function (r) {
+            if (!r.ok) throw new Error('status ' + r.status);
+            return r.json();
+          }).then(function (d) {
+            diag('info', { ok: true, ms: Math.round(performance.now() - start) });
+            if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
+            cache.set(it.url, d);
+            if (t === token && on) render(it, d, 'ok');
+          }, function (e) {
+            if (e && e.name === 'AbortError') return;
+            diag('info', { ok: false, ms: Math.round(performance.now() - start) });
+            if (t === token && on) render(it, null, 'error');
+          });
+        }
+
+        
+        function render(it, d, state) {
+          var h = '';
+          var loc = d && d.location, place = d && d.place;
+          if (loc || place) h += locationHTML(loc, place);
+          h += factsHTML(it, d);
+          if (state === 'loading') {
+            h += '<div class="ssi-skel" aria-hidden="true"><i></i><i></i><i></i></div>';
+          } else if (state === 'error') {
+            h += '<p class="ssi-note">The file\'s own details couldn\'t be read.</p>';
+          }
+          if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
+          if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);
+          body.innerHTML = h;
+          body.setAttribute('aria-busy', String(state === 'loading'));
+          if (loc) {
+            var m = body.querySelector('.ssi-map');
+            m._loc = loc;
+            m._country = loc.country || '';
+            drawMap(m, loc, m._country);
+          }
+        }
+
+        function row(label, value, extra, cls) {
+          return '<div class="ssi-fact' + (cls ? ' ' + cls : '') + '"><dt>' + label + '</dt><dd>' + value +
+            (extra ? '<span class="ssi-dim">' + extra + '</span>' : '') + '</dd></div>';
+        }
+
+        function factsHTML(it, d) {
+          var kind = d ? d.kind : (it.video ? 'video' : 'image');
+          var h = '<dl class="ssi-facts">';
+          var when = d && d.taken ? fmtTaken(d.taken) : null;
+          if (when) {
+            h += row({ image: 'Taken', video: 'Recorded', audio: 'Released' }[kind] || 'Date', escapeHTML(when.text), when.zone ? escapeHTML(when.zone) : '');
+          } else {
+            h += row('Modified', escapeHTML(fmtWhen(new Date(it.t * 1000))));
+          }
+          h += row('Name', escapeHTML(it.name), '', 'ssi-name');
+          var extra = [];
+          if (d && d.width && d.height) {
+            extra.push(numFmt.format(d.width) + ' × ' + numFmt.format(d.height));
+            if (kind === 'image') extra.push(mp(d.width * d.height) + ' MP');
+          }
+          if (d && d.duration) extra.push(fmtLength(d.duration));
+          h += row('Size', escapeHTML(fmtBytes(d ? d.size : it.size)), escapeHTML(extra.join(' · ')));
+          return h + '</dl>';
+        }
+
+        function mp(px) {
+          var v = px / 1e6;
+          return v >= 10 ? String(Math.round(v)) : String(Math.round(v * 10) / 10);
+        }
+
+        function locationHTML(loc, place) {
+          var h = '<section class="ssi-loc" aria-label="Location">';
+          var name = [place, loc && loc.country && (!place || place.indexOf(loc.country) < 0) ? loc.country : ''].filter(Boolean).join(', ');
+          if (loc) {
+            h += '<figure class="ssi-map" role="img" aria-label="' + escapeHTML('Map: ' + (name || coords(loc))) + '">' +
+              '<div class="ssi-map-art"></div><span class="ssi-pin" aria-hidden="true"></span>' +
+              '<div class="ssi-zoom"><button type="button" class="ssi-zbtn" data-zoom="1" aria-label="Zoom in on the map">+</button>' +
+              '<button type="button" class="ssi-zbtn" data-zoom="-1" aria-label="Zoom out on the map">−</button></div></figure>';
+          }
+          h += '<div class="ssi-place">';
+          if (name) h += '<div class="ssi-where">' + escapeHTML(name) + '</div>';
+          if (loc) {
+            var bits = [coords(loc)];
+            if (loc.alt != null) bits.push(numFmt.format(Math.round(loc.alt)) + ' m ' + (loc.alt < 0 ? 'below' : 'above') + ' sea level');
+            if (loc.direction != null) bits.push('facing ' + compass(loc.direction) + ' (' + Math.round(loc.direction) + '°' + (loc.directionRef === 'M' ? ' magnetic' : '') + ')');
+            if (loc.accuracy) bits.push('± ' + numFmt.format(Math.round(loc.accuracy)) + ' m');
+            h += '<div class="ssi-coords">' + bits.map(escapeHTML).join('<span class="ssi-sep" aria-hidden="true"> · </span>') + '</div>';
+            h += '<a class="ssi-osm" href="' + escapeHTML(osmURL(loc)) + '" target="_blank" rel="noopener noreferrer">Open in OpenStreetMap' +
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"/></svg></a>';
+          }
+          return h + '</div></section>';
+        }
+
+        function coords(loc) {
+          return Math.abs(loc.lat).toFixed(5) + '° ' + (loc.lat < 0 ? 'S' : 'N') + ', ' + Math.abs(loc.lon).toFixed(5) + '° ' + (loc.lon < 0 ? 'W' : 'E');
+        }
+
+        function osmURL(loc) {
+          var lat = loc.lat.toFixed(6), lon = loc.lon.toFixed(6);
+          return 'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '#map=16/' + lat + '/' + lon;
+        }
+
+        function compass(deg) {
+          var names = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+          return names[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+        }
+
+        function textHTML(x, i) {
+          var id = 'ssi-text-' + i;
+          var text = x.synced ? x.text.split('\n').map(function (l) {
+            var m = /^\[([0-9:.]+)\] ?(.*)$/.exec(l);
+            return m ? '<span class="ssi-ts">' + escapeHTML(m[1]) + '</span>' + escapeHTML(m[2]) : escapeHTML(l);
+          }).join('\n') : escapeHTML(x.text);
+          return '<section class="ssi-text" aria-labelledby="' + id + '"><h3 id="' + id + '">' + escapeHTML(x.label) +
+            (x.lang ? ' <span class="ssi-lang">' + escapeHTML(x.lang) + '</span>' : '') + '</h3>' +
+            '<div class="ssi-prose' + (x.synced ? ' synced' : '') + '" tabindex="0">' + text + '</div></section>';
+        }
+
+        
+        function teaser(d) {
+          var pick = function (g, label) {
+            var v = '';
+            (d.groups || []).forEach(function (x) {
+              if (x.title === g) x.fields.forEach(function (f) { if (!v && f.label === label) v = f.value; });
+            });
+            return v;
+          };
+          var parts = [pick('Camera', 'Camera'), pick('Exposure', 'Aperture'), pick('Exposure', 'Shutter speed'),
+            pick('Exposure', 'ISO') && 'ISO ' + pick('Exposure', 'ISO'), pick('Song', 'Artist'), pick('Video', 'Codec').split(',')[0]];
+          var t = parts.filter(Boolean).slice(0, 4).join(' · ');
+          return t || d.format || '';
+        }
+
+        function moreHTML(d) {
+          var h = '<details class="ssi-more"' + (moreOpen ? ' open' : '') + '><summary><span class="ssi-sum">' +
+            '<span class="ssi-sum-t">More details</span><span class="ssi-dim">' + escapeHTML(teaser(d)) + '</span></span>' +
+            '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary>' +
+            '<div class="ssi-more-body">';
+          (d.groups || []).forEach(function (g) {
+            h += '<section class="ssi-group"><h3>' + escapeHTML(g.title) + '</h3><dl class="ssi-facts">';
+            g.fields.forEach(function (f) { h += row(escapeHTML(f.label), escapeHTML(f.value)); });
+            h += '</dl></section>';
+          });
+          if (d.tags && d.tags.length) {
+            h += '<details class="ssi-tags"' + (tagsOpen ? ' open' : '') + '><summary><span class="ssi-sum-t">All tags</span>' +
+              '<span class="ssi-count">' + numFmt.format(d.tags.length) + '</span>' +
+              '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><dl class="ssi-raw">';
+            var last = '';
+            d.tags.forEach(function (tg) {
+              if (tg.group !== last) {
+                h += '<div class="ssi-raw-group">' + escapeHTML(tg.group) + '</div>';
+                last = tg.group;
+              }
+              h += '<div><dt>' + escapeHTML(tg.name) + '</dt><dd>' + escapeHTML(tg.value) + '</dd></div>';
+            });
+            h += '</dl></details>';
+          }
+          return h + '</div></details>';
+        }
+
+        
+        var WHEN = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+        var whenFmt = new Intl.DateTimeFormat(undefined, WHEN);
+        var whenUTC = new Intl.DateTimeFormat(undefined, Object.assign({ timeZone: 'UTC' }, WHEN));
+        var dayUTC = new Intl.DateTimeFormat(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+        function fmtWhen(dt) {
+          return whenFmt.format(dt);
+        }
+
+        
+        
+        
+        
+        function fmtTaken(s) {
+          var m = /^(\d{4})-(\d\d)-(\d\d)(?:[T ](\d\d):(\d\d)(?::(\d\d))?(?:\.\d+)?)?(Z|[+-]\d\d:?\d\d)?$/.exec(s);
+          if (!m) return { text: s };
+          if (m[4] === undefined) return { text: dayUTC.format(new Date(Date.UTC(+m[1], m[2] - 1, +m[3]))) };
+          if (m[7] === 'Z') return { text: whenFmt.format(new Date(s)) };
+          var wall = new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)));
+          var zone = '';
+          if (m[7]) {
+            var o = m[7].replace(':', ''), hh = +o.slice(1, 3), mm = +o.slice(3);
+            zone = 'UTC' + o[0] + hh + (mm ? ':' + o.slice(3) : '');
+          }
+          return { text: whenUTC.format(wall), zone: zone };
+        }
+
+        function fmtLength(sec) {
+          sec = Math.round(sec);
+          var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+          var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+          return h ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
+        }
+
+        
+        var world = null;
+        function loadWorld() {
+          if (!world) {
+            world = fetch('?worldmap').then(function (r) {
+              if (!r.ok) throw new Error('status ' + r.status);
+              return r.json();
+            }).then(decodeWorld);
+            world.catch(function () { world = null; });
+          }
+          return world;
+        }
+
+        
+        function decodeWorld(m) {
+          var q = m.q;
+          return m.c.map(function (row) {
+            return {
+              name: row[0],
+              rings: row.slice(1).map(function (enc) {
+                var pts = new Float32Array(enc.length), x = 0, y = 0;
+                var b = [Infinity, Infinity, -Infinity, -Infinity];
+                for (var i = 0; i + 1 < enc.length; i += 2) {
+                  x += enc[i]; y += enc[i + 1];
+                  var lon = x / q, lat = y / q;
+                  pts[i] = lon; pts[i + 1] = lat;
+                  if (lon < b[0]) b[0] = lon;
+                  if (lat < b[1]) b[1] = lat;
+                  if (lon > b[2]) b[2] = lon;
+                  if (lat > b[3]) b[3] = lat;
+                }
+                return { pts: pts, b: b };
+              })
+            };
+          });
+        }
+
+        
+        
+        
+        function mapView(loc, aspect) {
+          var span = SPANS[level];
+          var k = span >= 360 ? 1 : Math.max(0.2, Math.cos(loc.lat * Math.PI / 180));
+          var hw = span / 2, hh = hw * k * aspect;
+          var cy = span >= 360 ? Math.max(-90 + hh, Math.min(90 - hh, loc.lat)) : loc.lat;
+          return { k: k, x0: loc.lon - hw, x1: loc.lon + hw, y0: cy - hh, y1: cy + hh, cy: cy };
+        }
+
+        function drawMap(fig, loc, country) {
+          var art = fig.querySelector('.ssi-map-art');
+          var zin = fig.querySelector('[data-zoom="1"]'), zout = fig.querySelector('[data-zoom="-1"]');
+          zin.disabled = level === SPANS.length - 1;
+          zout.disabled = level === 0;
+          var t = token;
+          loadWorld().then(function (countries) {
+            if (t !== token || !fig.isConnected) return;
+            var w = fig.clientWidth || WIDTH - 32, hgt = fig.clientHeight || Math.round(w * 0.6);
+            var v = mapView(loc, hgt / w);
+            art.innerHTML = mapSVG(countries, loc, v, country, w);
+            fig.classList.add('drawn');
+            
+            
+            fig.style.setProperty('--pin-y', ((v.y1 - loc.lat) / (v.y1 - v.y0) * 100) + '%');
+          }, function () {
+            if (t === token && fig.isConnected) fig.classList.add('no-map');
+          });
+        }
+
+        function mapSVG(countries, loc, v, country, px) {
+          var k = v.k, land = '', here = '';
+          var shifts = [0];
+          if (v.x0 < -180) shifts.push(360);
+          if (v.x1 > 180) shifts.push(-360);
+          var r2 = function (n) { return Math.round(n * 100) / 100; };
+          countries.forEach(function (c) {
+            c.rings.forEach(function (r) {
+              shifts.forEach(function (s) {
+                var b = r.b;
+                if (b[2] + s < v.x0 || b[0] + s > v.x1 || b[3] < v.y0 || b[1] > v.y1) return;
+                var p = r.pts, d = 'M';
+                for (var i = 0; i < p.length; i += 2) d += (i ? 'L' : '') + r2((p[i] + s) * k) + ' ' + r2(-p[i + 1]);
+                d += 'Z';
+                if (c.name === country) here += d; else land += d;
+              });
+            });
+          });
+          var x = v.x0 * k, y = -v.y1, w = (v.x1 - v.x0) * k, h = v.y1 - v.y0;
+          
+          var step = [30, 10, 2][level], grid = '';
+          for (var lon = Math.ceil(v.x0 / step) * step; lon <= v.x1; lon += step) grid += 'M' + r2(lon * k) + ' ' + r2(y) + 'V' + r2(y + h);
+          for (var lat = Math.ceil(v.y0 / step) * step; lat <= v.y1; lat += step) grid += 'M' + r2(x) + ' ' + r2(-lat) + 'H' + r2(x + w);
+          var extra = '', cx = loc.lon * k, cy = -loc.lat, unit = w / px; 
+          if (loc.accuracy) {
+            var rad = loc.accuracy / 111320;
+            if (rad / unit > 3) extra += '<circle class="ssi-acc" cx="' + cx + '" cy="' + cy + '" r="' + rad + '"/>';
+          }
+          if (loc.direction != null && level > 0) {
+            
+            var len = 46 * unit, a = loc.direction * Math.PI / 180, spread = 0.42;
+            var p1 = [cx + Math.sin(a - spread) * len, cy - Math.cos(a - spread) * len];
+            var p2 = [cx + Math.sin(a + spread) * len, cy - Math.cos(a + spread) * len];
+            extra += '<path class="ssi-fov" d="M' + cx + ' ' + cy + 'L' + p1.join(' ') + 'A' + len + ' ' + len + ' 0 0 1 ' + p2.join(' ') + 'Z"/>';
+          }
+          return '<svg viewBox="' + [x, y, w, h].map(r2).join(' ') + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+            '<rect class="ssi-sea" x="' + r2(x) + '" y="' + r2(y) + '" width="' + r2(w) + '" height="' + r2(h) + '"/>' +
+            '<path class="ssi-grid" d="' + grid + '"/>' +
+            '<path class="ssi-land" d="' + land + '"/><path class="ssi-here" d="' + here + '"/>' + extra + '</svg>';
+        }
+
+        
+        function ownsKey(e) {
+          return on && panel.contains(e.target) && /^(Home|End|PageUp|PageDown|ArrowUp|ArrowDown| |Enter)$/.test(e.key);
+        }
+
+        sync();
+        return {
+          open: open, close: close, toggle: toggle, show: show, fit: fit, room: room, roomBelow: roomBelow, ownsKey: ownsKey,
+          isOpen: function () { return on; },
+          _view: mapView, _taken: fmtTaken
+        };
+      }
+
+      
       var slideshow = (function () {
         var dlg = $('ss'), stage = $('ss-stage');
         var frame = $('ss-frame'), btnAuto = $('ss-auto'), btnFull = $('ss-full'), btnOpen = $('ss-open'), btnDl = $('ss-dl');
@@ -8624,6 +9764,26 @@
           activity: function () { showChrome(); }
         });
         var pendingAt = null, POS_KEY = 'gows-pos:';
+
+        
+        
+        
+        var info = InfoPanel({
+          layout: function () {
+            if (!isOpen) return;
+            var m = currentMedia(), a = m && m.getBoundingClientRect();
+            relayoutSlides();
+            renderStrip();
+            if (!a || !a.width || reducedMotion.matches || !m.animate) return;
+            var b = m.getBoundingClientRect();
+            if (!b.width) return;
+            var s = a.width / b.width;
+            m.animate([
+              { transform: 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + s + ')' },
+              { transform: m.style.transform || 'none' }
+            ], { duration: 380, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+          }
+        });
 
         function posKey(it) {
           return POS_KEY + location.pathname + '\n' + it.url;
@@ -8784,6 +9944,7 @@
         function measure() {
           W = stage.clientWidth;
           H = stage.clientHeight;
+          info.fit(W, H);
         }
 
         
@@ -8802,11 +9963,16 @@
 
         
         
+        
+        
         function insets(video) {
           
           
-          if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: videoBand(video), l: 0 };
-          return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
+          var room = info.room(), below = info.roomBelow();
+          
+          
+          if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: Math.max(videoBand(video), below), l: 0 };
+          return { t: 76, r: 96 + room, b: Math.max(CFG.thumbs ? 104 : 64, below), l: 96 };
         }
 
         
@@ -9099,6 +10265,7 @@
           btnPrev.disabled = idx === 0;
           btnNext.disabled = idx === list.length - 1;
           renderStrip();
+          info.show(it);
         }
 
         
@@ -9121,7 +10288,7 @@
           stripRoom();
           
           
-          var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
+          var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - info.room() - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
           var lo = Math.max(0, idx - radius), hi = Math.min(list.length - 1, idx + radius);
           var keep = {};
           Array.prototype.slice.call(strip.children).forEach(function (b) {
@@ -9450,7 +10617,7 @@
           chromeTimer = setTimeout(function () {
             
             if (dock.holdsChrome()) return;
-            if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover')) dlg.classList.add('chrome-off');
+            if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover, .ssi:hover')) dlg.classList.add('chrome-off');
           }, 2800);
         }
 
@@ -9621,6 +10788,7 @@
           if (!isOpen || closing) return;
           closing = true;
           setAuto(false);
+          info.close(true);
           accent.clear('ss');
           var m = currentMedia();
           
@@ -9649,7 +10817,16 @@
         }
 
         addEventListener('popstate', function () { if (isOpen) close(); });
-        dlg.addEventListener('cancel', function (e) { e.preventDefault(); requestClose(); });
+        
+        
+        
+        var escClosedPanel = -1e9;
+        dlg.addEventListener('cancel', function (e) {
+          e.preventDefault();
+          if (info.isOpen()) { info.close(); return; }
+          if (performance.now() - escClosedPanel < 50) return;
+          requestClose();
+        });
 
         $('ss-close').addEventListener('click', requestClose);
         btnPrev.addEventListener('click', function () { step(-1); });
@@ -9659,6 +10836,20 @@
 
         dlg.addEventListener('keydown', function (e) {
           if (!isOpen) return;
+          
+          if (info.ownsKey(e)) return;
+          if (e.key === 'Escape' && info.isOpen()) {
+            info.close();
+            escClosedPanel = performance.now();
+            e.preventDefault();
+            return;
+          }
+          if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            info.toggle();
+            showChrome();
+            e.preventDefault();
+            return;
+          }
           
           
           var m = currentMedia();
@@ -9697,7 +10888,7 @@
         }
         addEventListener('resize', function () { if (isOpen) { relayoutSlides(); renderStrip(); } });
 
-        return { open: open, openFromHash: openFromHash, dock: dock };
+        return { open: open, openFromHash: openFromHash, dock: dock, info: info };
       })();
 
       

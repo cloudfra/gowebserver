@@ -82,12 +82,13 @@ func TestProbeStandIn(t *testing.T) {
   Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 4000 kb/s, 29.97 fps, 29.97 tbr, 30k tbn (default)
       Side data:
         displaymatrix: rotation of -90.00 degrees
+  Stream #0:1[0x2](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)
 `
 	errFile := filepath.Join(t.TempDir(), "stderr.txt")
 	if err := os.WriteFile(errFile, []byte(stderr), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	bin, argsFile := script(t, "cat '"+errFile+"' >&2; printf ';FFMETADATA1\\n[CHAPTER]\\nTIMEBASE=1/1000\\nSTART=0\\nEND=1000\\ntitle=One\\n'")
+	bin, argsFile := script(t, "cat '"+errFile+"' >&2; printf ';FFMETADATA1\\ntitle=A clip\\nLYRICS=la la\\\\\\nla\\n[CHAPTER]\\nTIMEBASE=1/1000\\nSTART=0\\nEND=1000\\ntitle=One\\n'")
 	f, err := Find(bin)
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +100,10 @@ func TestProbeStandIn(t *testing.T) {
 	want := &Info{
 		Duration: 90*time.Minute + 30*time.Millisecond, Width: 1080, Height: 1920, FPS: 29.97,
 		Chapters: []Chapter{{Start: 0, End: time.Second, Title: "One"}},
+		Tags:     map[string]string{"title": "A clip", "lyrics": "la la\nla"},
+		Video:    "h264 (High), yuv420p(tv, bt709, progressive), 1920x1080, 4000 kb/s, 29.97 fps",
+		Audio:    "aac (LC), 48000 Hz, stereo, fltp, 128 kb/s",
+		Bitrate:  215,
 	}
 	if !reflect.DeepEqual(info, want) {
 		t.Errorf("Probe = %+v, want %+v", info, want)

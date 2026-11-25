@@ -16,7 +16,7 @@
 package testing
 
 import (
-	_ "embed"
+	"embed"
 	"io"
 	"os"
 	"path/filepath"
@@ -52,7 +52,21 @@ var (
 	tarXzAssets []byte
 	//go:embed testassets.tar.lz4
 	tarLz4Assets []byte
+
+	// mediaFS holds photos and videos with metadata in them, for the
+	// file browser's info panel (pkg/gowebserver's TestWriteMediaFixtures
+	// remakes them; the browser tests read them from this folder).
+	//go:embed media
+	mediaFS embed.FS
 )
+
+// MustMediaFile returns the content of the media fixture name.
+func MustMediaFile(tb testing.TB, name string) []byte {
+	tb.Helper()
+	b, err := mediaFS.ReadFile("media/" + name)
+	fatalOnFail(tb, err)
+	return b
+}
 
 // RemoveLineFeed normalizes Windows newlines to Linux style newlines.
 func RemoveLineFeed(content string) string {

@@ -52,13 +52,14 @@ groups:
     rules:
       # Time to first byte is the server's own work; the request's
       # duration also has the client's download in it. Thumbnails, a
-      # video's metadata and preview sprite (ffmpeg), uploads
+      # video's metadata and preview sprite and a file's details for
+      # the info panel (ffmpeg, on a video's first request), uploads
       # and proxied requests wait on other things and have their own
       # alerts.
       - alert: GowebserverSlowResponses
         expr: |
           histogram_quantile(0.95, sum by (instance, handler, le) (
-            rate(http_server_time_to_first_byte_seconds_bucket{job="gowebserver", handler!~"thumbnail|videometa|upload|proxy"}[5m])
+            rate(http_server_time_to_first_byte_seconds_bucket{job="gowebserver", handler!~"thumbnail|videometa|mediainfo|upload|proxy"}[5m])
           )) > 1
         for: 10m
         labels:

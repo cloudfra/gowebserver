@@ -371,7 +371,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_time_to_first_byte_seconds_bucket{job=~\"$job\", instance=~\"$instance\", handler!~\"thumbnail|videometa|upload|proxy\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_time_to_first_byte_seconds_bucket{job=~\"$job\", instance=~\"$instance\", handler!~\"thumbnail|videometa|mediainfo|upload|proxy\"}[$__rate_interval])))",
           "legendFormat": "",
           "range": true,
           "instant": false,
@@ -468,7 +468,7 @@
     {
       "type": "timeseries",
       "title": "Requests by handler",
-      "description": "What answered: file (a file's bytes), listing (the file browser's page), thumbnail, videometa (a video's metadata, preview sprite or subtitles), richview (the text viewer), upload, proxy, index (the list of served paths).",
+      "description": "What answered: file (a file's bytes), listing (the file browser's page), thumbnail, videometa (a video's metadata, preview sprite or subtitles), mediainfo (a photo's, video's or song's details for the slideshow's info panel, and its world map), richview (the text viewer), upload, proxy, index (the list of served paths).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
