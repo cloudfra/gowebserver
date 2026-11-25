@@ -9433,7 +9433,7 @@
           if (state === 'loading') {
             h += '<div class="ssi-skel" aria-hidden="true"><i></i><i></i><i></i></div>';
           } else if (state === 'error') {
-            h += '<p class="ssi-note">The file\'s own details couldn\'t be read.</p>';
+            h += '<p class="ssi-note">Details from the file itself are unavailable.</p>';
           }
           if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
           if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);

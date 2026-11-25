@@ -1109,7 +1109,6 @@ var xmpPrefixes = map[string]string{
 	"http://ns.google.com/photos/1.0/panorama/":            "GPano",
 	"http://ns.adobe.com/camera-raw-settings/1.0/":         "crs",
 	"http://ns.adobe.com/lightroom/1.0/":                   "lr",
-	"http://ns.apple.com/adjustment-settings/1.0/":         "aas",
 	"http://ns.adobe.com/xap/1.0/sType/ResourceEvent#":     "stEvt",
 	"http://ns.adobe.com/xap/1.0/sType/ResourceRef#":       "stRef",
 	"http://iptc.org/std/Iptc4xmpExt/2008-02-29/xmlns/":    "Iptc4xmpExt",

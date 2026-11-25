@@ -647,7 +647,7 @@ func parseUdta(c *mediaCollector, d []byte) {
 	}
 }
 
-// parseIlstMeta reads a meta box's item list: iTunes-style (©nam, ©lyr)
+// parseIlstMeta reads a meta box's item list: iTunes-style (the title, ©lyr)
 // or QuickTime's, named by a keys box (com.apple.quicktime.location.ISO6709).
 func parseIlstMeta(c *mediaCollector, d []byte) {
 	// iTunes' meta is a full box, QuickTime's isn't.
