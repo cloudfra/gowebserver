@@ -64,8 +64,8 @@ test.after(async () => {
   if (srv) srv.close();
 });
 
-// The current slide's video, the strip, and whether it is up, as laid
-// out on screen.
+// The current slide's video, the strip, the dock's timeline and
+// buttons, and whether the strip is up, as laid out on screen.
 const layout = (p) => p.evaluate(() => {
   const v = Array.from(document.querySelectorAll('#ss-stage video')).find((el) => {
     const r = el.getBoundingClientRect();
@@ -73,15 +73,19 @@ const layout = (p) => p.evaluate(() => {
   });
   if (!v) return null;
   const r = v.getBoundingClientRect(), s = document.getElementById('ss-strip').getBoundingClientRect();
+  const tl = document.querySelector('.vd-tl').getBoundingClientRect();
+  const row = document.querySelector('.vd-row').getBoundingClientRect();
   return {
-    top: r.top, bottom: r.bottom, x: r.left + r.width / 2, stripTop: s.top, vh: innerHeight,
+    left: r.left, top: r.top, right: r.right, bottom: r.bottom, x: r.left + r.width / 2,
+    stripTop: s.top, tlBottom: tl.bottom, rowTop: row.top, rowBottom: row.bottom,
+    vw: innerWidth, vh: innerHeight,
     on: document.getElementById('ss').classList.contains('strip-on'),
     opacity: getComputedStyle(document.querySelector('.ss-bottom')).opacity,
   };
 });
 
 // Moves the real mouse to y, from a little above, and waits out the
-// strip's fades and timers.
+// strip's fades and timers, and the dock's move.
 async function mouseTo(p, x, y) {
   await p.mouse.move(x, y - 40);
   await p.mouse.move(x, y, { steps: 4 });
@@ -89,29 +93,31 @@ async function mouseTo(p, x, y) {
   return layout(p);
 }
 
-// The mouse on the scrubber leaves the strip down; below the video it
-// comes up, under the video, and the scrubber is still the video's.
-async function clearOfScrubber(p, mode) {
+// The video covers the screen. The mouse on the dock leaves the strip
+// down; at the screen's bottom edge it comes up, and the dock moves up
+// above it, still the video's.
+async function coversScreen(p, mode) {
   let g = await layout(p);
   assert.ok(g, mode + ': the video is on screen');
-  assert.ok(g.top >= -1 && g.bottom <= g.stripTop + 1, mode + ': the video ends above the strip: ' + JSON.stringify(g));
-  g = await mouseTo(p, g.x, g.bottom - 15);
-  assert.equal(g.on, false, mode + ': the mouse on the scrubber leaves the strip down');
+  assert.ok(g.left <= 0.5 && g.top <= 0.5 && g.right >= g.vw - 0.5 && g.bottom >= g.vh - 0.5,
+    mode + ': the video covers the screen: ' + JSON.stringify(g));
+  g = await mouseTo(p, g.vw - 60, (g.rowTop + g.rowBottom) / 2);
+  assert.equal(g.on, false, mode + ': the mouse on the dock\'s buttons leaves the strip down');
   assert.equal(g.opacity, '0', mode);
-  g = await mouseTo(p, g.x, (g.bottom + g.vh) / 2);
-  assert.equal(g.on, true, mode + ': below the video it comes up');
+  g = await mouseTo(p, g.x, g.vh - 1);
+  assert.equal(g.on, true, mode + ': the bottom edge brings it up');
   assert.equal(g.opacity, '1', mode);
-  assert.ok(g.bottom <= g.stripTop + 1, mode + ': and stays under the video: ' + JSON.stringify(g));
-  // The video's controls are the dock over it (player.js).
-  const hit = await p.evaluate(({ x, y }) => {
-    const el = document.elementFromPoint(x, y);
-    return el.tagName === 'VIDEO' || !!el.closest('.vdock');
-  }, { x: g.x, y: g.bottom - 15 });
-  assert.equal(hit, true, mode + ': the scrubber is still the video\'s');
+  assert.ok(g.tlBottom <= g.stripTop + 1 && g.rowBottom <= g.stripTop + 1,
+    mode + ': and the dock moves up above it: ' + JSON.stringify(g));
+  const hit = await p.evaluate(() => {
+    const b = document.querySelector('.vd-play').getBoundingClientRect();
+    return !!document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2).closest('.vd-play');
+  });
+  assert.equal(hit, true, mode + ': the dock\'s buttons are still there to press');
   await mouseTo(p, g.x, g.vh / 2);
 }
 
-test('in full screen the filmstrip comes up under a video, not over its scrubber', async () => {
+test('in full screen a video covers the screen, and the filmstrip comes up from its bottom edge', async () => {
   const p = b.page;
   await p.locator('.tile[aria-label="clip-1.webm"]').click();
   await p.waitForSelector('dialog#ss[open]');
@@ -119,13 +125,52 @@ test('in full screen the filmstrip comes up under a video, not over its scrubber
   await p.waitForFunction(() => document.fullscreenElement === document.getElementById('ss-frame'));
   await p.waitForFunction(() => Array.from(document.querySelectorAll('#ss-stage video')).some((v) => v.videoWidth));
   await p.waitForTimeout(300);
-  await clearOfScrubber(p, 'fitted');
-  // Filling the screen: the clip has the screen's shape, so covering it
-  // would put the scrubber back in the strip's band.
+  // The page's scrollbar gutter is no stripe down the screen's edge.
+  const frame = await p.evaluate(() => document.getElementById('ss-frame').getBoundingClientRect().width);
+  assert.equal(frame, await p.evaluate(() => innerWidth), 'the frame is the whole screen wide');
+  // The clip is half the screen's size: fitted, it still fills it.
+  await coversScreen(p, 'fitted');
   await p.click('#ss-full');
   await p.waitForFunction(() => document.getElementById('ss-full').getAttribute('aria-label') === 'Exit full screen');
   await p.waitForTimeout(300);
-  await clearOfScrubber(p, 'filled');
+  await coversScreen(p, 'filled');
+  await p.keyboard.press('Escape');
+  await p.waitForFunction(() => !document.fullscreenElement);
+  // Some browsers pass the key on to the slideshow too, which closes.
+  await p.waitForTimeout(600);
+});
+
+test('the accent follows the video\'s picture as it plays', async () => {
+  const p = b.page;
+  if (!(await p.evaluate(() => document.getElementById('ss').classList.contains('open')))) {
+    await p.locator('.tile[aria-label="clip-1.webm"]').click();
+    await p.waitForSelector('dialog#ss[open]');
+  }
+  // The clip's hue turns as it plays: red at its start, green-blue
+  // near its end. The current slide's video is the one on screen; its
+  // neighbors are loaded too.
+  const onScreen = () => Array.from(document.querySelectorAll('#ss-stage video')).find((x) => {
+    const r = x.getBoundingClientRect();
+    return x.readyState >= 2 && r.right > 40 && r.left < innerWidth - 40;
+  });
+  const seek = (t) => p.evaluate(({ t, find }) => new Promise((done) => {
+    const v = (0, eval)('(' + find + ')')();
+    v.pause();
+    v.addEventListener('seeked', done, { once: true });
+    v.currentTime = t;
+  }), { t, find: onScreen.toString() });
+  const hue = (from) => p.waitForFunction((from) => {
+    const h = parseFloat(document.documentElement.style.getPropertyValue('--amb-h'));
+    return document.documentElement.classList.contains('amb-accent') && Math.abs(h - from) > 40 && h;
+  }, from, { timeout: 5000 }).then((r) => r.jsonValue());
+  await p.waitForFunction('!!(' + onScreen.toString() + ')()');
+  await seek(0.8);
+  await p.waitForTimeout(300);
+  const late = await p.evaluate(() => parseFloat(document.documentElement.style.getPropertyValue('--amb-h')));
+  await seek(0.02);
+  const early = await hue(late);
+  await seek(0.8);
+  await hue(early);
   await p.keyboard.press('Escape');
 });
 
