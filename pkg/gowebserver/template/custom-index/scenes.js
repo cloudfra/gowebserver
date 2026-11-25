@@ -1,19 +1,26 @@
 // ===== Scenes =====
-// The video dock's film strip of scenes (player.js opens it): a row of
-// frames over the timeline, one a minute, that the preview over the
-// timeline unfolds into when the pointer rises from the timeline up into
-// it (vpLift), or a finger scrubbing the timeline drags up off it. It
-// fans out of the preview, centered on the time that was previewed, with
-// the scene nearest it lit. It scrolls (wheel, trackpad, a drag, a swipe,
-// the arrow keys); a scene picked (a click, a tap, Enter) grows out to
+// The video dock's film strip of scenes (player.js opens it): the
+// timeline itself, stretched. While the timeline is held (a mouse press,
+// a finger scrubbing), pulling up off it stretches the bar upward into a
+// black strip with the video's colors bleeding into its top, and the
+// scenes, one a minute, unfold out of it to either side of the one
+// under the pointer. It follows the pull with some resistance (vpPull)
+// and, past a point, snaps open; let go before that and it springs back
+// into the bar, the press a plain scrub. Open, the bar is still along
+// its bottom, and scrolling the strip (wheel, trackpad, a drag, a
+// swipe, the arrow keys) moves a mark along the bar to the time in its
+// middle (opts.scan), the reverse of scrubbing; scenes slide in as they
+// come into view. The scene nearest the time is ringed in the accent the
+// timeline plays in. A scene picked (a click, a tap, Enter) grows out to
 // fill the video, which goes there and plays (the dock does that part:
-// opts.pick). Moving back down to the timeline, or away, folds it back.
+// opts.pick). Swiping or dragging it down folds it back into the bar, as
+// do Escape and a press elsewhere.
 //
 // A long video has many scenes, so only the ones in view and a few to
 // either side are in the page (vpSceneWindow), and only those ask for
 // their picture (opts.paint), the nearest first.
 //
-// The vpScene* functions are the parts with no page in them.
+// The vpScene* and vpPull functions are the parts with no page in them.
 
 // A video of at least VP_SCENE_MIN minutes has a scene each minute; a
 // shorter one the longest of VP_SCENE_STEPS (seconds) that still gives
@@ -21,14 +28,13 @@
 // evenly spaced.
 var VP_SCENE_MIN = 5;
 var VP_SCENE_STEPS = [30, 20, 15, 10, 5];
-// How far (px) above the timeline's top the pointer goes before the
-// preview unfolds: into the preview's lower part, which sits 10px above
-// the timeline. A finger scrubbing has to go further, so a scrub that
-// wanders up a little stays a scrub. Sideways, the pointer may stray
-// VP_LIFT_SIDE past the preview's edge.
-var VP_LIFT_OPEN = 56;
-var VP_LIFT_TOUCH = 72;
-var VP_LIFT_SIDE = 32;
+// The pull: a press on the timeline that goes VP_PULL_DEAD px above it
+// starts stretching it, and VP_PULL_OPEN px further snaps it open. Until
+// then the strip shows VP_PULL_GIVE of itself at most, in step with the
+// pull, so it lags the pointer as if held back.
+var VP_PULL_DEAD = 12;
+var VP_PULL_OPEN = 110;
+var VP_PULL_GIVE = 0.8;
 // How many scenes either side of those in view are kept in the page.
 var VP_SCENE_EXTRA = 3;
 
@@ -55,7 +61,7 @@ function vpSceneNearest(t, step, n) {
   return Math.max(0, Math.min(n - 1, Math.round((t || 0) / step)));
 }
 
-// The scenes to keep in the page with the strip scrolled to scroll and
+// The scenes to keep in the page with the row scrolled to scroll and
 // view wide: the scenes are pitch apart after pad, and extra are kept
 // either side of those showing. [lo, hi), within n.
 function vpSceneWindow(scroll, view, pitch, pad, n, extra) {
@@ -65,8 +71,8 @@ function vpSceneWindow(scroll, view, pitch, pad, n, extra) {
   return [Math.max(0, Math.min(n, lo)), Math.max(0, Math.min(n, hi))];
 }
 
-// The scroll that puts scene i's middle at anchor (px from the strip's
-// left edge), as near as the strip's ends allow: fw wide, pitch apart,
+// The scroll that puts scene i's middle at anchor (px from the row's
+// left edge), as near as the row's ends allow: fw wide, pitch apart,
 // after pad, with pad after the last too.
 function vpSceneScroll(i, n, fw, pitch, pad, anchor, view) {
   var total = pad * 2 + Math.max(0, n - 1) * pitch + fw;
@@ -74,16 +80,23 @@ function vpSceneScroll(i, n, fw, pitch, pad, anchor, view) {
   return Math.max(0, Math.min(Math.max(0, total - view), Math.round(x)));
 }
 
-// Where the pointer is on its way from the timeline to the preview: dy
-// px above the timeline's top, dx px from the preview's middle, which is
-// half px wide either side. 'rail' on (or below) the timeline, 'away'
-// off to the side, 'open' once high enough (at least open px), and
-// 'rising' on the way, with how far along (0 to 1).
-function vpLift(dy, dx, half, open) {
-  if (!(dy > 0)) return { state: 'rail', p: 0 };
-  if (Math.abs(dx) > half + VP_LIFT_SIDE) return { state: 'away', p: 0 };
-  if (dy >= open) return { state: 'open', p: 1 };
-  return { state: 'rising', p: dy / open };
+// The time in the middle of the row scrolled to scroll, view wide (the
+// reverse of vpSceneScroll): between two scenes' middles, in step
+// between their times, within the video's dur.
+function vpSceneScan(scroll, view, fw, pitch, pad, step, dur) {
+  var i = (scroll + view / 2 - pad - fw / 2) / pitch;
+  return Math.max(0, Math.min(dur, i * step));
+}
+
+// A press on the timeline dy px above its top: 'none' (still on it, or
+// not far enough to count), 'pulling' with how far along (p, 0 to 1)
+// and how much of the strip shows for it (r), or 'open'.
+function vpPull(dy, dead, open) {
+  var d = dy - dead;
+  if (!(d > 0)) return { state: 'none', p: 0, r: 0 };
+  if (d >= open) return { state: 'open', p: 1, r: 1 };
+  var p = d / open;
+  return { state: 'pulling', p: p, r: VP_PULL_GIVE * p };
 }
 
 // The part of a sw x sh picture to draw into dw x dh so it covers it,
@@ -94,20 +107,24 @@ function vpCover(sw, sh, dw, dh) {
   return { x: (sw - w) / 2, y: (sh - h) / 2, w: w, h: h };
 }
 
-// SceneStrip makes the strip, in host (the dock's panel), over the
-// timeline tl. opts are what it asks of the dock:
+// SceneStrip makes the strip, in host (the dock's panel), behind the
+// timeline tl, which stays on top along its bottom. opts are what it
+// asks of the dock:
 //   duration()        the video's length, in seconds
 //   aspect()          its width over its height
 //   compact()         whether the dock is the compact one (smaller scenes)
 //   label(t)          the chapter at time t, or ''
+//   glow(canvas)      draws the video's bottom edge into canvas (its
+//                     colors bleed into the strip's top), or doesn't
 //   paint(t, canvas, done)  draws the scene at t into canvas, now or
 //                     later, and calls done once it has; refresh() asks
 //                     again for the ones still waiting
 //   cancel(canvas)    the scene in canvas left the page: forget it
+//   scan(t)           the strip is scrolled to time t (null: it's gone)
 //   pick(t, card)     the scene at t was picked: card is its picture,
 //                     on screen, for the dock to grow from
-//   closed(why)       the strip folded away ('down', 'away', 'key',
-//                     'pick', 'outside' or 'now')
+//   closed(why)       the strip folded away ('key', 'pick', 'outside',
+//                     'down' or 'now'), or a pull sprang back ('back')
 function SceneStrip(host, tl, opts) {
   var el = doc.createElement('div');
   el.className = 'vd-scenes';
@@ -115,15 +132,17 @@ function SceneStrip(host, tl, opts) {
   el.setAttribute('role', 'listbox');
   el.setAttribute('aria-label', 'Scenes');
   el.setAttribute('aria-orientation', 'horizontal');
-  el.innerHTML = '<div class="vd-scenes-view"><div class="vd-scenes-rail"></div></div>';
+  el.innerHTML = '<canvas class="vd-scenes-glow" width="48" height="6" aria-hidden="true"></canvas>' +
+    '<div class="vd-scenes-view"><div class="vd-scenes-rail"></div></div>';
   host.insertBefore(el, tl);
-  var view = el.firstChild, rail = view.firstChild;
+  var glow = el.firstChild, view = el.lastChild, rail = view.firstChild;
 
-  var GAP = 12, PAD = 16;
-  var state = 'closed'; // closed, open, closing
-  var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1, anchorX = 0;
+  var GAP = 12, PAD = 16, TOP = 14, BELOW = 6;
+  var state = 'closed'; // closed, pulling, open, closing
+  var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1;
+  var base = 0, full = 0, anchorX = NaN, lastScroll = 0;
   var mounted = new Map(); // index -> frame element
-  var closeTimer = 0, awayTimer = 0, settleTimer = 0, rafPending = false;
+  var closeTimer = 0, settleTimer = 0, rafPending = false;
   var drag = null, dragged = false;
 
   function isOpen() { return state === 'open'; }
@@ -131,6 +150,9 @@ function SceneStrip(host, tl, opts) {
   function sceneT(i) { return Math.min(i * step, Math.max(0, opts.duration() - 0.05)); }
 
   // ---- Laying it out ----
+  // The strip is the timeline grown up: its bottom a little below the
+  // timeline's, its sides the timeline's, as tall as the bar (base)
+  // when folded and the scenes over the bar (full) when open.
   function measure() {
     fw = opts.compact() ? 112 : 160;
     var a = opts.aspect();
@@ -138,12 +160,16 @@ function SceneStrip(host, tl, opts) {
     // A tall video's scenes are cut square rather than towering.
     fh = Math.round(Math.max(fw * 0.42, Math.min(fw, fw / a)));
     pitch = fw + GAP;
+    var tlH = tl.offsetHeight || 26;
+    base = tlH + BELOW * 2;
+    full = TOP + fh + base;
     el.style.setProperty('--vd-scene-w', fw + 'px');
     el.style.setProperty('--vd-scene-h', fh + 'px');
-    // Over the timeline, as wide as it, where the preview was.
-    el.style.left = tl.offsetLeft + 'px';
-    el.style.width = (tl.offsetWidth || tl.getBoundingClientRect().width) + 'px';
-    el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop + 8) + 'px';
+    el.style.setProperty('--vd-scenes-base', base + 'px');
+    var bw = tl.offsetWidth || tl.getBoundingClientRect().width;
+    el.style.left = (tl.offsetLeft - BELOW) + 'px';
+    el.style.width = (bw + BELOW * 2) + 'px';
+    el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop - tlH - BELOW) + 'px';
     rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
   }
 
@@ -158,6 +184,7 @@ function SceneStrip(host, tl, opts) {
     f.id = 'vd-scene-' + i;
     f._i = i;
     f.style.left = (PAD + i * pitch) + 'px';
+    f.style.setProperty('--d', String(Math.min(Math.abs(i - sel), 6)));
     var t = sceneT(i), title = opts.label(t) || '';
     var long = opts.duration() >= 3600;
     f.innerHTML = '<div class="vd-scene-card"><canvas class="vd-scene-pic"></canvas>' +
@@ -185,9 +212,17 @@ function SceneStrip(host, tl, opts) {
     });
   }
 
+  // Each scene folded into the one under x (a client x), to unfold from.
+  function fold(f) {
+    var vr = view.getBoundingClientRect();
+    var mid = vr.left + PAD + f._i * pitch + fw / 2 - view.scrollLeft;
+    f.style.setProperty('--fx', (anchorX > 0 ? Math.round(anchorX - mid) : 0) + 'px');
+  }
+
   // The scenes in view and a few either side are in the page, and no
   // others; the new ones ask for their picture, the nearest to the lit
-  // one first.
+  // one first. Open, a scene coming in slides in from the side the strip
+  // is scrolling from.
   function render() {
     if (state === 'closed') return;
     var w = vpSceneWindow(view.scrollLeft, viewWidth(), pitch, PAD, n, VP_SCENE_EXTRA);
@@ -198,10 +233,16 @@ function SceneStrip(host, tl, opts) {
       f.remove();
       mounted.delete(i);
     });
-    var added = [];
+    var added = [], dir = view.scrollLeft - lastScroll;
+    lastScroll = view.scrollLeft;
     for (var i = w[0]; i < w[1]; i++) {
       if (mounted.has(i)) continue;
       var f = frame(i);
+      if (state === 'pulling') fold(f);
+      else if (state === 'open' && dir) {
+        f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
+        f.classList.add('enter');
+      }
       rail.appendChild(f);
       mounted.set(i, f);
       added.push(f);
@@ -210,16 +251,29 @@ function SceneStrip(host, tl, opts) {
     el.dataset.mounted = String(mounted.size);
   }
 
-  function schedule() {
+  // Scrolled: the scenes now near the view, and the bar's mark.
+  function scrolled() {
     if (rafPending) return;
     rafPending = true;
-    requestAnimationFrame(function () { rafPending = false; render(); });
+    requestAnimationFrame(function () {
+      rafPending = false;
+      render();
+      if (state === 'open') opts.scan(vpSceneScan(view.scrollLeft, viewWidth(), fw, pitch, PAD, step, opts.duration()));
+    });
   }
 
-  // ---- Opening and closing ----
-  // Opens on time t, with the scene nearest it under x (a client x: the
-  // preview's middle), unfolding out of the preview.
-  function open(t, x) {
+  // ---- Stretching and folding ----
+  // How far stretched: r (0 to 1) of the way from the bar to open, at
+  // once (with the pull) or eased.
+  function show(r, eased) {
+    el.classList.toggle('eased', !!eased);
+    el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
+    el.style.height = Math.round(base + (full - base) * r) + 'px';
+  }
+
+  // Lays out the row on time t, with the scene nearest it under client
+  // x (or in the middle), folded into the bar: ready to stretch.
+  function prepare(t, x) {
     var dur = opts.duration();
     step = vpSceneStep(dur);
     n = vpSceneCount(dur, step);
@@ -227,46 +281,57 @@ function SceneStrip(host, tl, opts) {
     clearTimeout(closeTimer);
     clearTimeout(settleTimer);
     clearMounted();
-    state = 'open';
     sel = vpSceneNearest(t, step, n);
     el.hidden = false;
-    el.classList.remove('open', 'closing', 'settled');
+    el.classList.remove('open', 'settled', 'eased');
     el.dataset.count = String(n);
     el.dataset.step = String(step);
+    opts.glow(glow);
     measure();
     var vr = view.getBoundingClientRect();
-    anchorX = x;
-    var anchor = x - vr.left;
-    if (!(anchor > 0)) anchor = viewWidth() / 2;
+    anchorX = x == null ? NaN : x;
+    var anchor = x == null ? NaN : x - vr.left;
+    if (!(anchor > 0 && anchor < viewWidth())) anchor = viewWidth() / 2;
     view.scrollLeft = vpSceneScroll(sel, n, fw, pitch, PAD, anchor, viewWidth());
+    lastScroll = view.scrollLeft;
+    state = 'pulling';
     render();
-    // Each scene starts folded into the preview, under the pointer, and
-    // fans out to its place: the lit one first, then outward.
-    fanFrom(anchorX, 1);
-    void el.offsetWidth;
-    el.classList.add('open');
-    el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
-    // Once out, the stagger is dropped, so a scene lifts at once on hover.
-    settleTimer = setTimeout(function () { if (state === 'open') el.classList.add('settled'); }, reducedMotion.matches ? 0 : 700);
+    show(0, false);
     return true;
   }
 
-  // Sets each scene's way back into x: how far it is from there, and how
-  // long after the first it moves (dir 1 out from the middle, -1 in).
-  function fanFrom(x, dir) {
-    var span = 0, rows = [];
-    mounted.forEach(function (f, i) {
-      var r = f.getBoundingClientRect(), d = Math.abs(i - sel);
-      span = Math.max(span, d);
-      rows.push([f, (x - (r.left + r.width / 2)) || (sel - i) * pitch, d, i - sel]);
-    });
-    rows.forEach(function (row) {
-      var d = Math.min(row[2], 6);
-      row[0].style.setProperty('--fx', Math.round(row[1]) + 'px');
-      // Tilted the way it fans, as cards from a hand.
-      row[0].style.setProperty('--fr', Math.max(-15, Math.min(15, row[3] * 5)) + 'deg');
-      row[0].style.setProperty('--d', String(dir > 0 ? d : Math.min(span, 6) - d));
-    });
+  // The pull is r of the way (see vpPull): the strip follows it. The
+  // first pull lays the row out, on time t under x.
+  function pull(r, t, x) {
+    if (state === 'open') return;
+    if (state !== 'pulling' && !(r > 0 && prepare(t, x))) return;
+    show(r, false);
+  }
+
+  // Let go before it opened: back into the bar.
+  function release() {
+    if (state !== 'pulling') return;
+    state = 'closing';
+    show(0, true);
+    closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+    if (opts.closed) opts.closed('back');
+  }
+
+  // Opens on time t (scene nearest it under client x), from where a
+  // pull left it, or from the bar.
+  function open(t, x) {
+    if (state === 'open') return true;
+    if (state !== 'pulling' && !prepare(t, x)) return false;
+    state = 'open';
+    void el.offsetWidth;
+    show(1, true);
+    el.classList.add('open');
+    el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+    opts.scan(sceneT(sel));
+    // Once open, the scenes' stagger is dropped, so one lifts at once on
+    // hover.
+    settleTimer = setTimeout(function () { if (state === 'open') el.classList.add('settled'); }, reducedMotion.matches ? 0 : 700);
+    return true;
   }
 
   function clearMounted() {
@@ -278,27 +343,33 @@ function SceneStrip(host, tl, opts) {
     mounted.clear();
   }
 
-  // Folds it back: into where it came from, or (a pick) down out of the
-  // way of the scene growing out of it. why is told to opts.closed.
+  // Folds it back into the bar, the stretch run backward. why is told to
+  // opts.closed.
   function close(why) {
-    if (state !== 'open') {
-      if (why === 'now' && state === 'closing') finish();
+    if (state === 'closed') return;
+    if (state === 'closing') {
+      if (why === 'now') finish();
       return;
     }
     state = 'closing';
-    clearTimeout(awayTimer);
     clearTimeout(settleTimer);
     drag = null;
     el.removeAttribute('aria-activedescendant');
-    if (why === 'now' || reducedMotion.matches) {
+    // The scenes fold back toward the lit one (or the picked one).
+    var lit = mounted.get(sel);
+    if (lit) {
+      var r = lit.getBoundingClientRect();
+      anchorX = r.left + r.width / 2;
+      mounted.forEach(fold);
+    }
+    el.classList.remove('open', 'settled');
+    opts.scan(null);
+    if (why === 'now') {
+      show(0, false);
       finish();
     } else {
-      fanFrom(why === 'pick' ? NaN : anchorX, -1);
-      el.classList.remove('settled');
-      el.classList.add('closing');
-      el.classList.toggle('drop', why === 'pick');
-      el.classList.remove('open');
-      closeTimer = setTimeout(finish, 420);
+      show(0, true);
+      closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
     }
     if (opts.closed) opts.closed(why);
   }
@@ -307,7 +378,7 @@ function SceneStrip(host, tl, opts) {
     clearTimeout(closeTimer);
     state = 'closed';
     clearMounted();
-    el.classList.remove('open', 'closing', 'drop', 'settled');
+    el.classList.remove('open', 'settled', 'eased');
     el.hidden = true;
     el.dataset.mounted = '0';
   }
@@ -332,6 +403,7 @@ function SceneStrip(host, tl, opts) {
     var f = mounted.get(sel);
     if (f) { f.classList.add('on'); f.setAttribute('aria-selected', 'true'); }
     el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+    opts.scan(sceneT(sel));
   }
 
   function pick(i) {
@@ -365,25 +437,33 @@ function SceneStrip(host, tl, opts) {
   }
 
   // ---- The pointer ----
-  view.addEventListener('scroll', schedule, { passive: true });
+  view.addEventListener('scroll', scrolled, { passive: true });
   // A mouse wheel scrolls it sideways, as does a trackpad.
   view.addEventListener('wheel', function (e) {
     if (state !== 'open') return;
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       view.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewWidth() : 1);
-      schedule();
+      scrolled();
     }
     e.preventDefault();
   }, { passive: false });
-  // A mouse drags it along; a finger scrolls it natively.
+  // A mouse drags it along (a finger scrolls it natively); either one
+  // swiping it down folds it back into the bar.
   view.addEventListener('pointerdown', function (e) {
-    if (state !== 'open' || e.pointerType !== 'mouse' || e.button > 0) return;
-    drag = { id: e.pointerId, x: e.clientX, left: view.scrollLeft, moved: false };
+    if (state !== 'open' || e.button > 0) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: view.scrollLeft, moved: false, mouse: e.pointerType === 'mouse' };
     dragged = false;
   });
   view.addEventListener('pointermove', function (e) {
     if (!drag || drag.id !== e.pointerId) return;
-    var dx = e.clientX - drag.x;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (dy > 40 && dy > Math.abs(dx) * 1.5) {
+      drag = null;
+      dragged = true;
+      close('down');
+      return;
+    }
+    if (!drag.mouse) return;
     if (!drag.moved && Math.abs(dx) > 4) {
       drag.moved = true;
       el.classList.add('dragging');
@@ -391,7 +471,7 @@ function SceneStrip(host, tl, opts) {
     }
     if (drag.moved) {
       view.scrollLeft = drag.left - dx;
-      schedule();
+      scrolled();
     }
   });
   function endDrag(e) {
@@ -408,28 +488,15 @@ function SceneStrip(host, tl, opts) {
     if (f && state === 'open') pick(f._i);
   });
 
-  // Moving back down to the timeline folds it at once; straying off it
-  // does after a moment, so a pointer overshooting an end isn't punished.
-  function pointer(e) {
-    if (state !== 'open' || e.pointerType !== 'mouse' || drag) return;
-    var r = view.getBoundingClientRect();
-    if (!(r.width > 0)) return;
-    if (e.clientY > r.bottom + 6 && e.clientX >= r.left - 24 && e.clientX <= r.right + 24) {
-      close('down');
-      return;
-    }
-    var out = e.clientX < r.left - 56 || e.clientX > r.right + 56 || e.clientY < r.top - 56 || e.clientY > r.bottom + 6;
-    if (!out) { clearTimeout(awayTimer); awayTimer = 0; return; }
-    if (!awayTimer) awayTimer = setTimeout(function () { awayTimer = 0; close('away'); }, 240);
-  }
   // A press anywhere else folds it, as a menu does.
   function press(e) {
     if (state === 'open' && !el.contains(e.target)) close('outside');
   }
 
   return {
-    el: el, open: open, close: close, key: key, pointer: pointer, press: press,
+    el: el, open: open, pull: pull, release: release, close: close, key: key, press: press,
     isOpen: isOpen, busy: function () { return state !== 'closed'; },
+    pulling: function () { return state === 'pulling'; },
     // The pictures that were waiting may be in now (a sprite loaded).
     refresh: function () { mounted.forEach(paint); },
     lit: function () { return sel; }

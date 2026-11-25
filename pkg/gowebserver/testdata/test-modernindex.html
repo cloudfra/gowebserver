@@ -3882,66 +3882,97 @@
     }
 
      
-    .vd-pop {
-      --lift: 0;
-      translate: 0 calc(var(--lift) * -12px);
-      transition: translate 0.18s var(--ease-out);
+    .vd-pop.rise {
+      transform-origin: 50% 100%;
+      animation: vd-pop-rise 0.28s var(--ease-out);
     }
 
-    .vd-pop-stack {
-      position: relative;
+    @keyframes vd-pop-rise {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(16px) scale(0.4, 0.08);
+      }
+
+      60% {
+        opacity: 1;
+      }
     }
 
-    .vd-pop-ghost {
+    .vdock.pulling .vd-pop,
+    .vdock.scenes-open .vd-pop {
+      opacity: 0;
+      transition: opacity 0.12s;
+    }
+
+    .vdock.scenes-open .vd-tl,
+    .vdock.pulling .vd-tl {
+      --vd-rail: 7px;
+    }
+
+    .vd-scan {
       position: absolute;
-      inset: 0;
-      border-radius: 10px;
-      background: color-mix(in srgb, var(--vd-played) 34%, rgba(22, 24, 30, 0.92));
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.5);
-      opacity: calc(var(--lift) * 0.95);
-      transform: translate(calc(var(--lift) * -44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * -9deg)) scale(0.94);
-      transition: transform 0.22s var(--ease-out), opacity 0.18s;
+      top: 50%;
+      width: 4px;
+      height: calc(var(--vd-rail) + 14px);
+      margin-left: -2px;
+      border-radius: 2px;
+      background: var(--vd-played);
+      box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 0 12px var(--vd-played);
+      transform: translateY(-50%);
+      transition: left 0.12s linear;
       pointer-events: none;
-    }
-
-    .vd-pop-ghost + .vd-pop-ghost {
-      transform: translate(calc(var(--lift) * 44px), calc(var(--lift) * -4px)) rotate(calc(var(--lift) * 9deg)) scale(0.94);
-    }
-
-    .vd-pop-frame {
-      scale: calc(1 + var(--lift) * 0.06);
-      transition: scale 0.2s var(--ease-out);
     }
 
     .vd-scenes {
+      --u: 0;
       position: absolute;
-      z-index: 3;
+      overflow: hidden;
+      isolation: isolate;
+      border-radius: 14px;
+      background: linear-gradient(to bottom, color-mix(in srgb, var(--vd-played) 18%, #050506), #000 72%);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 -14px 40px rgba(0, 0, 0, 0.5);
+      opacity: clamp(0, calc(var(--u) * 6), 1);
       pointer-events: auto;
     }
 
+    .vd-scenes.eased {
+      transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
+    }
+
+    .vd-scenes.eased:not(.open) {
+      transition: height 0.38s var(--ease), opacity 0.3s 0.08s;
+    }
+
      
-    .vd-scenes::before {
-      content: "";
+    .vd-scenes-glow {
       position: absolute;
-      inset: 14px -8px -2px;
+      top: -24px;
+      left: -10%;
       z-index: -1;
-      border-radius: 24px;
-      background: var(--vd-shade);
-      filter: blur(18px);
+      width: 120%;
+      height: 110px;
       opacity: 0;
-      transition: opacity 0.3s var(--ease-out);
+      filter: blur(24px) saturate(1.25);
+      -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
+      mask-image: linear-gradient(to bottom, #000 25%, transparent);
       pointer-events: none;
     }
 
-    .vd-scenes.open::before {
-      opacity: 0.85;
+    .vd-scenes-glow.drawn {
+      opacity: 0.6;
     }
 
+     
     .vd-scenes-view {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: var(--vd-scenes-base);
+      height: calc(var(--vd-scene-h) + 14px);
+      padding-top: 14px;
+      box-sizing: border-box;
       overflow-x: auto;
       overflow-y: hidden;
-       
-      padding: 20px 0 8px;
       overscroll-behavior-x: contain;
       scrollbar-width: none;
       touch-action: pan-x;
@@ -3968,36 +3999,43 @@
       top: 0;
       width: var(--vd-scene-w);
       height: var(--vd-scene-h);
-      opacity: 0;
-      transform: translate(var(--fx, 0px), 52px) scale(0.42) rotate(var(--fr, 0deg));
-      transition:
-        transform 0.6s cubic-bezier(0.34, 1.5, 0.5, 1) calc(var(--d, 0) * 36ms),
-        opacity 0.2s linear calc(var(--d, 0) * 36ms);
+      opacity: clamp(0, calc(var(--u) * 1.4 - 0.2), 1);
+      transform: translateX(calc(var(--fx, 0px) * (1 - var(--u)))) scale(calc(0.6 + 0.4 * var(--u)));
     }
 
-    .vd-scenes.open .vd-scene {
+     
+    .vd-scene.on {
       opacity: 1;
-      transform: none;
+    }
+
+    .vd-scenes.eased .vd-scene {
+      transition:
+        transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) calc(var(--d, 0) * 30ms),
+        opacity 0.25s linear calc(var(--d, 0) * 30ms);
+    }
+
+    .vd-scenes.eased:not(.open) .vd-scene {
+      transition: transform 0.36s var(--ease), opacity 0.22s linear;
     }
 
     .vd-scenes.settled .vd-scene {
       transition-delay: 0s;
     }
 
-    .vd-scenes.closing .vd-scene {
-      transition:
-        transform 0.3s var(--ease) calc(var(--d, 0) * 24ms),
-        opacity 0.2s linear calc(var(--d, 0) * 24ms + 80ms);
+    .vd-scene.enter {
+      animation: vd-scene-in 0.42s var(--ease-out) both;
     }
 
-    .vd-scenes.closing.drop .vd-scene {
-      transform: translateY(40px) scale(0.82);
-      transition-delay: 0s;
+    @keyframes vd-scene-in {
+      from {
+        opacity: 0;
+        transform: translateX(var(--ex, 0px)) scale(0.9);
+      }
     }
 
-    .vd-scenes.closing .vd-scene.picked {
-      opacity: 0;
-      transition: none;
+    .vd-scene.picked {
+      opacity: 0 !important;
+      transition: none !important;
     }
 
     .vd-scene-card {
@@ -4005,12 +4043,12 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      border-radius: 10px;
-      background: linear-gradient(110deg, rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.05) 70%) #0c0d10;
+      border-radius: 8px;
+      background: linear-gradient(110deg, rgba(255, 255, 255, 0.04) 30%, rgba(255, 255, 255, 0.11) 50%, rgba(255, 255, 255, 0.04) 70%) #0c0d10;
       background-size: 250% 100%;
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 8px 26px 2px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.6);
       cursor: pointer;
-      transition: transform 0.28s var(--ease), box-shadow 0.2s;
+      transition: transform 0.26s var(--ease), box-shadow 0.2s;
       animation: vd-shimmer 1.4s linear infinite;
     }
 
@@ -4029,22 +4067,17 @@
     }
 
     .vd-scene:hover .vd-scene-card {
-      transform: translateY(-7px) scale(1.05);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 16px 34px 4px rgba(0, 0, 0, 0.6);
+      transform: translateY(-4px);
+      box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--vd-played) 55%, transparent), 0 10px 24px rgba(0, 0, 0, 0.7);
     }
 
      
     .vd-scene.on .vd-scene-card {
-      transform: translateY(-4px);
-      box-shadow: 0 0 0 2px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 30%, transparent), 0 12px 30px 4px rgba(0, 0, 0, 0.55);
-    }
-
-    .vd-scene.on:hover .vd-scene-card {
-      transform: translateY(-8px) scale(1.05);
+      box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent), 0 10px 26px rgba(0, 0, 0, 0.7);
     }
 
     .vd-scene:active .vd-scene-card {
-      transform: translateY(-3px) scale(0.98);
+      transform: scale(0.97);
     }
 
     .vd-scene-pic {
@@ -4068,8 +4101,8 @@
       max-width: calc(100% - 12px);
       padding: 2px 7px 3px;
       overflow: hidden;
-      border-radius: 7px;
-      background: var(--vd-glass);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.72);
       font-size: 0.6875rem;
       font-weight: 650;
       font-variant-numeric: tabular-nums;
@@ -4083,8 +4116,13 @@
       text-overflow: ellipsis;
     }
 
-    .vd-scene.on .vd-scene-time {
-      color: color-mix(in srgb, var(--vd-played) 45%, #fff);
+    .vd-scene.on .vd-scene-chip {
+      background: var(--vd-played);
+      color: #fff;
+    }
+
+    .vd-scene.on .vd-scene-title {
+      color: rgba(255, 255, 255, 0.88);
     }
 
      
@@ -4705,21 +4743,13 @@
       }
 
        
-      .vdock .vd-pop {
-        translate: none;
-      }
-
-      .vdock .vd-pop-ghost {
-        display: none;
-      }
-
-      .vdock .vd-pop-frame {
-        scale: none;
-      }
-
       .vdock .vd-scene,
       .vdock .vd-scene-card {
         transform: none !important;
+        animation: none;
+      }
+
+      .vdock .vd-pop.rise {
         animation: none;
       }
     }
@@ -8354,6 +8384,13 @@
       
       
       
+      
+      
+      
+      
+      
+      
+      
 
       
       
@@ -8365,10 +8402,9 @@
       
       
       
-      
-      var VP_LIFT_OPEN = 56;
-      var VP_LIFT_TOUCH = 72;
-      var VP_LIFT_SIDE = 32;
+      var VP_PULL_DEAD = 12;
+      var VP_PULL_OPEN = 110;
+      var VP_PULL_GIVE = 0.8;
       
       var VP_SCENE_EXTRA = 3;
 
@@ -8417,13 +8453,20 @@
       
       
       
+      function vpSceneScan(scroll, view, fw, pitch, pad, step, dur) {
+        var i = (scroll + view / 2 - pad - fw / 2) / pitch;
+        return Math.max(0, Math.min(dur, i * step));
+      }
+
       
       
-      function vpLift(dy, dx, half, open) {
-        if (!(dy > 0)) return { state: 'rail', p: 0 };
-        if (Math.abs(dx) > half + VP_LIFT_SIDE) return { state: 'away', p: 0 };
-        if (dy >= open) return { state: 'open', p: 1 };
-        return { state: 'rising', p: dy / open };
+      
+      function vpPull(dy, dead, open) {
+        var d = dy - dead;
+        if (!(d > 0)) return { state: 'none', p: 0, r: 0 };
+        if (d >= open) return { state: 'open', p: 1, r: 1 };
+        var p = d / open;
+        return { state: 'pulling', p: p, r: VP_PULL_GIVE * p };
       }
 
       
@@ -8448,6 +8491,10 @@
       
       
       
+      
+      
+      
+      
       function SceneStrip(host, tl, opts) {
         var el = doc.createElement('div');
         el.className = 'vd-scenes';
@@ -8455,21 +8502,26 @@
         el.setAttribute('role', 'listbox');
         el.setAttribute('aria-label', 'Scenes');
         el.setAttribute('aria-orientation', 'horizontal');
-        el.innerHTML = '<div class="vd-scenes-view"><div class="vd-scenes-rail"></div></div>';
+        el.innerHTML = '<canvas class="vd-scenes-glow" width="48" height="6" aria-hidden="true"></canvas>' +
+          '<div class="vd-scenes-view"><div class="vd-scenes-rail"></div></div>';
         host.insertBefore(el, tl);
-        var view = el.firstChild, rail = view.firstChild;
+        var glow = el.firstChild, view = el.lastChild, rail = view.firstChild;
 
-        var GAP = 12, PAD = 16;
+        var GAP = 12, PAD = 16, TOP = 14, BELOW = 6;
         var state = 'closed'; 
-        var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1, anchorX = 0;
+        var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1;
+        var base = 0, full = 0, anchorX = NaN, lastScroll = 0;
         var mounted = new Map(); 
-        var closeTimer = 0, awayTimer = 0, settleTimer = 0, rafPending = false;
+        var closeTimer = 0, settleTimer = 0, rafPending = false;
         var drag = null, dragged = false;
 
         function isOpen() { return state === 'open'; }
 
         function sceneT(i) { return Math.min(i * step, Math.max(0, opts.duration() - 0.05)); }
 
+        
+        
+        
         
         function measure() {
           fw = opts.compact() ? 112 : 160;
@@ -8478,12 +8530,16 @@
           
           fh = Math.round(Math.max(fw * 0.42, Math.min(fw, fw / a)));
           pitch = fw + GAP;
+          var tlH = tl.offsetHeight || 26;
+          base = tlH + BELOW * 2;
+          full = TOP + fh + base;
           el.style.setProperty('--vd-scene-w', fw + 'px');
           el.style.setProperty('--vd-scene-h', fh + 'px');
-          
-          el.style.left = tl.offsetLeft + 'px';
-          el.style.width = (tl.offsetWidth || tl.getBoundingClientRect().width) + 'px';
-          el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop + 8) + 'px';
+          el.style.setProperty('--vd-scenes-base', base + 'px');
+          var bw = tl.offsetWidth || tl.getBoundingClientRect().width;
+          el.style.left = (tl.offsetLeft - BELOW) + 'px';
+          el.style.width = (bw + BELOW * 2) + 'px';
+          el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop - tlH - BELOW) + 'px';
           rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
         }
 
@@ -8498,6 +8554,7 @@
           f.id = 'vd-scene-' + i;
           f._i = i;
           f.style.left = (PAD + i * pitch) + 'px';
+          f.style.setProperty('--d', String(Math.min(Math.abs(i - sel), 6)));
           var t = sceneT(i), title = opts.label(t) || '';
           var long = opts.duration() >= 3600;
           f.innerHTML = '<div class="vd-scene-card"><canvas class="vd-scene-pic"></canvas>' +
@@ -8526,6 +8583,14 @@
         }
 
         
+        function fold(f) {
+          var vr = view.getBoundingClientRect();
+          var mid = vr.left + PAD + f._i * pitch + fw / 2 - view.scrollLeft;
+          f.style.setProperty('--fx', (anchorX > 0 ? Math.round(anchorX - mid) : 0) + 'px');
+        }
+
+        
+        
         
         
         function render() {
@@ -8538,10 +8603,16 @@
             f.remove();
             mounted.delete(i);
           });
-          var added = [];
+          var added = [], dir = view.scrollLeft - lastScroll;
+          lastScroll = view.scrollLeft;
           for (var i = w[0]; i < w[1]; i++) {
             if (mounted.has(i)) continue;
             var f = frame(i);
+            if (state === 'pulling') fold(f);
+            else if (state === 'open' && dir) {
+              f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
+              f.classList.add('enter');
+            }
             rail.appendChild(f);
             mounted.set(i, f);
             added.push(f);
@@ -8550,16 +8621,29 @@
           el.dataset.mounted = String(mounted.size);
         }
 
-        function schedule() {
+        
+        function scrolled() {
           if (rafPending) return;
           rafPending = true;
-          requestAnimationFrame(function () { rafPending = false; render(); });
+          requestAnimationFrame(function () {
+            rafPending = false;
+            render();
+            if (state === 'open') opts.scan(vpSceneScan(view.scrollLeft, viewWidth(), fw, pitch, PAD, step, opts.duration()));
+          });
         }
 
         
         
         
-        function open(t, x) {
+        function show(r, eased) {
+          el.classList.toggle('eased', !!eased);
+          el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
+          el.style.height = Math.round(base + (full - base) * r) + 'px';
+        }
+
+        
+        
+        function prepare(t, x) {
           var dur = opts.duration();
           step = vpSceneStep(dur);
           n = vpSceneCount(dur, step);
@@ -8567,46 +8651,57 @@
           clearTimeout(closeTimer);
           clearTimeout(settleTimer);
           clearMounted();
-          state = 'open';
           sel = vpSceneNearest(t, step, n);
           el.hidden = false;
-          el.classList.remove('open', 'closing', 'settled');
+          el.classList.remove('open', 'settled', 'eased');
           el.dataset.count = String(n);
           el.dataset.step = String(step);
+          opts.glow(glow);
           measure();
           var vr = view.getBoundingClientRect();
-          anchorX = x;
-          var anchor = x - vr.left;
-          if (!(anchor > 0)) anchor = viewWidth() / 2;
+          anchorX = x == null ? NaN : x;
+          var anchor = x == null ? NaN : x - vr.left;
+          if (!(anchor > 0 && anchor < viewWidth())) anchor = viewWidth() / 2;
           view.scrollLeft = vpSceneScroll(sel, n, fw, pitch, PAD, anchor, viewWidth());
+          lastScroll = view.scrollLeft;
+          state = 'pulling';
           render();
-          
-          
-          fanFrom(anchorX, 1);
-          void el.offsetWidth;
-          el.classList.add('open');
-          el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
-          
-          settleTimer = setTimeout(function () { if (state === 'open') el.classList.add('settled'); }, reducedMotion.matches ? 0 : 700);
+          show(0, false);
           return true;
         }
 
         
         
-        function fanFrom(x, dir) {
-          var span = 0, rows = [];
-          mounted.forEach(function (f, i) {
-            var r = f.getBoundingClientRect(), d = Math.abs(i - sel);
-            span = Math.max(span, d);
-            rows.push([f, (x - (r.left + r.width / 2)) || (sel - i) * pitch, d, i - sel]);
-          });
-          rows.forEach(function (row) {
-            var d = Math.min(row[2], 6);
-            row[0].style.setProperty('--fx', Math.round(row[1]) + 'px');
-            
-            row[0].style.setProperty('--fr', Math.max(-15, Math.min(15, row[3] * 5)) + 'deg');
-            row[0].style.setProperty('--d', String(dir > 0 ? d : Math.min(span, 6) - d));
-          });
+        function pull(r, t, x) {
+          if (state === 'open') return;
+          if (state !== 'pulling' && !(r > 0 && prepare(t, x))) return;
+          show(r, false);
+        }
+
+        
+        function release() {
+          if (state !== 'pulling') return;
+          state = 'closing';
+          show(0, true);
+          closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+          if (opts.closed) opts.closed('back');
+        }
+
+        
+        
+        function open(t, x) {
+          if (state === 'open') return true;
+          if (state !== 'pulling' && !prepare(t, x)) return false;
+          state = 'open';
+          void el.offsetWidth;
+          show(1, true);
+          el.classList.add('open');
+          el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+          opts.scan(sceneT(sel));
+          
+          
+          settleTimer = setTimeout(function () { if (state === 'open') el.classList.add('settled'); }, reducedMotion.matches ? 0 : 700);
+          return true;
         }
 
         function clearMounted() {
@@ -8621,24 +8716,30 @@
         
         
         function close(why) {
-          if (state !== 'open') {
-            if (why === 'now' && state === 'closing') finish();
+          if (state === 'closed') return;
+          if (state === 'closing') {
+            if (why === 'now') finish();
             return;
           }
           state = 'closing';
-          clearTimeout(awayTimer);
           clearTimeout(settleTimer);
           drag = null;
           el.removeAttribute('aria-activedescendant');
-          if (why === 'now' || reducedMotion.matches) {
+          
+          var lit = mounted.get(sel);
+          if (lit) {
+            var r = lit.getBoundingClientRect();
+            anchorX = r.left + r.width / 2;
+            mounted.forEach(fold);
+          }
+          el.classList.remove('open', 'settled');
+          opts.scan(null);
+          if (why === 'now') {
+            show(0, false);
             finish();
           } else {
-            fanFrom(why === 'pick' ? NaN : anchorX, -1);
-            el.classList.remove('settled');
-            el.classList.add('closing');
-            el.classList.toggle('drop', why === 'pick');
-            el.classList.remove('open');
-            closeTimer = setTimeout(finish, 420);
+            show(0, true);
+            closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
           }
           if (opts.closed) opts.closed(why);
         }
@@ -8647,7 +8748,7 @@
           clearTimeout(closeTimer);
           state = 'closed';
           clearMounted();
-          el.classList.remove('open', 'closing', 'drop', 'settled');
+          el.classList.remove('open', 'settled', 'eased');
           el.hidden = true;
           el.dataset.mounted = '0';
         }
@@ -8672,6 +8773,7 @@
           var f = mounted.get(sel);
           if (f) { f.classList.add('on'); f.setAttribute('aria-selected', 'true'); }
           el.setAttribute('aria-activedescendant', 'vd-scene-' + sel);
+          opts.scan(sceneT(sel));
         }
 
         function pick(i) {
@@ -8705,25 +8807,33 @@
         }
 
         
-        view.addEventListener('scroll', schedule, { passive: true });
+        view.addEventListener('scroll', scrolled, { passive: true });
         
         view.addEventListener('wheel', function (e) {
           if (state !== 'open') return;
           if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
             view.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewWidth() : 1);
-            schedule();
+            scrolled();
           }
           e.preventDefault();
         }, { passive: false });
         
+        
         view.addEventListener('pointerdown', function (e) {
-          if (state !== 'open' || e.pointerType !== 'mouse' || e.button > 0) return;
-          drag = { id: e.pointerId, x: e.clientX, left: view.scrollLeft, moved: false };
+          if (state !== 'open' || e.button > 0) return;
+          drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: view.scrollLeft, moved: false, mouse: e.pointerType === 'mouse' };
           dragged = false;
         });
         view.addEventListener('pointermove', function (e) {
           if (!drag || drag.id !== e.pointerId) return;
-          var dx = e.clientX - drag.x;
+          var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+          if (dy > 40 && dy > Math.abs(dx) * 1.5) {
+            drag = null;
+            dragged = true;
+            close('down');
+            return;
+          }
+          if (!drag.mouse) return;
           if (!drag.moved && Math.abs(dx) > 4) {
             drag.moved = true;
             el.classList.add('dragging');
@@ -8731,7 +8841,7 @@
           }
           if (drag.moved) {
             view.scrollLeft = drag.left - dx;
-            schedule();
+            scrolled();
           }
         });
         function endDrag(e) {
@@ -8749,27 +8859,14 @@
         });
 
         
-        
-        function pointer(e) {
-          if (state !== 'open' || e.pointerType !== 'mouse' || drag) return;
-          var r = view.getBoundingClientRect();
-          if (!(r.width > 0)) return;
-          if (e.clientY > r.bottom + 6 && e.clientX >= r.left - 24 && e.clientX <= r.right + 24) {
-            close('down');
-            return;
-          }
-          var out = e.clientX < r.left - 56 || e.clientX > r.right + 56 || e.clientY < r.top - 56 || e.clientY > r.bottom + 6;
-          if (!out) { clearTimeout(awayTimer); awayTimer = 0; return; }
-          if (!awayTimer) awayTimer = setTimeout(function () { awayTimer = 0; close('away'); }, 240);
-        }
-        
         function press(e) {
           if (state === 'open' && !el.contains(e.target)) close('outside');
         }
 
         return {
-          el: el, open: open, close: close, key: key, pointer: pointer, press: press,
+          el: el, open: open, pull: pull, release: release, close: close, key: key, press: press,
           isOpen: isOpen, busy: function () { return state !== 'closed'; },
+          pulling: function () { return state === 'pulling'; },
           
           refresh: function () { mounted.forEach(paint); },
           lit: function () { return sel; }
@@ -9076,6 +9173,7 @@
       
       
       
+      
       function VideoDock(opts) {
         var el = doc.createElement('div');
         el.className = 'vdock';
@@ -9090,10 +9188,9 @@
           '<div class="vd-panel">' +
           '<div class="vd-tl" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">' +
           '<div class="vd-rail"><div class="vd-bands"></div><div class="vd-segs"></div><div class="vd-ticks"></div></div>' +
-          '<div class="vd-head"></div>' +
+          '<div class="vd-head"></div><div class="vd-scan" hidden></div>' +
           '<div class="vd-pop" aria-hidden="true" hidden>' +
-          '<div class="vd-pop-stack"><i class="vd-pop-ghost"></i><i class="vd-pop-ghost"></i>' +
-          '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div></div>' +
+          '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
           '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
           '</div>' +
           '</div>' +
@@ -9124,6 +9221,7 @@
           '<div class="vd-menu" role="menu" hidden><div class="vd-menu-title"></div><div class="vd-menu-list"></div></div>' +
           '<div class="vd-tip" aria-hidden="true" hidden><span class="vd-tip-label"></span><kbd class="vd-tip-key"></kbd></div>';
         var q = function (c) { return el.querySelector(c); };
+        var scanEl = q('.vd-scan'), scanT = null;
         var tl = q('.vd-tl'), segsEl = q('.vd-segs'), ticksEl = q('.vd-ticks'), bandsEl = q('.vd-bands'), head = q('.vd-head');
         var pop = q('.vd-pop'), popFrame = q('.vd-pop-frame'), popImg = q('.vd-pop-img'), popCanvas = q('.vd-pop-canvas');
         var popLabel = q('.vd-pop-label'), popTime = q('.vd-pop-time');
@@ -9410,7 +9508,7 @@
           if (t == null) t = v.currentTime || 0;
           var ranges = buffered();
           layout.segments.forEach(function (s, i) {
-            if (segEls[i]) segEls[i].style.background = vpSegmentFill(s, t, ranges, hoverT);
+            if (segEls[i]) segEls[i].style.background = vpSegmentFill(s, t, ranges, hoverT != null ? hoverT : scanT);
           });
           head.style.left = (dur > 0 ? Math.min(100, t / dur * 100) : 0) + '%';
           var long = dur >= 3600;
@@ -9718,7 +9816,13 @@
             }
             el.dataset.preview = hasFrame ? 'frame' : 'none';
           }
-          pop.hidden = false;
+          if (pop.hidden) {
+            
+            pop.classList.remove('rise');
+            pop.hidden = false;
+            void pop.offsetWidth;
+            pop.classList.add('rise');
+          }
           var r = tl.getBoundingClientRect(), half = pop.offsetWidth / 2;
           pop.style.left = Math.max(half, Math.min(r.width - half, x - r.left)) + 'px';
           update();
@@ -9733,8 +9837,6 @@
         function hidePop() {
           pop.hidden = true;
           hoverT = null;
-          lifting = false;
-          setLift(0);
           if (v) update();
         }
 
@@ -9744,8 +9846,7 @@
         
         
         
-        
-        var lifting = false, resumeAfterScenes = false, zoom = null;
+        var resumeAfterScenes = false, zoom = null, pulled = null, pullFrom = 0;
         var scenes = SceneStrip(panel, tl, {
           duration: duration,
           aspect: function () {
@@ -9756,31 +9857,47 @@
             var h = vpHover(layout, t, 0);
             return h.chapter ? h.chapter.title : '';
           },
+          glow: glowScenes,
           paint: paintScene,
           cancel: function (c) {
             if (c._job) { preview.cancel(c._job); c._job = null; }
           },
+          scan: scan,
           pick: pickScene,
           closed: function (why) {
-            el.classList.remove('scenes-open');
+            el.classList.remove('scenes-open', 'pulling');
+            if (opts.scenes) opts.scenes(false);
             if (why !== 'pick' && resumeAfterScenes && v) v.play().catch(function () { });
             resumeAfterScenes = false;
             if (opts.activity) opts.activity();
           }
         });
 
-        function setLift(p) {
-          pop.style.setProperty('--lift', p > 0 ? p.toFixed(3) : '0');
-          pop.classList.toggle('lifting', p > 0);
+        
+        
+        function scan(t) {
+          var dur = duration();
+          scanT = t != null && dur > 0 ? t : null;
+          scanEl.hidden = scanT == null;
+          if (scanT != null) scanEl.style.left = Math.min(100, scanT / dur * 100) + '%';
+          update();
+        }
+
+        
+        
+        function glowScenes(c) {
+          c.classList.remove('drawn');
+          if (!v || !v.videoWidth || !c.getContext) return;
+          try {
+            var vh = v.videoHeight;
+            c.getContext('2d').drawImage(v, 0, vh * 0.8, v.videoWidth, vh * 0.2, 0, 0, c.width, c.height);
+            c.classList.add('drawn');
+          } catch (e) { }
         }
 
         
         function popCenter() {
           return tl.getBoundingClientRect().left + (parseFloat(pop.style.left) || 0);
-        }
-
-        function liftAt(x, y, open) {
-          return vpLift(tl.getBoundingClientRect().top - y, x - popCenter(), (pop.offsetWidth || 176) / 2, open);
         }
 
         
@@ -9795,8 +9912,12 @@
             x = r.left + r.width * Math.min(1, t / dur);
           }
           hidePop();
+          el.classList.remove('pulling');
           var ok = scenes.open(t, x);
-          if (ok) el.classList.add('scenes-open');
+          if (ok) {
+            el.classList.add('scenes-open');
+            if (opts.scenes) opts.scenes(true);
+          }
           if (opts.activity) opts.activity();
           return ok;
         }
@@ -9881,23 +10002,6 @@
           if (opts.activity) opts.activity();
         }
 
-        doc.addEventListener('pointermove', function (e) {
-          if (scenes.isOpen()) { scenes.pointer(e); return; }
-          if (!lifting || !v) return;
-          var l = liftAt(e.clientX, e.clientY, VP_LIFT_OPEN);
-          if (l.state === 'rail') {
-            
-            
-            if (e.clientY > tl.getBoundingClientRect().bottom) hidePop();
-            return;
-          }
-          if (l.state === 'away') { hidePop(); return; }
-          if (l.state === 'open') { openScenes(hoverT, popCenter()); return; }
-          setLift(l.p);
-        });
-        doc.addEventListener('pointerout', function (e) {
-          if (lifting && !e.relatedTarget) hidePop();
-        });
         doc.addEventListener('pointerdown', function (e) { scenes.press(e); }, true);
 
         
@@ -9906,6 +10010,7 @@
           e.preventDefault();
           try { tl.setPointerCapture(e.pointerId); } catch (err) { }
           dragging = true;
+          pullFrom = tl.getBoundingClientRect().top;
           wasPaused = v.paused;
           if (!v.paused) v.pause();
           el.classList.add('scrubbing');
@@ -9919,27 +10024,45 @@
           if (!v || scenes.isOpen()) return;
           
           
-          if (dragging && e.pointerType !== 'mouse' && hoverT != null) {
-            var l = liftAt(e.clientX, e.clientY, VP_LIFT_TOUCH);
-            if (l.state === 'open') {
-              dragging = false;
-              el.classList.remove('scrubbing');
-              try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
-              resumeAfterScenes = !wasPaused;
-              openScenes(hoverT, popCenter());
+          if (dragging && hoverT != null) {
+            
+            var pl = vpPull(pullFrom - e.clientY, VP_PULL_DEAD, VP_PULL_OPEN);
+            if (pl.state !== 'none') {
+              if (!pulled) pulled = { t: hoverT, x: popCenter() };
+              if (pl.state === 'open') {
+                var from = pulled;
+                pulled = null;
+                dragging = false;
+                el.classList.remove('scrubbing');
+                try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
+                resumeAfterScenes = !wasPaused;
+                openScenes(from.t, from.x);
+                return;
+              }
+              if (!el.classList.contains('pulling')) {
+                el.classList.add('pulling');
+                if (opts.scenes) opts.scenes(true);
+              }
+              scenes.pull(pl.r, pulled.t, pulled.x);
               return;
             }
-            if (l.state === 'rising') { setLift(l.p); return; }
+            if (pulled) unpull();
           }
-          if (lifting) { lifting = false; setLift(0); }
           var t = timeAt(e.clientX);
           if (dragging) {
             if (v.fastSeek) v.fastSeek(t); else v.currentTime = t;
           }
           if (dragging || e.pointerType === 'mouse' || e.pointerType === 'pen') showPop(t, e.clientX);
-          if (dragging) { setLift(0); update(t); }
+          if (dragging) update(t);
         });
+        
+        function unpull() {
+          pulled = null;
+          el.classList.remove('pulling');
+          scenes.release();
+        }
         function endDrag(e) {
+          if (pulled) unpull();
           if (!dragging) return;
           dragging = false;
           el.classList.remove('scrubbing');
@@ -9949,15 +10072,7 @@
         }
         tl.addEventListener('pointerup', endDrag);
         tl.addEventListener('pointercancel', endDrag);
-        tl.addEventListener('pointerleave', function (e) {
-          if (dragging) return;
-          
-          if (!pop.hidden && hoverT != null && e.pointerType !== 'touch' && e.clientY <= tl.getBoundingClientRect().top + 1) {
-            lifting = true;
-            return;
-          }
-          hidePop();
-        });
+        tl.addEventListener('pointerleave', function () { if (!dragging) hidePop(); });
         tl.addEventListener('keydown', function (e) {
           if (!v) return;
           var t = vpSliderKey(e, v.currentTime, duration());
@@ -10710,6 +10825,10 @@
         
         
         var dock = VideoDock({
+          
+          
+          
+          scenes: function (on) { dlg.classList.toggle('scenes-up', on); },
           fullscreen: function () {
             if (!fullscreenEnabled) return;
             if (isFullscreen()) { exitFullscreen(); autoFs = false; } else toggleFullscreen();
@@ -11345,7 +11464,7 @@
           dlg.classList.remove('strip-on');
         }
         function stripZone(e) {
-          if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip')) return;
+          if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up')) return;
           var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
           var m = currentMedia();
           if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);

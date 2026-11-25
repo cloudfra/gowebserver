@@ -25,6 +25,10 @@ var slideshow = (function () {
   // address says which video is on and where (vpHash), so it can be
   // shared and reopened there (openFromHash).
   var dock = VideoDock({
+    // While the timeline is stretched into its strip of scenes, the
+    // filmstrip stays as it is: neither coming up under it nor going,
+    // which would move the dock (--ss-band) mid-gesture.
+    scenes: function (on) { dlg.classList.toggle('scenes-up', on); },
     fullscreen: function () {
       if (!fullscreenEnabled) return;
       if (isFullscreen()) { exitFullscreen(); autoFs = false; } else toggleFullscreen();
@@ -660,7 +664,7 @@ var slideshow = (function () {
     dlg.classList.remove('strip-on');
   }
   function stripZone(e) {
-    if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip')) return;
+    if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up')) return;
     var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
     var m = currentMedia();
     if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);
