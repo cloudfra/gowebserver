@@ -26,7 +26,7 @@ Alert | Fires when | Severity
 GowebserverDown | The server can't be scraped for 2 minutes. | critical
 GowebserverRestarting | It restarted more than twice in 30 minutes. | warning
 GowebserverServerErrors | More than 5% of requests got a 5xx response for 10 minutes. | warning
-GowebserverSlowResponses | For a handler other than thumbnail, videometa, upload and proxy, the slowest 5% of requests waited more than 1 second for the response to start, for 10 minutes. | warning
+GowebserverSlowResponses | For a handler other than thumbnail, videometa, mediainfo, upload and proxy, the slowest 5% of requests waited more than 1 second for the response to start, for 10 minutes. | warning
 GowebserverSlowProxyUpstream | The slowest 5% of proxied requests took more than 5 seconds, for 10 minutes. | warning
 GowebserverProxyUpstreamErrors | More than 10% of proxied requests failed or got a 5xx response for 10 minutes. | warning
 GowebserverThumbnailBacklog | The slowest 5% of thumbnails waited more than 5 seconds for a render slot, for 10 minutes. | warning

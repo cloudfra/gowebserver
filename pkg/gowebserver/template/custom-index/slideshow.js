@@ -39,6 +39,26 @@ var slideshow = (function () {
   });
   var pendingAt = null, POS_KEY = 'gows-pos:';
 
+  // ---- The info panel (info.js) ----
+  // Docked, it takes room at the right (insets), so opening or closing
+  // it lays the slides out again, the current one moving into place.
+  var info = InfoPanel({
+    layout: function () {
+      if (!isOpen) return;
+      var m = currentMedia(), a = m && m.getBoundingClientRect();
+      relayoutSlides();
+      renderStrip();
+      if (!a || !a.width || reducedMotion.matches || !m.animate) return;
+      var b = m.getBoundingClientRect();
+      if (!b.width) return;
+      var s = a.width / b.width;
+      m.animate([
+        { transform: 'translate(' + (a.left + a.width / 2 - b.left - b.width / 2) + 'px,' + (a.top + a.height / 2 - b.top - b.height / 2) + 'px) scale(' + s + ')' },
+        { transform: m.style.transform || 'none' }
+      ], { duration: 380, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+    }
+  });
+
   function posKey(it) {
     return POS_KEY + location.pathname + '\n' + it.url;
   }
@@ -201,6 +221,7 @@ var slideshow = (function () {
   function measure() {
     W = stage.clientWidth;
     H = stage.clientHeight;
+    info.fit(W, H);
   }
 
   // A stage too small to show a picture beside its controls: phones in
@@ -219,12 +240,17 @@ var slideshow = (function () {
 
   // Space reserved around a slide for the controls; phones go edge to
   // edge. video says the slide is a video, which keeps its own controls.
+  // A docked info panel takes its room at the right (the next button
+  // moves left of it, in the stylesheet).
   function insets(video) {
+    // An info sheet over the bottom of a small stage takes the room
+    // below instead, so the photo shows above it.
+    var room = info.room(), below = info.roomBelow();
     // In full screen the controls float over the media instead, a
     // video's too: it covers the screen, and the filmstrip comes up
     // over it (stripZone).
-    if (tinyStage() || isFullscreen()) return { t: 0, r: 0, b: 0, l: 0 };
-    return { t: 76, r: 96, b: CFG.thumbs ? 104 : 64, l: 96 };
+    if (tinyStage() || isFullscreen()) return { t: 0, r: room, b: below, l: 0 };
+    return { t: 76, r: 96 + room, b: Math.max(CFG.thumbs ? 104 : 64, below), l: 96 };
   }
 
   // ---- The filmstrip and a video's own controls ----
@@ -534,6 +560,7 @@ var slideshow = (function () {
     btnPrev.disabled = idx === 0;
     btnNext.disabled = idx === list.length - 1;
     renderStrip();
+    info.show(it);
   }
 
   // Swaps a filmstrip thumbnail that didn't load for the placeholder.
@@ -556,7 +583,7 @@ var slideshow = (function () {
     stripRoom();
     // As many either side of the current one as fit across the
     // window, up to STRIP_RADIUS.
-    var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
+    var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - info.room() - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
     var lo = Math.max(0, idx - radius), hi = Math.min(list.length - 1, idx + radius);
     var keep = {};
     Array.prototype.slice.call(strip.children).forEach(function (b) {
@@ -888,7 +915,7 @@ var slideshow = (function () {
     chromeTimer = setTimeout(function () {
       // A paused video, an open menu or a held timeline keeps them.
       if (dock.holdsChrome()) return;
-      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover')) dlg.classList.add('chrome-off');
+      if (!dlg.querySelector('.ss-top:hover, .ss-bottom:hover, .ss-nav:hover, .vd-panel:hover, .ssi:hover')) dlg.classList.add('chrome-off');
     }, 2800);
   }
 
@@ -1059,6 +1086,7 @@ var slideshow = (function () {
     if (!isOpen || closing) return;
     closing = true;
     setAuto(false);
+    info.close(true);
     accent.clear('ss');
     var m = currentMedia();
     // Captured before any reset so a swipe-down or zoomed image flies
@@ -1087,7 +1115,16 @@ var slideshow = (function () {
   }
 
   addEventListener('popstate', function () { if (isOpen) close(); });
-  dlg.addEventListener('cancel', function (e) { e.preventDefault(); requestClose(); });
+  // Escape closes the info panel first (keydown below), and the slideshow
+  // only after: a cancel that comes with the Escape that just closed the
+  // panel is that Escape's.
+  var escClosedPanel = -1e9;
+  dlg.addEventListener('cancel', function (e) {
+    e.preventDefault();
+    if (info.isOpen()) { info.close(); return; }
+    if (performance.now() - escClosedPanel < 50) return;
+    requestClose();
+  });
 
   $('ss-close').addEventListener('click', requestClose);
   btnPrev.addEventListener('click', function () { step(-1); });
@@ -1097,6 +1134,20 @@ var slideshow = (function () {
 
   dlg.addEventListener('keydown', function (e) {
     if (!isOpen) return;
+    // Scrolling the info panel, or pressing one of its buttons.
+    if (info.ownsKey(e)) return;
+    if (e.key === 'Escape' && info.isOpen()) {
+      info.close();
+      escClosedPanel = performance.now();
+      e.preventDefault();
+      return;
+    }
+    if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      info.toggle();
+      showChrome();
+      e.preventDefault();
+      return;
+    }
     // A video's keys are the dock's (vpKey); the rest are the
     // slideshow's.
     var m = currentMedia();
@@ -1135,5 +1186,5 @@ var slideshow = (function () {
   }
   addEventListener('resize', function () { if (isOpen) { relayoutSlides(); renderStrip(); } });
 
-  return { open: open, openFromHash: openFromHash, dock: dock };
+  return { open: open, openFromHash: openFromHash, dock: dock, info: info };
 })();

@@ -46,6 +46,14 @@ type Info struct {
 	FPS float64
 	// Chapters are the chapters its container lists, in order.
 	Chapters []Chapter
+	// Tags are its container's own metadata (title, artist, comment,
+	// lyrics, creation_time, location...), by lowercase name.
+	Tags map[string]string `json:",omitempty"`
+	// Video and Audio describe its first video and audio stream as
+	// ffmpeg does ("h264 (High), yuv420p(tv, bt709, progressive)"), and
+	// Bitrate is its overall bit rate in kb/s; empty or 0 when unknown.
+	Video, Audio string `json:",omitempty"`
+	Bitrate      int    `json:",omitempty"`
 }
 
 var (
@@ -55,6 +63,11 @@ var (
 	streamSAR  = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: .*?\[SAR (\d+):(\d+) DAR`)
 	streamFPS  = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: .*?, (\d+(?:\.\d+)?) fps`)
 	rotation   = regexp.MustCompile(`rotation of (-?\d+(?:\.\d+)?) degrees`)
+	// A stream's line, after its kind: "Video: h264 (High), yuv420p..."
+	streamVideo = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Video: (.+?)\s*$`)
+	streamAudio = regexp.MustCompile(`(?m)^\s*Stream #\d+:\d+.*?: Audio: (.+?)\s*$`)
+	streamNoise = regexp.MustCompile(` \([0-9A-Za-z_ .]{1,4} / 0x[0-9A-Fa-f]+\)| \[SAR [^\]]*\]| \((?:default|forced|attached pic|dependent|original|comment|lyrics|karaoke|dub|visual_impaired|hearing_impaired|captions|descriptions|metadata)\)`)
+	bitrateLine = regexp.MustCompile(`(?m)^\s*Duration: .*?, bitrate: (\d+) kb/s`)
 )
 
 // Probe describes the media input (a file path or URL, or "pipe:0" for
@@ -79,7 +92,18 @@ func (f *FFmpeg) Probe(ctx context.Context, input string, stdin io.Reader) (*Inf
 		}
 		return nil, fmt.Errorf("ffmpeg: %w", err)
 	}
-	info := &Info{Chapters: parseChapters(stdout)}
+	info := &Info{Chapters: parseChapters(stdout), Tags: parseTags(stdout)}
+	if m := streamVideo.FindSubmatch(stderr); m != nil {
+		info.Video = trimStream(string(m[1]))
+	}
+	if m := streamAudio.FindSubmatch(stderr); m != nil {
+		info.Audio = trimStream(string(m[1]))
+	}
+	if m := bitrateLine.FindSubmatch(stderr); m != nil {
+		if v, err := strconv.Atoi(string(m[1])); err == nil {
+			info.Bitrate = v
+		}
+	}
 	if m := durationLine.FindSubmatch(stderr); m != nil {
 		if d, err := time.ParseDuration(string(m[1]) + "h" + string(m[2]) + "m" + string(m[3]) + "s"); err == nil && d > 0 {
 			info.Duration = d
@@ -120,6 +144,55 @@ func (f *FFmpeg) Probe(ctx context.Context, input string, stdin io.Reader) (*Inf
 func lastLine(stderr []byte) string {
 	lines := strings.Split(strings.TrimSpace(string(stderr)), "\n")
 	return strings.TrimSpace(lines[len(lines)-1])
+}
+
+// trimStream drops what ffmpeg adds to a stream's line besides its
+// description: the codec's tag, the pixel aspect, marks such as
+// "(default)" and the container's time bases ("25 tbr, 1k tbn").
+func trimStream(s string) string {
+	s = streamNoise.ReplaceAllString(s, "")
+	parts := strings.Split(s, ", ")
+	out := parts[:0]
+	for _, p := range parts {
+		if strings.HasSuffix(p, " tbr") || strings.HasSuffix(p, " tbn") || strings.HasSuffix(p, " tbc") {
+			continue
+		}
+		out = append(out, p)
+	}
+	return strings.TrimSpace(strings.Join(out, ", "))
+}
+
+// parseTags reads the input's own metadata from ffmpeg's ffmetadata
+// format: the key=value lines before the first [SECTION], by lowercase
+// key. Nil when there are none.
+func parseTags(data []byte) map[string]string {
+	var tags map[string]string
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	var pending string
+	for sc.Scan() {
+		line := pending + sc.Text()
+		pending = ""
+		if strings.HasSuffix(line, `\`) && !strings.HasSuffix(line, `\\`) {
+			pending = strings.TrimSuffix(line, `\`) + "\n"
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "["):
+			return tags
+		case line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#"):
+		default:
+			k, v := splitMeta(line)
+			if k == "" || v == "" {
+				continue
+			}
+			if tags == nil {
+				tags = map[string]string{}
+			}
+			tags[strings.ToLower(k)] = v
+		}
+	}
+	return tags
 }
 
 // parseChapters reads the chapters from ffmpeg's ffmetadata format: a

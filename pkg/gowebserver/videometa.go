@@ -828,7 +828,9 @@ func (h *videoMetaHandler) probe(ctx context.Context, name string, info fs.FileI
 		return nil, nil
 	}
 	version := fileVersion(info)
-	key := path.Join(h.source, name, "probe@"+hashHex(version))
+	// probe2: a description stored before ffmpeg.Info had the
+	// container's tags and streams isn't used for one that has them.
+	key := path.Join(h.source, name, "probe2@"+hashHex(version))
 	h.mu.Lock()
 	cached, ok := h.info[key]
 	h.mu.Unlock()

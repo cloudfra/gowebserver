@@ -37,6 +37,7 @@ const (
 	handlerThumbnail = "thumbnail" // a resized image or video frame
 	handlerRichView  = "richview"  // the text viewer
 	handlerVideoMeta = "videometa" // a video's metadata, preview sprite or subtitles as WebVTT (videometa.go)
+	handlerMediaInfo = "mediainfo" // a photo's, video's or song's details for the info panel, and its world map (mediainfo.go)
 	handlerUpload    = "upload"
 	handlerProxy     = "proxy" // passed on to another server
 	handlerIndex     = "index" // the list of served paths

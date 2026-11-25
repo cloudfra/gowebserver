@@ -3958,6 +3958,690 @@ main {
   }
 }
 
+/* ===== The info panel =====
+ * The current slide's details (info.js), on the slideshow's dark glass.
+ * Docked at the right of a wide stage, where the slide makes room for
+ * it (insets() in slideshow.js, --ssi-room here for the next button and
+ * the filmstrip); a sheet over the bottom of a small one. It moves with
+ * transform and opacity only. */
+.ssi {
+  --ssi-ink: #f3f4f7;
+  --ssi-ink-2: rgba(243, 244, 247, 0.72);
+  --ssi-ink-3: rgba(243, 244, 247, 0.5);
+  --ssi-line: rgba(255, 255, 255, 0.09);
+  --ssi-glass: rgba(18, 19, 24, 0.78);
+  position: absolute;
+  z-index: 5;
+  top: max(72px, calc(env(safe-area-inset-top) + 60px));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  background: var(--ssi-glass);
+  box-shadow: 0 20px 48px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  color: var(--ssi-ink);
+  font: 400 0.8125rem/1.45 var(--font-ui);
+  cursor: auto;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(24px) scale(0.98);
+  transform-origin: 100% 0;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease-out), transform 0.38s var(--ease), visibility 0s linear 0.38s;
+}
+
+.ss.info-on .ssi {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition: opacity 0.28s var(--ease-out), transform 0.42s var(--ease), visibility 0s;
+}
+
+/* The bar above stays: the panel sits below it, and fading with the
+   controls would hide what's being read. */
+.ss.info-docked .ss-next {
+  right: calc(var(--ssi-room) + max(6px, env(safe-area-inset-right)));
+}
+
+.ss.info-docked .ss-bottom {
+  right: var(--ssi-room);
+}
+
+.ssi-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 6px 18px;
+  flex: none;
+}
+
+.ssi-title {
+  flex: 1;
+  margin: 0;
+  font: 600 0.9375rem/1.2 var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.ssi-x {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ssi-ink-2);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, transform 0.2s var(--ease);
+}
+
+.ssi-x:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ssi-ink);
+}
+
+.ssi-x:active {
+  transform: scale(0.9);
+}
+
+.ssi-x svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.ssi-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 18px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ssi :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Where ---- */
+.ssi-loc {
+  margin: 4px 0 14px;
+}
+
+.ssi-map {
+  position: relative;
+  margin: 0 0 10px;
+  aspect-ratio: 5 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0c121c;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  isolation: isolate;
+}
+
+.ssi-map-art,
+.ssi-map svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ssi-map svg {
+  display: block;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.ssi-map.drawn svg {
+  opacity: 1;
+}
+
+.ssi-sea {
+  fill: #0c1420;
+}
+
+.ssi-grid {
+  fill: none;
+  stroke: rgba(150, 180, 230, 0.09);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.ssi-land,
+.ssi-here {
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ssi-land {
+  fill: #252b37;
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.ssi-here {
+  fill: color-mix(in oklab, var(--accent) 16%, #2b313d);
+  stroke: color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+.ssi-fov {
+  fill: color-mix(in oklab, var(--accent) 34%, transparent);
+  stroke: none;
+}
+
+.ssi-acc {
+  fill: color-mix(in oklab, var(--accent) 16%, transparent);
+  stroke: color-mix(in oklab, var(--accent) 60%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The pin: its point on the place, a ring pulsing out under it. */
+.ssi-pin {
+  --pin: 26px;
+  position: absolute;
+  left: 50%;
+  top: var(--pin-y, 50%);
+  z-index: 1;
+  width: var(--pin);
+  height: var(--pin);
+  margin: calc(var(--pin) * -1) 0 0 calc(var(--pin) / -2);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s var(--ease-out), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ssi-map.drawn .ssi-pin,
+.ssi-map.no-map .ssi-pin {
+  opacity: 1;
+  transform: none;
+}
+
+.ssi-pin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50% 50% 50% 0;
+  background: var(--accent);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 255, 255, 0.9);
+  transform: rotate(-45deg) scale(0.78);
+}
+
+.ssi-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -6px 0 0 -3.5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.ssi-map::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: var(--pin-y, 50%);
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ssi-map.drawn::after {
+  animation: ssi-pulse 2.4s var(--ease-out) 0.4s infinite;
+}
+
+@keyframes ssi-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.2);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+.ssi-map.no-map .ssi-map-art::before {
+  content: "Map unavailable";
+  position: absolute;
+  inset: auto 0 10px;
+  text-align: center;
+  color: var(--ssi-ink-3);
+  font-size: 0.75rem;
+}
+
+.ssi-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  border-radius: 9px;
+  overflow: hidden;
+  background: rgba(14, 15, 19, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.ssi-zbtn {
+  width: 28px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--ssi-ink);
+  font: 500 1rem/1 var(--font-ui);
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.ssi-zbtn + .ssi-zbtn {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.ssi-zbtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ssi-zbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ssi-where {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+}
+
+.ssi-coords {
+  margin-top: 2px;
+  color: var(--ssi-ink-2);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssi-osm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: color-mix(in oklab, var(--accent) 85%, #fff);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.ssi-osm:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ssi-osm svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- The facts ---- */
+.ssi-facts {
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.ssi-fact {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--ssi-line);
+}
+
+.ssi-loc + .ssi-facts > .ssi-fact:first-child,
+.ssi-body > .ssi-facts:first-child > .ssi-fact:first-child {
+  border-top: 0;
+}
+
+.ssi-fact dt {
+  color: var(--ssi-ink-3);
+  font-size: 0.75rem;
+  padding-top: 1px;
+}
+
+.ssi-fact dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssi-name dd {
+  font-weight: 500;
+}
+
+.ssi-dim {
+  display: block;
+  color: var(--ssi-ink-2);
+  font-size: 0.75rem;
+}
+
+.ssi-dim:empty {
+  display: none;
+}
+
+.ssi-skel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ssi-skel i {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  animation: ssi-wait 1.2s ease-in-out infinite alternate;
+}
+
+.ssi-skel i:nth-child(2) {
+  width: 72%;
+  animation-delay: 0.15s;
+}
+
+.ssi-skel i:nth-child(3) {
+  width: 48%;
+  animation-delay: 0.3s;
+}
+
+@keyframes ssi-wait {
+  to {
+    opacity: 0.4;
+  }
+}
+
+.ssi-note {
+  margin: 10px 0 0;
+  color: var(--ssi-ink-3);
+  font-size: 0.75rem;
+}
+
+/* ---- Lyrics and other text ---- */
+.ssi-text {
+  margin-top: 14px;
+}
+
+.ssi-text h3,
+.ssi-group h3 {
+  margin: 0 0 6px;
+  color: var(--ssi-ink-3);
+  font: 600 0.6875rem/1.2 var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ssi-lang {
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  letter-spacing: 0.04em;
+}
+
+.ssi-prose {
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px var(--ssi-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ssi-ts {
+  display: inline-block;
+  min-width: 5.2em;
+  color: color-mix(in oklab, var(--accent) 80%, #fff);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- More details ---- */
+.ssi-more,
+.ssi-tags {
+  margin-top: 14px;
+  border-top: 1px solid var(--ssi-line);
+}
+
+.ssi-more > summary,
+.ssi-tags > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 2px 10px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.ssi-more > summary::-webkit-details-marker,
+.ssi-tags > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ssi-sum {
+  flex: 1;
+  min-width: 0;
+}
+
+.ssi-sum-t {
+  font-weight: 600;
+}
+
+.ssi-sum .ssi-dim {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ssi-tags > summary .ssi-sum-t {
+  flex: 1;
+}
+
+.ssi-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ssi-ink-2);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ssi-chev {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--ssi-ink-2);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.3s var(--ease);
+}
+
+details[open] > summary > .ssi-chev {
+  transform: rotate(90deg);
+}
+
+summary:hover .ssi-chev {
+  stroke: var(--ssi-ink);
+}
+
+.ssi-more[open] > .ssi-more-body,
+.ssi-tags[open] > .ssi-raw {
+  animation: ssi-open 0.32s var(--ease-out);
+}
+
+@keyframes ssi-open {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.ssi-group {
+  margin-bottom: 14px;
+}
+
+.ssi-group .ssi-fact {
+  grid-template-columns: 108px 1fr;
+  padding: 5px 0;
+}
+
+.ssi-group .ssi-fact:first-child {
+  border-top: 0;
+}
+
+.ssi-raw {
+  margin: 0 0 4px;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+.ssi-raw > div:not(.ssi-raw-group) {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.ssi-raw dt {
+  color: var(--ssi-ink-2);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.ssi-raw dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ssi-raw-group {
+  margin: 10px 0 2px;
+  color: var(--ssi-ink-3);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The button's icon: the dot hops while it's pointed at. */
+.ss-btn .i-dot,
+.ss-btn .i-stem {
+  stroke-width: 2.2;
+}
+
+.ss-btn .i-dot {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ss-btn:is(:hover, :focus-visible) .i-dot {
+  transform: translateY(-1.6px);
+}
+
+#ss-info[aria-expanded="true"] {
+  background: var(--accent);
+  border-color: transparent;
+  color: #0e0f12;
+}
+
+/* ---- A sheet on a small stage ---- */
+.ss.info-sheet .ssi {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: var(--ssi-sheet, 56%);
+  border-width: 1px 0 0;
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(100%);
+  transform-origin: 50% 100%;
+}
+
+.ss.info-sheet.info-on .ssi {
+  transform: none;
+}
+
+.ss.info-sheet .ssi-head::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.ss.info-sheet .ssi-head {
+  padding-top: 16px;
+}
+
+.ss.info-sheet .ssi-map {
+  aspect-ratio: 2 / 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ssi,
+  .ss.info-on .ssi,
+  .ss.info-sheet .ssi {
+    transform: none;
+  }
+
+  .ssi-map.drawn::after,
+  .ssi-skel i {
+    animation: none;
+  }
+
+  .ssi-pin {
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   *,

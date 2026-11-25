@@ -128,7 +128,7 @@ function files(n) {
   });
   pg.document.getElementById('ss-stage').clientWidth = 1280;
   pg.document.getElementById('ss-stage').clientHeight = 800;
-  const s = load(pg, FILES.concat('custom-index/player.js', 'custom-index/slideshow.js'), ['slideshow', 'all']);
+  const s = load(pg, FILES.concat('custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'), ['slideshow', 'all']);
   s.slideshow.open(s.all.filter((it) => !it.video), 0, null, false);
   const dlg = pg.document.getElementById('ss');
   let i = 0;

@@ -203,7 +203,7 @@ test('a segment shows what is played and buffered', () => {
 
 // ---- The dock in the slideshow ----
 
-const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/player.js', 'custom-index/slideshow.js'];
+const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // A slideshow over talk-0.mp4 to talk-4.mp4 and a photo, with fetch
 // answering ?meta from metas, and a session store.
