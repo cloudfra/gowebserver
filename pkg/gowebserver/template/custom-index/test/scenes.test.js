@@ -114,7 +114,7 @@ test('scrolling the strip is scrubbing backward: the time in its middle', () => 
 // ---- On the page ----
 
 const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js',
-  'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
+  'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/metaview.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // The strip's height in the stand-in, which has no layout: the bar
 // (26) and 6 either side of it when folded, and the compact dock's 63px

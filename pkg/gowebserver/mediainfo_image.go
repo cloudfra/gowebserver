@@ -1418,7 +1418,28 @@ func (c *mediaCollector) applyEmbedded() {
 		}
 	}
 	if c.xmp != nil {
-		c.applyXMP(parseXMP(c.xmp))
+		p := parseXMP(c.xmp)
+		where := c.xmpPath
+		if where == "" {
+			where = "XMP"
+		}
+		v := make(map[string]any, len(p.keys))
+		for _, k := range p.keys {
+			c.raw(where, k, strings.Join(p.vals[k], "; "))
+			if vals := p.vals[k]; len(vals) == 1 {
+				v[k] = vals[0]
+			} else {
+				list := make([]any, len(vals))
+				for i, x := range vals {
+					list[i] = x
+				}
+				v[k] = list
+			}
+		}
+		if len(v) > 0 {
+			c.structure(mediaStructure{Source: where, Name: "XMP", Count: 1, Value: v})
+		}
+		c.applyXMP(p)
 	}
 	if c.icc != nil {
 		c.applyICC(c.icc)

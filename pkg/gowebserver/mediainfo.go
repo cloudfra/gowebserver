@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -43,8 +44,10 @@ import (
 //     names, rating), the ICC profile, and the container's own facts
 //     (size, bit depth, color model, gamma);
 //   - videos: MP4 and QuickTime boxes (length, size, codecs, the date
-//     recorded, ISO 6709 location, iTunes-style tags such as ©lyr), and
-//     with ffmpeg, any container ffmpeg reads (videometa.go's probe);
+//     recorded, ISO 6709 location, iTunes-style tags such as ©lyr, mdta
+//     keys, XMP), timed metadata tracks and H.264/HEVC SEI user data
+//     (mediainfo_timed.go), and with ffmpeg, any container ffmpeg
+//     reads (videometa.go's probe);
 //   - songs: ID3v2 (USLT and SYLT lyrics), FLAC and Ogg Vorbis comments,
 //     MP4 tags.
 //
@@ -56,8 +59,12 @@ import (
 // The document is ranked for the panel: the location, the date, the
 // size and length come first as fields of their own; the details come
 // in groups (mediaGroupRank), their fields in mediaFieldRank's order;
-// embedded text (lyrics, descriptions) is its own list; and every tag
-// read is in Tags, for the panel's "All tags".
+// embedded text (lyrics, descriptions) is its own list; every tag read
+// is in Tags, for the panel's "All tags"; Raw is every key the
+// containers hold, where they hold it; and Structures are the
+// structured values (JSON or AMF0 in timed metadata, SEI, XMP) whole,
+// a message sent many times once, with what its fields did over time.
+// The panel's metadata viewer (metaview.js) shows the last two.
 //
 // The location's country is looked up here, offline, in the world map
 // the panel draws it on (geodata/worldmap.json, served as ?worldmap):
@@ -75,6 +82,10 @@ const (
 	mediaTagMax  = 300
 	// mediaTagsMax is the most tags listed.
 	mediaTagsMax = 500
+	// mediaRawMax is the most raw entries listed, and mediaRawValueMax
+	// the longest raw value, in runes.
+	mediaRawMax      = 1500
+	mediaRawValueMax = 2000
 	// mediaInfoCacheMax bounds the documents kept in memory.
 	mediaInfoCacheMax = 5000
 )
@@ -99,10 +110,21 @@ type mediaInfo struct {
 	Location *mediaLocation `json:"location,omitempty"`
 	// Place is where the file says it was taken, in words ("Eiffel
 	// Tower, Paris, France", from XMP), with or without a Location.
-	Place  string       `json:"place,omitempty"`
-	Text   []mediaText  `json:"text,omitempty"`
-	Groups []mediaGroup `json:"groups,omitempty"`
-	Tags   []mediaTag   `json:"tags,omitempty"`
+	Place      string           `json:"place,omitempty"`
+	Text       []mediaText      `json:"text,omitempty"`
+	Groups     []mediaGroup     `json:"groups,omitempty"`
+	Tags       []mediaTag       `json:"tags,omitempty"`
+	Raw        []mediaRaw       `json:"raw,omitempty"`
+	Structures []mediaStructure `json:"structures,omitempty"`
+}
+
+// mediaRaw is a key and its value as the file holds them, and where:
+// Path is the box ("moov/trak[2]/mdia/hdlr"), the timed metadata track
+// or SEI message, or the XMP packet.
+type mediaRaw struct {
+	Path  string `json:"path"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // mediaLocation is where a photo or video was taken.
@@ -149,7 +171,7 @@ type mediaTag struct {
 }
 
 // mediaGroupRank is the order of the detail groups, most telling first.
-var mediaGroupRank = []string{"Camera", "Exposure", "Song", "Video", "Audio", "Image", "Description", "File"}
+var mediaGroupRank = []string{"Camera", "Exposure", "Song", "Video", "Audio", "Data", "Image", "Description", "File"}
 
 // mediaFieldRank orders each group's fields; fields it doesn't name go
 // last, in the order they were found.
@@ -157,7 +179,8 @@ var mediaFieldRank = map[string][]string{
 	"Camera":      {"Camera", "Lens", "Lens specification", "Device"},
 	"Exposure":    {"Aperture", "Shutter speed", "ISO", "Focal length", "Exposure bias", "Flash", "Program", "Mode", "Metering", "White balance", "Light source", "Scene", "Digital zoom", "Subject distance", "Contrast", "Saturation", "Sharpness"},
 	"Song":        {"Title", "Artist", "Album", "Album artist", "Track", "Disc", "Year", "Genre", "Composer", "Cover art"},
-	"Video":       {"Title", "Codec", "Frame rate", "Bit rate", "Rotation", "Color"},
+	"Video":       {"Title", "Codec", "Encoder", "Frame rate", "Bit rate", "Rotation", "Color"},
+	"Data":        {"Timed metadata", "SEI"},
 	"Audio":       {"Codec", "Sample rate", "Channels", "Bit depth", "Bit rate"},
 	"Image":       {"Color model", "Bit depth", "Color space", "ICC profile", "Profile class", "Gamma", "Transfer", "Primaries", "HDR", "Compression", "Orientation", "Resolution", "Frames"},
 	"Description": {"Title", "Creator", "Copyright", "Keywords", "Rating", "Software", "Encoder", "Digitized", "Modified"},
@@ -178,6 +201,14 @@ type mediaCollector struct {
 	orientation int // EXIF's, 1 to 8
 	// An MP4's camera and the movie's creation time (finishMP4).
 	mp4Make, mp4Model, mp4Created string
+	// An MP4's tracks, its timed metadata, and the SEI user data in its
+	// video (mediainfo_timed.go).
+	tracks  []*mp4Track
+	timed   []timedMessage
+	sei     []seiMessage
+	rawFull bool
+	// xmpPath is the box the XMP came from, when a box did.
+	xmpPath string
 }
 
 func newMediaCollector(doc *mediaInfo) *mediaCollector {
@@ -202,6 +233,22 @@ func (c *mediaCollector) tag(group, name, value string) {
 		return
 	}
 	c.doc.Tags = append(c.doc.Tags, mediaTag{Group: group, Name: name, Value: truncateRunes(value, mediaTagMax)})
+}
+
+// raw lists a key and its value where the file holds them.
+func (c *mediaCollector) raw(path, key, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	if len(c.doc.Raw) >= mediaRawMax {
+		if !c.rawFull {
+			c.rawFull = true
+			c.doc.Raw = append(c.doc.Raw, mediaRaw{Path: "…", Key: "…", Value: "more than " + strconv.Itoa(mediaRawMax) + " entries: the rest aren't listed"})
+		}
+		return
+	}
+	c.doc.Raw = append(c.doc.Raw, mediaRaw{Path: path, Key: key, Value: truncateRunes(value, mediaRawValueMax)})
 }
 
 // text adds a block of embedded text, unless one with the same text is
@@ -389,6 +436,7 @@ func (h *mediaInfoHandler) build(ctx context.Context, name, kind string, info fs
 		slog.Debug("a file's metadata is incomplete", "path", name, "error", perr)
 	}
 	c.applyEmbedded()
+	c.applyTimed()
 	if kind == "video" || (kind == "audio" && doc.Duration == 0) {
 		if probe, err := h.vm.probe(ctx, name, info); probe != nil {
 			c.applyProbe(probe)
