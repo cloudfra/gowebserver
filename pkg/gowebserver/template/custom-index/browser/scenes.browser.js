@@ -124,13 +124,14 @@ test('the timeline held and pulled up stretches into the strip, a scene a minute
   assert.equal(s.hidden, false);
   assert.equal(s.open, false, 'not yet');
   assert.ok(s.bottom >= s.tlBottom && s.top < s.tlTop, 'grown up out of the bar: ' + JSON.stringify(s));
-  const halfHeight = s.height;
+  const halfClip = await p.$eval('#ss-stage .vd-scenes', (e) => e.style.clipPath);
+  assert.doesNotMatch(halfClip, /^inset\(0px( 0px)* round 14px\)$/, 'half way: the preview\'s card, growing out');
   await p.mouse.move(x, tl.y - 150, { steps: 4 });
   await p.mouse.up();
   await p.waitForSelector('#ss-stage .vd-scenes.open');
   await settled(p);
   s = await panel(p);
-  assert.ok(s.height > halfHeight + 20, 'taller open than half way');
+  assert.match(await p.$eval('#ss-stage .vd-scenes', (e) => e.style.clipPath), /^inset\(0px( 0px)* round 14px\)$/, 'all the way out');
   assert.equal(s.count, 12);
   assert.equal(s.lit, '6:00, The deep', 'the scene nearest where the pull started');
   assert.ok(Math.abs(s.left - (s.tlLeft - 6)) <= 1 && Math.abs(s.width - (s.tlWidth + 12)) <= 1, 'as wide as the bar: ' + JSON.stringify(s));
@@ -265,42 +266,36 @@ test('S and Escape: up and away, and the slideshow stays open', async (t) => {
   assert.equal((await panel(p)).dialog, true, 'the slideshow is still open');
 });
 
-test('in full screen: the filmstrip stays put while it\'s up, and it stretches above the filmstrip', async (t) => {
+test('in full screen: the filmstrip in the dock\'s row, and the strip of scenes over the bar, nothing moving the bar', async (t) => {
   if (!video) return t.skip('this browser can\'t encode the video');
   const p = b.page;
   await p.click('#ss-full');
   await p.waitForFunction(() => document.fullscreenElement === document.getElementById('ss-frame'));
   await p.waitForTimeout(500);
+  await p.mouse.move(400, 300, { steps: 3 });
+  await p.waitForFunction(() => document.getElementById('ss').classList.contains('strip-inline'));
   const before = await panel(p);
-  // Open: the bottom edge doesn't bring the filmstrip up under it.
+  const row = await p.evaluate(() => {
+    const r = document.querySelector('#ss-stage .vd-row').getBoundingClientRect(), s = document.getElementById('ss-strip').getBoundingClientRect();
+    return { rowTop: r.top, rowBottom: r.bottom, top: s.top, bottom: s.bottom };
+  });
+  assert.ok(row.top >= row.rowTop - 4 && row.bottom <= row.rowBottom + 4, 'the filmstrip in the row: ' + JSON.stringify(row));
+  // Pulled open: the video and the bar where they were.
   const { x, tl } = await pullAt(p, 0.5, 60);
   await p.mouse.move(x, tl.y - 160, { steps: 4 });
   await p.mouse.up();
   await settled(p);
   let s = await panel(p);
   assert.deepEqual(s.video, before.video, 'the video doesn\'t move');
-  // The screen's very bottom edge (its size is the browser's own).
+  assert.equal(s.tlTop, before.tlTop, 'nor the bar');
+  // The screen's very bottom edge (its size is the browser's own) brings
+  // nothing up.
   const edge = await p.evaluate(() => Math.round(document.getElementById('ss-frame').getBoundingClientRect().bottom) - 2);
   await p.mouse.move(x, edge, { steps: 4 });
   await p.waitForTimeout(300);
-  assert.equal((await panel(p)).stripOn, false, 'no filmstrip while it\'s up');
-  await p.click('#ss-name');
-  await gone(p);
-  // The filmstrip up (from the bottom edge), the dock lifts above it,
-  // and the strip with the dock.
-  await p.mouse.move(x, edge - 40, { steps: 2 });
-  await p.mouse.move(x, edge, { steps: 4 });
-  await p.waitForFunction(() => document.getElementById('ss').classList.contains('strip-on'));
-  await p.waitForTimeout(500);
-  const band = await p.$eval('.ss-bottom', (e) => Math.round(e.getBoundingClientRect().top));
-  // The keys from the timeline: in full screen the dialog itself is
-  // outside what's shown, and can't take the focus.
-  await p.focus('#ss-stage .vd-tl');
-  await p.keyboard.press('s');
-  await settled(p);
   s = await panel(p);
-  assert.ok(s.bottom <= band + 1, 'above the filmstrip: ' + s.bottom + ' over ' + band);
-  assert.equal(s.stripOn, true, 'and the filmstrip stays');
+  assert.equal(s.stripOn, false, 'no filmstrip from the bottom edge');
+  assert.equal(s.tlTop, before.tlTop, 'and the bar where it was');
   await p.click('#ss-name');
   await gone(p);
   await p.evaluate(() => document.exitFullscreen());

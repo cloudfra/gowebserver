@@ -21,7 +21,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, plain, markup } = require('../../harness.js');
 
-const NAMES = ['vpSceneStep', 'vpSceneCount', 'vpSceneNearest', 'vpSceneWindow', 'vpSceneScroll', 'vpSceneScan', 'vpPull', 'vpChain', 'vpChainDelay', 'vpCover',
+const NAMES = ['vpSceneStep', 'vpSceneCount', 'vpSceneNearest', 'vpSceneWindow', 'vpSceneScroll', 'vpSceneScan', 'vpSceneSize', 'vpPull', 'vpChain', 'vpChainDelay', 'vpCover',
   'VP_PULL_DEAD', 'VP_PULL_OPEN', 'VP_PULL_GIVE'];
 
 function sc() {
@@ -136,9 +136,11 @@ const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thu
   'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/metaview.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // The strip's height in the stand-in, which has no layout: the bar
-// (26) and 6 either side of it when folded, and the compact dock's 63px
-// scenes and 14 over them more when open.
-const BASE = 38, FULL = 38 + 63 + 14;
+// (26) and 6 either side of it, and the compact dock's 63px scenes and 14
+// over them. Its clip when it's all out, and when it's the preview's
+// card (the lit scene's box, and 6 around it).
+const FULL = 38 + 63 + 14, OPEN_CLIP = 'inset(0px 0px 0px 0px round 14px)';
+const insets = (clip) => (clip.match(/-?[\d.]+px/g) || []).slice(0, 4).map(parseFloat);
 
 // A slideshow over two videos, talk-0.mp4 lasting dur seconds, with its
 // metadata (meta) and the canvases' drawing recorded (draws).
@@ -209,7 +211,7 @@ function setup(opts) {
       const scenes = el.querySelectorAll('.vd-scene');
       return {
         open: !el.hidden && el.classList.contains('open'), hidden: el.hidden, eased: el.classList.contains('eased'),
-        height: el.style.height, u: el.style.getPropertyValue('--u'), count: +el.dataset.count, mounted: scenes.map((f) => f._i),
+        height: el.style.height, clip: el.style.clipPath, gone: el.classList.contains('gone'), u: el.style.getPropertyValue('--u'), count: +el.dataset.count, mounted: scenes.map((f) => f._i),
         labels: scenes.map((f) => f.getAttribute('aria-label')),
         lit: scenes.filter((f) => f.classList.contains('on')).map((f) => f._i),
         active: el.getAttribute('aria-activedescendant'),
@@ -238,6 +240,7 @@ test('S stretches the bar into the strip on the current time, a scene a minute, 
   assert.equal(s.active, 'vd-scene-2');
   assert.deepEqual(s.labels.slice(0, 3), ['0:00', '1:00', '2:00']);
   assert.equal(s.height, FULL + 'px', 'all the way up');
+  assert.equal(s.clip, OPEN_CLIP, 'all the way out');
   assert.equal(s.u, '1');
   assert.equal(s.eased, true, 'easing up, not jumping');
   assert.equal(s.inside, true, 'the timeline grown: in the dock, behind the bar');
@@ -291,7 +294,8 @@ test('the keys move the lit scene and the bar\'s mark; Escape folds the strip an
   assert.equal(t.dlg.open, true);
   let s = t.panel();
   assert.equal(s.open, false);
-  assert.equal(s.height, BASE + 'px', 'folding back into the bar');
+  assert.ok(insets(s.clip)[3] > 0, 'narrowing back to the card: ' + s.clip);
+  assert.equal(s.gone, true, 'and going');
   assert.equal(s.u, '0');
   assert.equal(s.scan, null, 'the mark goes');
   assert.equal(s.up, false);
@@ -316,7 +320,7 @@ test('a scene picked grows over the video, which goes there and plays', async ()
   assert.equal(zoom.parentNode, t.q('.vdock'), 'over the video');
   assert.equal(zoom.classList.contains('grow'), true);
   assert.equal(t.panel().open, false, 'the strip folds');
-  assert.equal(t.panel().height, BASE + 'px');
+  assert.notEqual(t.panel().clip, OPEN_CLIP);
   assert.equal(v.paused, true, 'not yet');
   v.fire('seeked');
   t.pg.tick(560);
@@ -352,19 +356,23 @@ test('the timeline held and pulled up stretches into the strip, and past a point
   assert.equal(s.hidden, false);
   assert.equal(s.open, false);
   assert.equal(s.eased, false, 'with the pointer, not eased');
-  assert.equal(s.height, Math.round(BASE + (FULL - BASE) * 0.6) + 'px', 'the strip a little ahead of the scenes');
+  // The card grown out sideways 0.64 of the way (a little ahead of the
+  // scenes): 0.36 of its insets left.
+  const [top, , , left] = insets(s.clip);
+  assert.equal(top, Math.round(8 * 0.36), 'the card\'s top, nearly the strip\'s');
+  assert.ok(left > 0, 'not all the way out: ' + s.clip);
   assert.equal(s.u, '0.4', 'the scenes unfolding as far');
   assert.equal(s.still, true);
   assert.equal(t.q('.vdock').classList.contains('pulling'), true, 'the preview gives way to the strip');
   assert.equal(v.currentTime, 300, 'pulling doesn\'t seek');
   assert.deepEqual(s.lit, [5], 'on the time the pull started from');
-  // The chain, out of the bar: the scene under the pointer up, the ones
-  // either side less so the farther they are.
+  // The chain, out of the bar: the scene under the pointer is the
+  // preview, up all along; its neighbors first, the farther ones after.
   const rise = (i) => parseFloat(t.q('#vd-scene-' + i).style.getPropertyValue('--p'));
-  assert.equal(rise(5), 1, 'the nearest, up');
-  assert.ok(rise(4) < 1 && rise(4) > 0 && Math.abs(rise(4) - rise(6)) < 0.05, 'its neighbors on their way, alike');
-  assert.ok(rise(3) < rise(4) && rise(7) < rise(6), 'the next ones behind them');
-  assert.equal(rise(1), 0, 'the far ones still in the bar');
+  assert.equal(rise(5), 1, 'the preview\'s scene, up all along');
+  assert.ok(rise(4) > 0 && Math.abs(rise(4) - rise(6)) < 0.05, 'its neighbors first, alike');
+  assert.ok(rise(3) < rise(4) && rise(2) < rise(3) && rise(7) < rise(6), 'the next ones behind them');
+  assert.equal(rise(0), 0, 'the far ones still in the bar');
   // Past the point: open.
   t.tl('pointermove', 360, 500 - D - O);
   s = t.panel();
@@ -374,7 +382,8 @@ test('the timeline held and pulled up stretches into the strip, and past a point
   assert.equal(t.q('.vdock').classList.contains('scrubbing'), false, 'the scrub is over');
   // The rest of the chain comes up, each after the one nearer.
   const wait = (i) => parseInt(t.q('#vd-scene-' + i).style.getPropertyValue('--cd'), 10);
-  assert.equal(rise(1), 1, 'all on their way up');
+  assert.equal(rise(0), 1, 'all on their way up');
+  assert.equal(s.clip, OPEN_CLIP);
   assert.ok(wait(5) < wait(4) && wait(4) < wait(3) && wait(3) < wait(2), 'the nearest first');
   t.tl('pointerup', 360, 300);
   assert.equal(v.currentTime, 300, 'letting go doesn\'t seek');
@@ -389,7 +398,7 @@ test('let go before it opens and it springs back into the bar, the press a scrub
   assert.equal(t.panel().hidden, false);
   t.tl('pointerup', 120, 430);
   let s = t.panel();
-  assert.equal(s.height, BASE + 'px', 'back into the bar');
+  assert.notEqual(s.clip, OPEN_CLIP, 'back to the card');
   assert.equal(s.eased, true);
   assert.equal(v.currentTime, 120, 'seeks where it was let go, as a scrub');
   t.pg.tick(800);
@@ -398,7 +407,7 @@ test('let go before it opens and it springs back into the bar, the press a scrub
   t.tl('pointerdown', 300, 510);
   t.tl('pointermove', 300, 440);
   t.tl('pointermove', 240, 510);
-  assert.equal(t.panel().height, BASE + 'px');
+  assert.notEqual(t.panel().clip, OPEN_CLIP);
   assert.equal(v.currentTime, 240, 'scrubbing again');
   t.tl('pointerup', 240, 510);
 });
@@ -439,7 +448,7 @@ test('swiped down, the strip folds back into the bar', async () => {
   assert.equal(t.panel().open, true, 'not yet');
   view.fire('pointermove', { clientX: 310, clientY: 760, pointerType: 'touch', pointerId: 9 });
   assert.equal(t.panel().open, false);
-  assert.equal(t.panel().height, BASE + 'px');
+  assert.notEqual(t.panel().clip, OPEN_CLIP);
 });
 
 test('scrolled, the bar\'s mark follows the time in the middle, and new scenes slide in', async () => {
@@ -535,4 +544,46 @@ test('the timeline, the time and each control come and go in order', async () =>
   assert.ok(risers[2].classList.contains('vd-time'), 'then the time');
   assert.ok(risers.some((x) => x.classList.contains('vd-full')), 'and every control, to full screen');
   assert.equal(dock.style.getPropertyValue('--vd-n'), String(risers.length - 1), 'going, the last first');
+});
+
+test('a scene and the preview are one size', () => {
+  const p = sc();
+  assert.deepEqual(plain(p.vpSceneSize(false, 16 / 9)), { w: 160, h: 90 });
+  assert.deepEqual(plain(p.vpSceneSize(true, 16 / 9)), { w: 112, h: 63 }, 'the compact dock\'s');
+  assert.deepEqual(plain(p.vpSceneSize(false, 9 / 16)), { w: 160, h: 160 }, 'a tall video\'s cut square');
+  assert.deepEqual(plain(p.vpSceneSize(false, 4)), { w: 160, h: 67 }, 'a very wide one not too thin');
+  assert.deepEqual(plain(p.vpSceneSize(false, 0)), { w: 160, h: 90 });
+});
+
+test('from the first pixel of the pull, the preview\'s scene is up, with the preview\'s picture', async () => {
+  const sprite = { sprite: './talk-0.mp4?sprite=ab12', interval: 5, columns: 10, count: 120, width: 160, height: 90 };
+  const t = setup({ meta: { duration: 600, thumbnails: sprite } });
+  await t.open(600);
+  t.tl('pointermove', 300, 510);
+  t.images[0].onload();
+  t.tl('pointerdown', 300, 510);
+  t.tl('pointermove', 300, 505);
+  const drawn = t.draws.length;
+  t.tl('pointermove', 300, 500 - 12 - 2);
+  const lit = t.q('#vd-scene-5');
+  assert.equal(lit.style.getPropertyValue('--p'), '1', 'already up, where the preview is');
+  assert.equal(t.q('#vd-scene-4').style.getPropertyValue('--p') < '0.2', true, 'its neighbors only starting');
+  const seeded = t.draws.slice(drawn).find((d) => d.canvas === lit.querySelector('canvas'));
+  assert.ok(seeded, 'its picture the preview\'s');
+});
+
+test('pulled open and still held, pulling back down folds it, nothing picked', async () => {
+  const t = setup();
+  const v = await t.open(600);
+  t.tl('pointerdown', 300, 510);
+  t.tl('pointermove', 300, 505);
+  t.tl('pointermove', 300, 360);
+  assert.equal(t.panel().open, true);
+  // The pointer is the document's now (the timeline let it go).
+  t.pg.document.fire('pointermove', { clientX: 300, clientY: 420, pointerId: 4, pointerType: 'mouse' });
+  assert.equal(t.panel().open, true, 'still above the line');
+  t.pg.document.fire('pointermove', { clientX: 300, clientY: 505, pointerId: 4, pointerType: 'mouse' });
+  assert.equal(t.panel().open, false, 'back down: folding');
+  assert.equal(v.currentTime, 300, 'nothing picked');
+  t.pg.document.fire('pointerup', { clientX: 300, clientY: 505, pointerId: 4, pointerType: 'mouse' });
 });

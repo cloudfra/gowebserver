@@ -125,16 +125,18 @@ test('pulled up, the scenes come out of the bar nearest first, on the preview\'s
   await p.mouse.move(x - 30, y);
   await p.mouse.move(x, y, { steps: 3 });
   await p.waitForSelector('#ss-stage .vd-pop:not([hidden])');
-  const previewBg = await p.$eval('#ss-stage .vd-pop-frame', (e) => getComputedStyle(e).backgroundColor);
+  const previewBg = await p.$eval('#ss-stage .vd-pop-text', (e) => getComputedStyle(e).backgroundColor);
+  assert.equal(await p.$eval('#ss-stage .vd-pop', (e) => getComputedStyle(e).backgroundColor), previewBg, 'the preview\'s card the gray of its time bubble');
   await p.mouse.down();
-  await p.mouse.move(x, tl.y - 12 - 45, { steps: 8 });
+  await p.mouse.move(x, tl.y - 12 - 25, { steps: 8 });
   // Part way: the one under the pointer furthest up, the rest behind it
   // the farther out they are.
   const rises = await p.evaluate((x) => Array.from(document.querySelectorAll('#ss-stage .vd-scene')).map((f) => {
     const r = f.getBoundingClientRect();
     return { d: Math.abs(r.left + r.width / 2 - x), p: parseFloat(f.style.getPropertyValue('--p')) };
   }).sort((a, b) => a.d - b.d), x);
-  assert.ok(rises[0].p > 0.5 && rises[0].p > rises[1].p, 'the nearest furthest up: ' + JSON.stringify(rises));
+  assert.equal(rises[0].p, 1, 'the one under the pointer, the preview, up all along: ' + JSON.stringify(rises));
+  assert.ok(rises[1].p > 0 && rises[1].p > rises[rises.length - 1].p, 'then its neighbors: ' + JSON.stringify(rises));
   for (let i = 1; i < rises.length; i++) assert.ok(rises[i].p <= rises[i - 1].p + 0.01, 'nearer first: ' + JSON.stringify(rises));
   assert.equal(rises[rises.length - 1].p, 0, 'the farthest still in the bar');
   await p.mouse.move(x, tl.y - 160, { steps: 4 });
@@ -150,8 +152,9 @@ test('pulled up, the scenes come out of the bar nearest first, on the preview\'s
       up: Array.from(el.querySelectorAll('.vd-scene')).every((f) => getComputedStyle(f).opacity === '1'),
     };
   });
-  assert.equal(s.bg, previewBg, 'the strip is the preview\'s very dark gray');
-  assert.match(s.image, /linear-gradient.*linear-gradient/, 'with the video\'s color bleeding in, over it and around the bar');
+  assert.equal(s.bg, previewBg, 'the strip is the gray of the preview\'s card and bubble');
+  assert.match(s.image, /^linear-gradient\(/, 'with the video\'s color bleeding in at the top');
+  assert.equal((s.image.match(/linear-gradient/g) || []).length, 1, 'only at the top');
   assert.equal(s.up, true, 'all up once open');
   // Folded: the chain back into the bar, the farthest first.
   await p.keyboard.press('Escape');

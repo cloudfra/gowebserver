@@ -3034,6 +3034,59 @@ main {
   cursor: auto;
 }
 
+/* In full screen with a mouse, over a video, the strip sits in the
+   dock's row, shrunk to its gap between the play button and time and
+   the controls at the right (strip-inline, set and placed by
+   slideshow.js), rather than coming up from the bottom edge and moving
+   the dock's bar up out of its way. It comes and goes with the dock. */
+.ss.is-fs.strip-inline .ss-bottom,
+.ss.is-fs.strip-inline:not(.strip-on) .ss-bottom:not(:focus-within) {
+  left: var(--ss-in-l, 0px);
+  right: auto;
+  bottom: var(--ss-in-b, 0px);
+  width: var(--ss-in-w, 0px);
+  padding: 0;
+  background: none;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.26s var(--ease-out) 0.1s, transform 0.34s var(--ease) 0.1s;
+}
+
+.ss.is-fs.strip-inline:not(.strip-on) .ss-bottom .ss-strip {
+  pointer-events: auto;
+}
+
+.ss.is-fs.strip-inline .ss-strip {
+  height: 44px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+}
+
+.ss.is-fs.strip-inline .ss-strip button {
+  width: 36px;
+  height: 36px;
+  margin-top: 4px;
+  border-radius: 5px;
+}
+
+.ss.is-fs.strip-inline .ss-strip button[aria-current] {
+  transform: none;
+}
+
+.ss.is-fs.strip-inline.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within),
+.ss.is-fs.strip-inline.scenes-up .ss-bottom:not(:focus-within) {
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease-out), transform 0.32s var(--ease);
+}
+
+.ss.is-fs.strip-inline.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
+.ss.is-fs.strip-inline.scenes-up .ss-bottom:not(:focus-within) .ss-strip {
+  pointer-events: none;
+}
+
 .ss.chrome-off .ss-top,
 .ss.chrome-off .ss-nav,
 .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
@@ -3149,8 +3202,11 @@ main {
   /* The shadow behind what's read: how dark, and how far it feathers. */
   --vd-shade: rgba(4, 5, 8, 0.7);
   --vd-feather: 14px;
-  /* The preview's box, and the strip of scenes it grows into. */
+  /* The preview's picture before it's in, and the scenes'. */
   --vd-preview-bg: #0c0d10;
+  /* The solid dark gray of the preview's card and its time bubble, and
+     of the strip of scenes the card grows into. */
+  --vd-card: #16181e;
   /* The video's own color (accent.js), deep and quiet, for what bleeds
      into that gray. */
   --vd-bleed: oklch(0.42 calc(var(--amb-c, 0.04) * 0.9) var(--amb-h, 265));
@@ -3205,7 +3261,19 @@ main {
     translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
 }
 
-.vd-cluster::before {
+/* One shadow for the whole dock, cast from the bar down across its full
+   width behind the controls (not one behind each of them), so the
+   picture darkens evenly under it. It comes and goes with the bar. */
+.vd-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 30px;
+  bottom: 0;
+  z-index: -1;
+  background: linear-gradient(to bottom, rgba(4, 5, 8, 0), rgba(4, 5, 8, 0.5) 30%, rgba(4, 5, 8, 0.72));
+  pointer-events: none;
   transition: opacity 0.3s var(--ease-out);
 }
 
@@ -3225,9 +3293,9 @@ main {
     translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
 }
 
-.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster::before {
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel::before {
   opacity: 0;
-  transition-delay: 0.12s;
+  transition-delay: 0.16s;
 }
 
 .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster {
@@ -3245,20 +3313,6 @@ main {
   pointer-events: auto;
 }
 
-/* A gentle band hugging the timeline: a blurred, rounded shadow, which
-   feathers without the steps a gradient this dark would show. */
-.vd-tl::before {
-  content: "";
-  position: absolute;
-  inset: 4px -6px;
-  z-index: -1;
-  border-radius: 999px;
-  background: var(--vd-shade);
-  opacity: 0.7;
-  filter: blur(calc(var(--vd-feather) * 0.75));
-  pointer-events: none;
-}
-
 .vd-tl:focus-visible {
   border-radius: 8px;
   box-shadow: 0 0 0 2px var(--accent);
@@ -3266,6 +3320,7 @@ main {
 
 .vd-rail {
   position: absolute;
+  z-index: 3;
   left: 0;
   right: 0;
   top: 50%;
@@ -3330,6 +3385,7 @@ main {
 
 .vd-head {
   position: absolute;
+  z-index: 4;
   top: 50%;
   width: 15px;
   height: 15px;
@@ -3349,25 +3405,40 @@ main {
   transform: scale(1);
 }
 
-/* ---- The preview over the timeline ---- */
+/* ---- The preview on the timeline ----
+ * A card of solid dark gray (--vd-card) that the bar passes through:
+ * the picture above the bar, as big as a scene in the strip and where
+ * its scene will be (6px over the bar), so pulling up grows the strip
+ * around it without moving it; and the time and chapter in a bubble of
+ * the same gray under the bar. The bar and its knob stay on top of the
+ * card (their z-index, above its). */
 .vd-pop {
   position: absolute;
-  bottom: calc(100% + 10px);
+  top: calc(-1 * (var(--vd-pop-h, 90px) + 12px));
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  padding: 6px 6px 0;
+  border-radius: 14px;
+  background: var(--vd-card);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 36px 4px rgba(0, 0, 0, 0.5);
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/* Where the bar crosses the card: the bar's height and 6px either side. */
+.vd-pop-gap {
+  flex: none;
+  height: 38px;
 }
 
 .vd-pop-frame {
   position: relative;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--vd-preview-bg);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .vd-pop-img {
@@ -3387,10 +3458,8 @@ main {
   flex-direction: column;
   align-items: center;
   max-width: 240px;
-  padding: 5px 10px 6px;
-  border-radius: 9px;
-  background: var(--vd-glass);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 24px 2px rgba(0, 0, 0, 0.5);
+  padding: 0 10px 7px;
+  background: var(--vd-card);
 }
 
 .vd-pop-label {
@@ -3427,17 +3496,17 @@ main {
  * is scrolled to. The scene nearest the time is ringed in the color the
  * bar plays in (--vd-played); hovering one rings it faintly. */
 .vd-pop.rise {
-  transform-origin: 50% 100%;
+  transform-origin: 50% calc(var(--vd-pop-h, 90px) + 25px);
   animation: vd-pop-rise 0.28s var(--ease-out);
 }
 
 @keyframes vd-pop-rise {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(16px) scale(0.4, 0.08);
+    transform: translateX(-50%) scale(0.06);
   }
 
-  60% {
+  55% {
     opacity: 1;
   }
 }
@@ -3453,14 +3522,11 @@ main {
   --vd-rail: 7px;
 }
 
-/* The bar's own shadow gives way to the strip's surface around it. */
-.vdock.scenes-open .vd-tl::before,
-.vdock.pulling .vd-tl::before {
-  opacity: 0;
-}
+
 
 .vd-scan {
   position: absolute;
+  z-index: 4;
   top: 50%;
   width: 4px;
   height: calc(var(--vd-rail) + 14px);
@@ -3480,21 +3546,24 @@ main {
   isolation: isolate;
   border-radius: 14px;
   background:
-    linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 34%, transparent), transparent 58%),
-    linear-gradient(to top, color-mix(in srgb, var(--vd-bleed) 26%, transparent), transparent calc(var(--vd-scenes-base, 38px) + 22px)),
-    var(--vd-preview-bg);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 -14px 40px rgba(0, 0, 0, 0.5);
-  opacity: clamp(0, calc(var(--u) * 6), 1);
+    linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 16%, transparent), transparent 42%),
+    var(--vd-card);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 -14px 40px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
 }
 
 .vd-scenes.eased {
-  transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
+  transition: clip-path 0.46s cubic-bezier(0.3, 1.15, 0.45, 1), opacity 0.2s;
 }
 
-/* Folding, the strip waits for the chain to sink before it shrinks. */
+/* Folding, the strip waits for the chain to sink before it narrows back
+   to the card, and goes. */
 .vd-scenes.eased:not(.open) {
-  transition: height 0.38s var(--ease) 0.2s, opacity 0.3s 0.3s;
+  transition: clip-path 0.34s var(--ease) 0.2s, opacity 0.18s 0.5s;
+}
+
+.vd-scenes.gone {
+  opacity: 0;
 }
 
 /* The video's bottom edge, stretched across the top and blurred into a
@@ -3508,13 +3577,13 @@ main {
   height: 110px;
   opacity: 0;
   filter: blur(24px) saturate(1.25);
-  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
-  mask-image: linear-gradient(to bottom, #000 25%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000 10%, transparent 70%);
   pointer-events: none;
 }
 
 .vd-scenes-glow.drawn {
-  opacity: 0.6;
+  opacity: 0.28;
 }
 
 /* The row of scenes sits on the bar, its top cut off by the strip until
@@ -3551,7 +3620,8 @@ main {
 }
 
 /* Down in the bar (--p 0) to up in place (--p 1), growing from its
-   bottom edge as it comes. */
+   bottom edge as it comes. The lit one is the preview the pull started
+   on, already up (scenes.js keeps its --p at 1). */
 .vd-scene {
   --p: 0;
   position: absolute;
@@ -3605,7 +3675,7 @@ main {
   background-size: 250% 100%;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.6);
   cursor: pointer;
-  transition: transform 0.26s var(--ease), box-shadow 0.2s;
+  transition: box-shadow 0.2s var(--ease-out);
   animation: vd-shimmer 1.4s linear infinite;
 }
 
@@ -3624,18 +3694,19 @@ main {
 }
 
 .vd-scene:hover .vd-scene-card {
-  transform: translateY(-4px);
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--vd-played) 55%, transparent), 0 10px 24px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 18px 3px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-/* The lit scene: the bar's played color, ring for ring. */
+/* The lit scene: the bar's played color, ring for ring; hovered, the
+   glow too. */
 .vd-scene.on .vd-scene-card {
-  box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent), 0 10px 26px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent);
 }
 
-.vd-scene:active .vd-scene-card {
-  transform: scale(0.97);
+.vd-scene.on:hover .vd-scene-card {
+  box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 18px 4px color-mix(in srgb, var(--accent) 60%, transparent);
 }
+
 
 .vd-scene-pic {
   display: block;
@@ -3736,17 +3807,6 @@ main {
   flex: none;
 }
 
-.vd-cluster::before {
-  content: "";
-  position: absolute;
-  inset: -12px -18px;
-  z-index: -1;
-  border-radius: 28px;
-  background: var(--vd-shade);
-  filter: blur(var(--vd-feather));
-  pointer-events: none;
-}
-
 .vd-btn {
   --vd-push: 0px;
   flex: none;
@@ -3806,7 +3866,7 @@ main {
     transform: none;
   }
 
-  .vd-btn:hover > :is(svg, .vd-rate-text) {
+  .vd-btn:hover > svg {
     scale: 1.1;
   }
 
@@ -3815,13 +3875,10 @@ main {
     translate: 0 -1px;
   }
 
-  .vd-rate:hover > .vd-rate-text {
-    translate: 1px 0;
-  }
 }
 
 /* Pressed: the icon gives a little, and the disc darkens. */
-.vd-btn:active > :is(svg, .vd-rate-text) {
+.vd-btn:active > svg {
   scale: 0.92;
   transition-duration: 0.08s;
 }
@@ -3979,28 +4036,55 @@ main {
   background: var(--accent);
 }
 
-/* Volume: the slider slides out of the mute button. */
+/* Volume: the slider stands up over the mute button, on a card of the
+   dock's dark gray, and goes up and down. Its card reaches down to the
+   button, so the pointer going up to it stays on it. */
 .vd-vol-slide {
-  width: 0;
-  overflow: hidden;
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 124px;
+  padding-bottom: 6px;
+  border-radius: 18px;
+  background: var(--vd-card);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.5);
   opacity: 0;
-  transition: width 0.22s var(--ease), opacity 0.18s;
+  translate: -50% 8px;
+  visibility: hidden;
+  transition: opacity 0.18s var(--ease-out), translate 0.22s var(--ease), visibility 0s 0.22s;
+}
+
+.vd-vol-slide::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 8px;
 }
 
 .vd-vol:hover .vd-vol-slide,
 .vd-vol:focus-within .vd-vol-slide {
-  width: 88px;
   opacity: 1;
+  translate: -50% -4px;
+  visibility: visible;
+  transition: opacity 0.18s var(--ease-out), translate 0.22s var(--ease), visibility 0s;
 }
 
 .vd-volume {
   --vol: 100%;
   display: block;
-  width: 76px;
-  height: 24px;
-  margin: 0 8px 0 4px;
+  width: 24px;
+  height: 96px;
+  margin: 0;
   background: transparent;
   cursor: pointer;
+  writing-mode: vertical-lr;
+  direction: rtl;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -4012,15 +4096,17 @@ main {
 }
 
 .vd-volume::-webkit-slider-runnable-track {
-  height: 4px;
+  width: 4px;
+  height: 100%;
+  margin: 0 auto;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
+  background: linear-gradient(to top, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
 }
 
 .vd-volume::-webkit-slider-thumb {
   width: 13px;
   height: 13px;
-  margin-top: -4.5px;
+  margin-left: -4.5px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -4030,9 +4116,10 @@ main {
 }
 
 .vd-volume::-moz-range-track {
-  height: 4px;
+  width: 4px;
+  height: 100%;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
+  background: linear-gradient(to top, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
 }
 
 .vd-volume::-moz-range-thumb {

@@ -122,6 +122,7 @@ var slideshow = (function () {
     var x0 = Math.max(x, p.l), y0 = Math.max(y, p.t);
     var x1 = Math.min(x + w, W - p.r), y1 = Math.min(y + h, H - p.b);
     dock.place({ x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) });
+    stripInline();
   }
 
   // Opens the slideshow on the video the address names (vpHash), at its
@@ -271,6 +272,41 @@ var slideshow = (function () {
   function hasStrip() {
     return CFG.thumbs && list.length > 1;
   }
+  // In full screen with a mouse, over a video, the strip doesn't come up
+  // from the bottom edge, which moved the dock and its bar up out of its
+  // way: it sits in the dock's own row, shrunk, between the play button
+  // and time at the left and the controls at the right (the row's gap,
+  // .vd-gap; strip-inline, at --ss-in-*), and comes and goes with the
+  // dock. Too narrow a gap, and it isn't shown.
+  var STRIP_INLINE_MIN = 120, STRIP_INLINE_STEP = 41, inlineW = 0;
+  function stripInline() {
+    var gap = dock.el.querySelector('.vd-gap'), row = dock.el.querySelector('.vd-row');
+    var on = !!(isOpen && isFullscreen() && finePointer.matches && hasStrip() && list[idx] && list[idx].video && dock.current() && gap && row);
+    var w = 0;
+    if (on) {
+      var g = gap.getBoundingClientRect(), r = row.getBoundingClientRect(), f = frame.getBoundingClientRect();
+      w = Math.round(g.width - 12);
+      on = g.width >= STRIP_INLINE_MIN;
+      if (on) {
+        dlg.style.setProperty('--ss-in-l', Math.round(g.left - f.left + 6) + 'px');
+        dlg.style.setProperty('--ss-in-w', w + 'px');
+        dlg.style.setProperty('--ss-in-b', Math.round(f.bottom - (r.top + r.height / 2) - 22) + 'px');
+      }
+    }
+    var was = dlg.classList.contains('strip-inline');
+    if (on && !was) hideStrip();
+    dlg.classList.toggle('strip-inline', on);
+    // As many thumbnails as fit in it.
+    if (on !== was || (on && Math.abs(w - inlineW) >= STRIP_INLINE_STEP)) {
+      inlineW = on ? w : 0;
+      renderStrip();
+    }
+  }
+
+  // The row's gap changes as the controls beside it do (the chapter's
+  // title, a group coming or going).
+  if (window.ResizeObserver) new ResizeObserver(function () { if (isOpen) stripInline(); }).observe(dock.el.querySelector('.vd-gap'));
+
   // The strip's height and the padding under it, as laid out: the
   // padding grows with the screen's safe area (an iPad's home bar).
   function stripBand() {
@@ -587,7 +623,9 @@ var slideshow = (function () {
     stripRoom();
     // As many either side of the current one as fit across the
     // window, up to STRIP_RADIUS.
-    var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - info.room() - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
+    var inline = dlg.classList.contains('strip-inline');
+    var room = inline ? inlineW : innerWidth - info.room() - STRIP_MARGIN, perStep = inline ? STRIP_INLINE_STEP : STRIP_STEP;
+    var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor((room / perStep - 1) / 2)));
     var lo = Math.max(0, idx - radius), hi = Math.min(list.length - 1, idx + radius);
     var keep = {};
     Array.prototype.slice.call(strip.children).forEach(function (b) {
@@ -664,7 +702,8 @@ var slideshow = (function () {
     dlg.classList.remove('strip-on');
   }
   function stripZone(e) {
-    if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up')) return;
+    if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up') ||
+      dlg.classList.contains('strip-inline')) return;
     var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
     var m = currentMedia();
     if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);

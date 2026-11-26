@@ -316,7 +316,7 @@ function VideoDock(opts) {
     '<div class="vd-head"></div><div class="vd-scan" hidden></div>' +
     '<div class="vd-pop" aria-hidden="true" hidden>' +
     '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
-    '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
+    '<div class="vd-pop-gap"></div><div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
     '</div>' +
     '</div>' +
     '<div class="vd-row"><span class="vd-cluster vd-left">' +
@@ -780,9 +780,11 @@ function VideoDock(opts) {
       return !s || (!s.ready && !s.failed);
     }
 
+    // The preview's size: a scene's in the strip (vpSceneSize), so the
+    // strip can grow around it without it moving.
     function size() {
-      var w = 176, vw = (sv && sv.videoWidth) || (v && v.videoWidth) || 16, vh = (sv && sv.videoHeight) || (v && v.videoHeight) || 9;
-      return { w: w, h: Math.max(40, Math.min(176, Math.round(w * vh / vw))) };
+      var vw = (sv && sv.videoWidth) || (v && v.videoWidth) || 16, vh = (sv && sv.videoHeight) || (v && v.videoHeight) || 9;
+      return vpSceneSize(el.classList.contains('compact'), vw / vh);
     }
 
     // Draws the sprite's or the track's frame at t into canvas c,
@@ -873,7 +875,8 @@ function VideoDock(opts) {
         var s = size(), dpr = Math.min(window.devicePixelRatio || 1, 2);
         if (popCanvas.width !== Math.round(s.w * dpr)) { popCanvas.width = Math.round(s.w * dpr); popCanvas.height = Math.round(s.h * dpr); }
         try {
-          popCanvas.getContext('2d').drawImage(sv, 0, 0, popCanvas.width, popCanvas.height);
+          var k = vpCover(sv.videoWidth, sv.videoHeight, popCanvas.width, popCanvas.height);
+          popCanvas.getContext('2d').drawImage(sv, k.x, k.y, k.w, k.h, 0, 0, popCanvas.width, popCanvas.height);
           drawn = true;
           shownT = sv._t;
         } catch (e) {
@@ -925,16 +928,19 @@ function VideoDock(opts) {
     if (h.chapter && h.chapter.title) label = label ? h.chapter.title + ' · ' + label : h.chapter.title;
     popLabel.textContent = label;
     popLabel.hidden = !label;
-    var th = preview.image(t);
+    var th = preview.image(t), sz = preview.size();
     if (th) {
-      var scale = Math.min(1, 176 / th.w);
+      // The sprite's frame, covering the box (cut evenly if the box isn't
+      // its shape).
+      var scale = Math.max(sz.w / th.w, sz.h / th.h);
+      var ox = (sz.w - th.w * scale) / 2, oy = (sz.h - th.h * scale) / 2;
       popFrame.hidden = false;
-      popFrame.style.width = Math.round(th.w * scale) + 'px';
-      popFrame.style.height = Math.round(th.h * scale) + 'px';
+      popFrame.style.width = sz.w + 'px';
+      popFrame.style.height = sz.h + 'px';
       popImg.hidden = false;
       popCanvas.hidden = true;
       popImg.style.backgroundImage = 'url("' + String(th.url).replace(/["\\]/g, '\\$&') + '")';
-      popImg.style.backgroundPosition = (-th.x * scale) + 'px ' + (-th.y * scale) + 'px';
+      popImg.style.backgroundPosition = (ox - th.x * scale) + 'px ' + (oy - th.y * scale) + 'px';
       popImg.style.backgroundSize = th.sheetW ? (th.sheetW * scale) + 'px ' + (th.sheetH * scale) + 'px' : '';
       el.dataset.preview = 'image';
     } else {
@@ -945,12 +951,14 @@ function VideoDock(opts) {
       popImg.hidden = true;
       popCanvas.hidden = !hasFrame;
       if (hasFrame) {
-        var s = preview.size();
-        popFrame.style.width = s.w + 'px';
-        popFrame.style.height = s.h + 'px';
+        popFrame.style.width = sz.w + 'px';
+        popFrame.style.height = sz.h + 'px';
       }
       el.dataset.preview = hasFrame ? 'frame' : 'none';
     }
+    // How high the picture is, for the card's place over the bar (none:
+    // just the time, under it).
+    pop.style.setProperty('--vd-pop-h', (popFrame.hidden ? 0 : sz.h) + 'px');
     if (pop.hidden) {
       // Coming up: out of the bar, growing from it.
       pop.classList.remove('rise');
@@ -958,7 +966,9 @@ function VideoDock(opts) {
       void pop.offsetWidth;
       pop.classList.add('rise');
     }
-    var r = tl.getBoundingClientRect(), half = pop.offsetWidth / 2;
+    // As near the ends as its scene in the strip can be, so it's where
+    // that scene will be.
+    var r = tl.getBoundingClientRect(), half = sz.w / 2 + 10;
     pop.style.left = Math.max(half, Math.min(r.width - half, x - r.left)) + 'px';
     update();
   }
@@ -981,7 +991,7 @@ function VideoDock(opts) {
   // (vpPull), and past a point opens; let go before then and it springs
   // back into the bar, the press a plain scrub. Open, scrolling the strip
   // moves a mark along the bar (scan).
-  var resumeAfterScenes = false, zoom = null, pulled = null, pullFrom = 0;
+  var resumeAfterScenes = false, zoom = null, pulled = null, pullFrom = 0, held = null;
   var scenes = SceneStrip(panel, tl, {
     duration: duration,
     aspect: function () {
@@ -993,6 +1003,7 @@ function VideoDock(opts) {
       return h.chapter ? h.chapter.title : '';
     },
     glow: glowScenes,
+    seed: seedScene,
     paint: paintScene,
     cancel: function (c) {
       if (c._job) { preview.cancel(c._job); c._job = null; }
@@ -1016,6 +1027,21 @@ function VideoDock(opts) {
     scanEl.hidden = scanT == null;
     if (scanT != null) scanEl.style.left = Math.min(100, scanT / dur * 100) + '%';
     update();
+  }
+
+  // What the preview shows now, for its scene in the strip: the sprite's
+  // frame at the pulled time, or the frame drawn in the preview.
+  function seedScene(c) {
+    if (!c.getContext) return false;
+    var t = pulled ? pulled.t : hoverT;
+    if (t != null && preview.drawImage(t, c) === 'done') return true;
+    if (popCanvas.hidden || !preview.hasFrame() || !popCanvas.width) return false;
+    try {
+      c.getContext('2d').drawImage(popCanvas, 0, 0, c.width, c.height);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // The video's bottom edge, a few pixels high, for the strip's top:
@@ -1138,6 +1164,19 @@ function VideoDock(opts) {
   }
 
   doc.addEventListener('pointerdown', function (e) { scenes.press(e); }, true);
+  // The pointer that pulled the strip open, still down: back below the
+  // line, the strip folds, nothing picked.
+  doc.addEventListener('pointermove', function (e) {
+    if (held == null || e.pointerId !== held) return;
+    if (!scenes.isOpen()) { held = null; return; }
+    if (pullFrom - e.clientY < VP_PULL_DEAD) {
+      held = null;
+      scenes.close('down');
+    }
+  });
+  ['pointerup', 'pointercancel'].forEach(function (type) {
+    doc.addEventListener(type, function (e) { if (e.pointerId === held) held = null; });
+  });
 
   // ---- The pointer on the timeline ----
   tl.addEventListener('pointerdown', function (e) {
@@ -1172,6 +1211,8 @@ function VideoDock(opts) {
           try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
           resumeAfterScenes = !wasPaused;
           openScenes(from.t, from.x);
+          // Still held: pulled back down, it goes again.
+          held = e.pointerId;
           return;
         }
         if (!el.classList.contains('pulling')) {
@@ -1291,7 +1332,8 @@ function VideoDock(opts) {
   }
   el.addEventListener('pointerover', function (e) {
     var b = e.target.closest && e.target.closest('.vd-btn');
-    if (!b || e.pointerType === 'touch' || b === tipFor) return;
+    // The mute button's own slider stands up where its tooltip would.
+    if (!b || e.pointerType === 'touch' || b === tipFor || b.classList.contains('vd-mute')) return;
     hideTip();
     tipTimer = setTimeout(function () { showTip(b); }, VP_TIP_DELAY);
   });
