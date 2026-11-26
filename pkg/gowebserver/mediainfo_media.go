@@ -107,6 +107,9 @@ func parseISOBMFF(s *mediaSource, c *mediaCollector) error {
 			return fmt.Errorf("mediainfo: a box is too short")
 		}
 		body := n - hl
+		if typ != "ftyp" && typ != "moov" && typ != "meta" && typ != "uuid" {
+			c.raw(boxName(typ), "size", fmtBytesRaw(n))
+		}
 		switch typ {
 		case "ftyp":
 			p, err := s.bytes(body)
@@ -115,6 +118,10 @@ func parseISOBMFF(s *mediaSource, c *mediaCollector) error {
 			}
 			if len(p) >= 4 {
 				brand := string(p[:4])
+				c.raw("ftyp", "major brand", brand)
+				if len(p) >= 8 {
+					c.raw("ftyp", "minor version", strconv.FormatUint(uint64(binary.BigEndian.Uint32(p[4:])), 10))
+				}
 				c.tag("MP4", "Major brand", strings.TrimSpace(brand))
 				format, ok := isoBrands[brand]
 				if !ok {
@@ -126,6 +133,7 @@ func parseISOBMFF(s *mediaSource, c *mediaCollector) error {
 					compat = append(compat, strings.TrimSpace(string(p[i:i+4])))
 				}
 				c.tag("MP4", "Compatible brands", strings.Join(compat, ", "))
+				c.raw("ftyp", "compatible brands", strings.Join(compat, ", "))
 			}
 		case "moov":
 			p, err := s.bytes(body)
@@ -134,8 +142,30 @@ func parseISOBMFF(s *mediaSource, c *mediaCollector) error {
 			}
 			parseMoov(c, p)
 			if heif == nil {
-				return nil
+				// What the tracks carry over time, read where it is
+				// (usually before the moov, in the media data); then, when
+				// the file can seek, the boxes after the moov (a UUID
+				// box's XMP).
+				after := s.pos
+				if err := c.readTimed(s); err != nil || s.seeker == nil || s.seek(after) != nil {
+					return err
+				}
 			}
+		case "uuid":
+			// A box of someone's own, named by a UUID: XMP's, or another
+			// to show as it is.
+			if body > 1<<20 {
+				c.raw("uuid", "size", fmtBytesRaw(n))
+				if err := s.skip(body); err != nil {
+					return err
+				}
+				continue
+			}
+			p, err := s.bytes(body)
+			if err != nil {
+				return err
+			}
+			c.uuidBox("uuid", p)
 		case "meta":
 			p, err := s.bytes(body)
 			if err != nil {
@@ -488,6 +518,13 @@ type mp4Track struct {
 	sampleBits           int
 	timescale, samples   uint64
 	duration             uint64
+	// path is the track's box ("moov/trak[2]"), entry its sample entry's
+	// type (avc1, mp4a, amf0...), compressor the encoder's name that
+	// entry may give, name the handler's name, and nalLen the length of
+	// an H.264 or HEVC sample's NAL unit sizes (0 for other codecs).
+	path, entry, compressor, name string
+	nalLen                        int
+	stbl                          []byte
 }
 
 func parseMoov(c *mediaCollector, moov []byte) {
@@ -500,12 +537,16 @@ func parseMoov(c *mediaCollector, moov []byte) {
 			if len(d) < 32 {
 				continue
 			}
-			var created uint64
+			var created, modified uint64
 			if d[0] == 1 {
-				created, timescale, duration = binary.BigEndian.Uint64(d[4:]), uint64(binary.BigEndian.Uint32(d[20:])), binary.BigEndian.Uint64(d[24:])
+				created, modified, timescale, duration = binary.BigEndian.Uint64(d[4:]), binary.BigEndian.Uint64(d[12:]), uint64(binary.BigEndian.Uint32(d[20:])), binary.BigEndian.Uint64(d[24:])
 			} else {
-				created, timescale, duration = uint64(binary.BigEndian.Uint32(d[4:])), uint64(binary.BigEndian.Uint32(d[12:])), uint64(binary.BigEndian.Uint32(d[16:]))
+				created, modified, timescale, duration = uint64(binary.BigEndian.Uint32(d[4:])), uint64(binary.BigEndian.Uint32(d[8:])), uint64(binary.BigEndian.Uint32(d[12:])), uint64(binary.BigEndian.Uint32(d[16:]))
 			}
+			c.raw("moov/mvhd", "creation time", macTime(created))
+			c.raw("moov/mvhd", "modification time", macTime(modified))
+			c.raw("moov/mvhd", "timescale", strconv.FormatUint(timescale, 10))
+			c.raw("moov/mvhd", "duration", strconv.FormatUint(duration, 10))
 			if created > 0 {
 				t := macEpoch.Add(time.Duration(created) * time.Second)
 				if t.Year() > 1970 {
@@ -514,13 +555,20 @@ func parseMoov(c *mediaCollector, moov []byte) {
 				}
 			}
 		case "trak":
-			tracks = append(tracks, parseTrak(d))
+			path := "moov/trak[" + strconv.Itoa(len(tracks)+1) + "]"
+			t := parseTrak(d)
+			t.path = path
+			tracks = append(tracks, t)
+			c.rawBoxes(path, d)
 		case "udta":
-			parseUdta(c, d)
+			parseUdta(c, d, "moov/udta")
 		case "meta":
-			parseIlstMeta(c, d)
+			parseIlstMeta(c, d, "moov/meta")
+		default:
+			c.rawBox("moov", b)
 		}
 	}
+	c.tracks = tracks
 	if timescale > 0 && duration > 0 && duration != math.MaxUint32 && duration != math.MaxUint64 {
 		c.doc.Duration = math.Round(float64(duration)/float64(timescale)*1000) / 1000
 	}
@@ -535,6 +583,7 @@ func parseMoov(c *mediaCollector, moov []byte) {
 				c.size(w, h)
 			}
 			c.add("Video", "Codec", t.codec)
+			c.add("Video", "Encoder", t.compressor)
 			if t.timescale > 0 && t.duration > 0 && t.samples > 1 {
 				fps := float64(t.samples) / (float64(t.duration) / float64(t.timescale))
 				c.add("Video", "Frame rate", formatFloat(fps, 2)+" fps")
@@ -588,6 +637,9 @@ func parseTrak(d []byte) *mp4Track {
 	mdia := isoFind(d, "mdia")
 	if hd := isoFind(mdia, "hdlr"); len(hd) >= 12 {
 		t.handler = string(hd[8:12])
+		if len(hd) > 24 {
+			t.name = hdlrName(hd[24:])
+		}
 	}
 	if md := isoFind(mdia, "mdhd"); len(md) >= 24 {
 		var lang uint16
@@ -601,19 +653,39 @@ func parseTrak(d []byte) *mp4Track {
 		}
 	}
 	stbl := isoFind(isoFind(mdia, "minf"), "stbl")
+	t.stbl = stbl
 	if sd := isoFind(stbl, "stsd"); len(sd) >= 16 {
 		e := sd[8:]
 		if len(e) >= 8 {
 			fourcc := string(e[4:8])
+			t.entry = fourcc
 			t.codec = mp4Codecs[fourcc]
 			if t.codec == "" {
 				t.codec = strings.TrimSpace(fourcc)
+			}
+			if n := int(binary.BigEndian.Uint32(e)); n >= 8 && n <= len(e) {
+				e = e[:n]
 			}
 			body := e[8:]
 			if t.handler == "soun" && len(body) >= 28 {
 				t.channels = int(binary.BigEndian.Uint16(body[16:]))
 				t.sampleBits = int(binary.BigEndian.Uint16(body[18:]))
 				t.sampleRate = int(binary.BigEndian.Uint32(body[24:]) >> 16)
+			}
+			// A visual sample entry: its compressor's name, a Pascal string
+			// of up to 31 bytes, then its codec's configuration.
+			if t.handler == "vide" && len(body) >= 78 {
+				if n := int(body[42]); n > 0 && n <= 31 {
+					t.compressor = strings.TrimSpace(strings.TrimRight(validUTF8(body[43:43+n]), "\x00"))
+				}
+				for _, x := range isoBoxes(body[78:]) {
+					switch {
+					case x.typ == "avcC" && len(x.data) >= 5:
+						t.nalLen = int(x.data[4]&3) + 1
+					case x.typ == "hvcC" && len(x.data) >= 22:
+						t.nalLen = int(x.data[21]&3) + 1
+					}
+				}
 			}
 		}
 	}
@@ -628,28 +700,32 @@ func parseTrak(d []byte) *mp4Track {
 
 // parseUdta reads QuickTime's user data: ©xyz (the location), ©mak and
 // ©mod (the camera), and the like, each a 16-bit length and language
-// then the text; and an iTunes meta box.
-func parseUdta(c *mediaCollector, d []byte) {
+// then the text; an iTunes meta box; and XMP (XMP_). Every other box
+// is listed as it is, for "Raw metadata".
+func parseUdta(c *mediaCollector, d []byte, path string) {
 	for _, b := range isoBoxes(d) {
-		if b.typ == "meta" {
-			parseIlstMeta(c, b.data)
-			continue
+		switch {
+		case b.typ == "meta":
+			parseIlstMeta(c, b.data, path+"/meta")
+		case b.typ == "XMP_":
+			c.xmpBox(path+"/XMP_", b.data)
+		case strings.HasPrefix(b.typ, "\xa9") && len(b.data) >= 4:
+			n := int(binary.BigEndian.Uint16(b.data))
+			if 4+n > len(b.data) {
+				n = len(b.data) - 4
+			}
+			v := strings.TrimRight(validUTF8(b.data[4:4+n]), "\x00")
+			c.raw(path, boxName(b.typ), v)
+			c.mp4Item(b.typ, v)
+		default:
+			c.rawBox(path, b)
 		}
-		if !strings.HasPrefix(b.typ, "\xa9") || len(b.data) < 4 {
-			continue
-		}
-		n := int(binary.BigEndian.Uint16(b.data))
-		if 4+n > len(b.data) {
-			n = len(b.data) - 4
-		}
-		v := strings.TrimRight(validUTF8(b.data[4:4+n]), "\x00")
-		c.mp4Item(b.typ, v)
 	}
 }
 
 // parseIlstMeta reads a meta box's item list: iTunes-style (the title, ©lyr)
 // or QuickTime's, named by a keys box (com.apple.quicktime.location.ISO6709).
-func parseIlstMeta(c *mediaCollector, d []byte) {
+func parseIlstMeta(c *mediaCollector, d []byte, path string) {
 	// iTunes' meta is a full box, QuickTime's isn't.
 	if len(d) >= 12 && string(d[8:12]) == "hdlr" && string(d[4:8]) != "hdlr" {
 		d = d[4:]
@@ -664,26 +740,32 @@ func parseIlstMeta(c *mediaCollector, d []byte) {
 				break
 			}
 			keys = append(keys, string(q[8:l]))
+			c.raw(path+"/keys", strconv.Itoa(i+1), string(q[4:8])+": "+string(q[8:l]))
 			q = q[l:]
 		}
 	}
+	if hd := isoFind(d, "hdlr"); len(hd) >= 12 {
+		c.raw(path+"/hdlr", "handler", strings.TrimRight(string(hd[8:12]), "\x00"))
+	}
 	for _, it := range isoBoxes(isoFind(d, "ilst")) {
-		name := it.typ
+		name, rawKey := it.typ, boxName(it.typ)
 		if len(keys) > 0 {
 			if i := int(binary.BigEndian.Uint32([]byte(it.typ))); i >= 1 && i <= len(keys) {
-				name = keys[i-1]
+				name, rawKey = keys[i-1], keys[i-1]
 			}
 		}
 		data := isoFind(it.data, "data")
 		if len(data) < 8 {
+			c.raw(path+"/ilst", rawKey, rawPreview(it.data))
 			continue
 		}
 		typ, v := binary.BigEndian.Uint32(data)&0xffffff, data[8:]
+		var s string
 		switch {
 		case name == "trkn" || name == "disk":
 			if len(v) >= 6 {
 				n, of := binary.BigEndian.Uint16(v[2:]), binary.BigEndian.Uint16(v[4:])
-				s := strconv.Itoa(int(n))
+				s = strconv.Itoa(int(n))
 				if of > 0 {
 					s += " of " + strconv.Itoa(int(of))
 				}
@@ -691,21 +773,33 @@ func parseIlstMeta(c *mediaCollector, d []byte) {
 			}
 		case name == "gnre":
 			if len(v) >= 2 {
-				c.mp4Item("©gen", id3Genre(strconv.Itoa(int(binary.BigEndian.Uint16(v))-1)))
+				s = id3Genre(strconv.Itoa(int(binary.BigEndian.Uint16(v)) - 1))
+				c.mp4Item("©gen", s)
 			}
 		case name == "covr":
-			c.mp4Item(name, map[uint32]string{13: "JPEG", 14: "PNG", 27: "BMP"}[typ]+fmt.Sprintf(" (%s)", fmtSize(len(v))))
+			s = map[uint32]string{13: "JPEG", 14: "PNG", 27: "BMP"}[typ] + fmt.Sprintf(" (%s)", fmtSize(len(v)))
+			c.mp4Item(name, s)
 		case typ == 1:
-			c.mp4Item(name, validUTF8(v))
+			s = validUTF8(v)
+			c.mp4Item(name, s)
 		case typ == 2:
-			c.mp4Item(name, utf16BE(v))
+			s = utf16BE(v)
+			c.mp4Item(name, s)
 		case typ == 21 || typ == 22:
 			var x uint64
 			for _, b := range v {
 				x = x<<8 | uint64(b)
 			}
-			c.mp4Item(name, strconv.FormatUint(x, 10))
+			s = strconv.FormatUint(x, 10)
+			c.mp4Item(name, s)
+		case typ == 23 && len(v) == 4:
+			s = formatFloat(float64(math.Float32frombits(binary.BigEndian.Uint32(v))), 6)
+		case typ == 24 && len(v) == 8:
+			s = formatFloat(math.Float64frombits(binary.BigEndian.Uint64(v)), 9)
+		default:
+			s = rawPreview(v)
 		}
+		c.raw(path+"/ilst", rawKey, s)
 	}
 }
 

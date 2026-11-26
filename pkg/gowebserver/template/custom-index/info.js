@@ -10,10 +10,12 @@
 //   3. the file's name;
 //   4. its size, with the picture's dimensions and the length;
 //   5. text the file carries: lyrics, a description, a comment;
-//   6. behind "More details": the camera and lens, the exposure, the
-//      song, the video and audio streams, the color (model, bit depth,
-//      color space, ICC profile, gamma), the description and the file
-//      format, and then every tag read, as the file has it.
+//   6. then the details, one list under light headings, in the server's
+//      order: the camera and lens, the exposure, the song, the video and
+//      audio streams, the color (model, bit depth, color space, ICC
+//      profile, gamma), the description and the file format;
+//   7. "All metadata": everything the file holds, raw (every tag too)
+//      and structured, in a view with room for it (metaview.js).
 //
 // The map is drawn here from the server's own world map (?worldmap,
 // fetched the first time a place is shown), so where a photo was taken
@@ -31,7 +33,9 @@ function InfoPanel(opts) {
   // The outlines are too coarse to show more than a region: closer in,
   // the OpenStreetMap link is the way.
   var SPANS = [360, 48, 12], level = 2;
-  var moreOpen = false, tagsOpen = false;
+  // The document on show, and the viewer of all of it (metaview.js),
+  // made the first time it's asked for.
+  var shown = null, viewer = null;
   var WIDTH = 360, GAP = 14, DOCK_MIN_W = 900, DOCK_MIN_H = 480;
   var FETCH_AFTER = 120;
 
@@ -75,6 +79,7 @@ function InfoPanel(opts) {
   }
   // quiet: the slideshow is closing, so the focus has somewhere to go.
   function close(quiet) {
+    if (viewer) viewer.close();
     if (!on) return;
     var inside = panel.contains(doc.activeElement);
     on = false;
@@ -89,11 +94,9 @@ function InfoPanel(opts) {
 
   btn.addEventListener('click', toggle);
   $('ss-panel-close').addEventListener('click', function () { close(); });
-  body.addEventListener('toggle', function (e) {
-    if (e.target.classList.contains('ssi-more')) moreOpen = e.target.open;
-    if (e.target.classList.contains('ssi-tags')) tagsOpen = e.target.open;
-  }, true);
   body.addEventListener('click', function (e) {
+    var all = e.target.closest && e.target.closest('.ssi-all');
+    if (all) { openAll(all); return; }
     var z = e.target.closest && e.target.closest('[data-zoom]');
     if (!z) return;
     level = Math.max(0, Math.min(SPANS.length - 1, level + Number(z.getAttribute('data-zoom'))));
@@ -163,7 +166,9 @@ function InfoPanel(opts) {
       h += '<p class="ssi-note">Details from the file itself are unavailable.</p>';
     }
     if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
-    if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);
+    if (d && d.groups && d.groups.length) h += groupsHTML(d);
+    if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length) || (d.tags && d.tags.length))) h += allHTML(d);
+    shown = d;
     body.innerHTML = h;
     body.setAttribute('aria-busy', String(state === 'loading'));
     if (loc) {
@@ -252,46 +257,17 @@ function InfoPanel(opts) {
       '<div class="ssi-prose' + (x.synced ? ' synced' : '') + '" tabindex="0">' + text + '</div></section>';
   }
 
-  // A line under "More details" of what's in it, so it's worth opening.
-  function teaser(d) {
-    var pick = function (g, label) {
-      var v = '';
-      (d.groups || []).forEach(function (x) {
-        if (x.title === g) x.fields.forEach(function (f) { if (!v && f.label === label) v = f.value; });
-      });
-      return v;
-    };
-    var parts = [pick('Camera', 'Camera'), pick('Exposure', 'Aperture'), pick('Exposure', 'Shutter speed'),
-      pick('Exposure', 'ISO') && 'ISO ' + pick('Exposure', 'ISO'), pick('Song', 'Artist'), pick('Video', 'Codec').split(',')[0]];
-    var t = parts.filter(Boolean).slice(0, 4).join(' · ');
-    return t || d.format || '';
-  }
-
-  function moreHTML(d) {
-    var h = '<details class="ssi-more"' + (moreOpen ? ' open' : '') + '><summary><span class="ssi-sum">' +
-      '<span class="ssi-sum-t">More details</span><span class="ssi-dim">' + escapeHTML(teaser(d)) + '</span></span>' +
-      '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary>' +
-      '<div class="ssi-more-body">';
+  // The details, in the server's order (mediaGroupRank, then each
+  // group's mediaFieldRank): one list under light headings, all of it
+  // there as it scrolls. Every tag as the file has it is in the viewer.
+  function groupsHTML(d) {
+    var h = '';
     (d.groups || []).forEach(function (g) {
       h += '<section class="ssi-group"><h3>' + escapeHTML(g.title) + '</h3><dl class="ssi-facts">';
       g.fields.forEach(function (f) { h += row(escapeHTML(f.label), escapeHTML(f.value)); });
       h += '</dl></section>';
     });
-    if (d.tags && d.tags.length) {
-      h += '<details class="ssi-tags"' + (tagsOpen ? ' open' : '') + '><summary><span class="ssi-sum-t">All tags</span>' +
-        '<span class="ssi-count">' + numFmt.format(d.tags.length) + '</span>' +
-        '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><dl class="ssi-raw">';
-      var last = '';
-      d.tags.forEach(function (tg) {
-        if (tg.group !== last) {
-          h += '<div class="ssi-raw-group">' + escapeHTML(tg.group) + '</div>';
-          last = tg.group;
-        }
-        h += '<div><dt>' + escapeHTML(tg.name) + '</dt><dd>' + escapeHTML(tg.value) + '</dd></div>';
-      });
-      h += '</dl></details>';
-    }
-    return h + '</div></details>';
+    return h;
   }
 
   // ---- Dates ----
@@ -369,8 +345,8 @@ function InfoPanel(opts) {
   // The view of the map around loc at the current zoom: a box in
   // degrees, and how much a degree of longitude is narrowed at that
   // latitude (an equirectangular map, true to shape at the pin).
-  function mapView(loc, aspect) {
-    var span = SPANS[level];
+  function mapView(loc, aspect, lvl) {
+    var span = SPANS[lvl == null ? level : lvl];
     var k = span >= 360 ? 1 : Math.max(0.2, Math.cos(loc.lat * Math.PI / 180));
     var hw = span / 2, hh = hw * k * aspect;
     var cy = span >= 360 ? Math.max(-90 + hh, Math.min(90 - hh, loc.lat)) : loc.lat;
@@ -397,7 +373,8 @@ function InfoPanel(opts) {
     });
   }
 
-  function mapSVG(countries, loc, v, country, px) {
+  function mapSVG(countries, loc, v, country, px, lvl) {
+    if (lvl == null) lvl = level;
     var k = v.k, land = '', here = '';
     var shifts = [0];
     if (v.x0 < -180) shifts.push(360);
@@ -417,7 +394,7 @@ function InfoPanel(opts) {
     });
     var x = v.x0 * k, y = -v.y1, w = (v.x1 - v.x0) * k, h = v.y1 - v.y0;
     // Lines of latitude and longitude, at a step that suits the zoom.
-    var step = [30, 10, 2][level], grid = '';
+    var step = [30, 10, 2][lvl], grid = '';
     for (var lon = Math.ceil(v.x0 / step) * step; lon <= v.x1; lon += step) grid += 'M' + r2(lon * k) + ' ' + r2(y) + 'V' + r2(y + h);
     for (var lat = Math.ceil(v.y0 / step) * step; lat <= v.y1; lat += step) grid += 'M' + r2(x) + ' ' + r2(-lat) + 'H' + r2(x + w);
     var extra = '', cx = loc.lon * k, cy = -loc.lat, unit = w / px; // map units per pixel
@@ -425,7 +402,7 @@ function InfoPanel(opts) {
       var rad = loc.accuracy / 111320;
       if (rad / unit > 3) extra += '<circle class="ssi-acc" cx="' + cx + '" cy="' + cy + '" r="' + rad + '"/>';
     }
-    if (loc.direction != null && level > 0) {
+    if (loc.direction != null && lvl > 0) {
       // The way the camera faced: a fan from the pin, a fixed size on screen.
       var len = 46 * unit, a = loc.direction * Math.PI / 180, spread = 0.42;
       var p1 = [cx + Math.sin(a - spread) * len, cy - Math.cos(a - spread) * len];
@@ -440,13 +417,52 @@ function InfoPanel(opts) {
 
   // Keys that belong to what's focused in the panel, not the slideshow.
   function ownsKey(e) {
+    if (viewer && viewer.isOpen()) {
+      if (e.key === 'Escape') {
+        viewer.close();
+        e.preventDefault();
+      }
+      return true;
+    }
     return on && panel.contains(e.target) && /^(Home|End|PageUp|PageDown|ArrowUp|ArrowDown| |Enter)$/.test(e.key);
+  }
+
+  // ---- All the metadata ----
+  // A line at the panel's end that opens everything the file holds, raw
+  // and structured, in a view with room for it.
+  function allHTML(d) {
+    var parts = [];
+    if (d.structures && d.structures.length) parts.push(numFmt.format(d.structures.length) + ' structured');
+    var nRaw = (d.raw || []).length + (d.tags || []).length;
+    if (nRaw) parts.push(numFmt.format(nRaw) + ' raw keys');
+    return '<button type="button" class="ssi-all"><span class="ssi-sum"><span class="ssi-sum-t">All metadata</span>' +
+      '<span class="ssi-dim">' + escapeHTML(parts.join(' · ')) + '</span></span>' +
+      '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></button>';
+  }
+
+  function openAll(from) {
+    if (!shown) return;
+    if (!viewer) viewer = MetaView({ host: panel.parentNode, map: smallMap });
+    viewer.open(shown, cur ? cur.name : shown.name, from);
+  }
+
+  // A map of a place for the viewer, at the closest zoom.
+  function smallMap(art, loc) {
+    loadWorld().then(function (countries) {
+      if (!art.isConnected) return;
+      var w = art.clientWidth || 240, hgt = art.clientHeight || Math.round(w * 0.6);
+      var lvl = SPANS.length - 1, v = mapView(loc, hgt / w, lvl);
+      art.innerHTML = mapSVG(countries, loc, v, '', w, lvl);
+      art.parentNode.style.setProperty('--pin-y', ((v.y1 - loc.lat) / (v.y1 - v.y0) * 100) + '%');
+      art.parentNode.classList.add('ready');
+    }, function () { });
   }
 
   sync();
   return {
     open: open, close: close, toggle: toggle, show: show, fit: fit, room: room, roomBelow: roomBelow, ownsKey: ownsKey,
     isOpen: function () { return on; },
+    viewer: function () { return viewer; },
     _view: mapView, _taken: fmtTaken
   };
 }

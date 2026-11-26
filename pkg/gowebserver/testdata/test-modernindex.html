@@ -5357,6 +5357,657 @@
     }
 
      
+    .ssi-body > .ssi-group {
+      margin-top: 18px;
+    }
+
+     
+    .ssi {
+      --ssi-feather: 64px;
+      --ssi-tint: oklch(0.2 calc(var(--amb-c, 0.03) * 0.35) var(--amb-h, 265) / 0.84);
+      border-color: transparent;
+      background: none;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .ssi::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 0 calc(-1 * var(--ssi-feather));
+      border-radius: 0 18px 18px 0;
+      background: var(--ssi-tint);
+      -webkit-backdrop-filter: blur(22px) saturate(1.5);
+      backdrop-filter: blur(22px) saturate(1.5);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+      mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+      pointer-events: none;
+    }
+
+    .ss.info-sheet .ssi {
+      --ssi-feather: 44px;
+      border-color: transparent;
+    }
+
+    .ss.info-sheet .ssi::before {
+      inset: calc(-1 * var(--ssi-feather)) 0 0 0;
+      border-radius: 0;
+      background: var(--ssi-tint);
+      -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+      mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+    }
+
+     
+    .ssi-all {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px 10px;
+      border: 1px solid var(--ssi-line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .ssi-all:hover,
+    .ssi-all:focus-visible {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+     
+    .mv {
+      --mv-ink: #f3f4f7;
+      --mv-ink-2: rgba(243, 244, 247, 0.72);
+      --mv-ink-3: rgba(243, 244, 247, 0.5);
+      --mv-line: rgba(255, 255, 255, 0.09);
+      --mv-accent: color-mix(in oklab, var(--accent) 75%, #fff);
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(6, 7, 10, 0.55);
+      color: var(--mv-ink);
+      font: 400 0.8125rem/1.45 var(--font-ui);
+    }
+
+    .mv[hidden] {
+      display: none;
+    }
+
+    .mv-sheet {
+      display: flex;
+      flex-direction: column;
+      width: min(1180px, 100%);
+      height: 100%;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      background: #101116;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+      animation: ssi-open 0.28s var(--ease-out);
+    }
+
+    .mv-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--mv-line);
+    }
+
+    .mv-title {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1 1 200px;
+    }
+
+    .mv-title h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .mv-name {
+      color: var(--mv-ink-3);
+      font-size: 0.75rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mv-tabs {
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .mv-tab {
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: none;
+      color: var(--mv-ink-2);
+      font: 500 0.8125rem var(--font-ui);
+      cursor: pointer;
+    }
+
+    .mv-tab[aria-selected="true"] {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--mv-ink);
+    }
+
+    .mv-count {
+      margin-left: 4px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--mv-ink-2);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mv-find {
+      flex: 1 1 220px;
+      max-width: 360px;
+      padding: 7px 10px;
+      border: 1px solid var(--mv-line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--mv-ink);
+      font: inherit;
+    }
+
+    .mv-find:focus-visible,
+    .mv-tab:focus-visible,
+    .mv-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .mv-close {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 8px;
+      background: none;
+      color: var(--mv-ink-2);
+      cursor: pointer;
+    }
+
+    .mv-close:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--mv-ink);
+    }
+
+    .mv-close svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    .mv-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 14px 16px 24px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .mv-pane[hidden],
+    .mv-struct[hidden],
+    .mv-source[hidden],
+    .mv-box[hidden],
+    .mv-row[hidden],
+    .mv-none[hidden] {
+      display: none;
+    }
+
+    .mv-empty,
+    .mv-none {
+      color: var(--mv-ink-3);
+    }
+
+    .mv-dim {
+      color: var(--mv-ink-3);
+      font-size: 0.75rem;
+    }
+
+     
+    .mv-struct {
+      margin: 0 0 14px;
+      padding: 10px 12px 12px;
+      border: 1px solid var(--mv-line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .mv-struct > header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 10px;
+      margin-bottom: 8px;
+    }
+
+    .mv-src,
+    .mv-path {
+      color: var(--mv-accent);
+      font: 500 0.75rem/1.35 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+
+    .mv-sname {
+      font-weight: 600;
+    }
+
+    .mv-tree,
+    .mv-tree ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .mv-tree ul {
+      margin-left: 9px;
+      padding-left: 12px;
+      border-left: 1px solid var(--mv-line);
+    }
+
+    .mv-node {
+      padding: 2px 0;
+    }
+
+    .mv-leaf,
+    .mv-node > details > summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+      min-height: 24px;
+    }
+
+    .mv-node > details > summary {
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .mv-node > details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .mv-node > details > summary::before {
+      content: "";
+      width: 0;
+      height: 0;
+      margin-right: -2px;
+      border-block: 4px solid transparent;
+      border-left: 5px solid var(--mv-ink-3);
+      transition: transform 0.2s var(--ease);
+    }
+
+    .mv-node > details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+
+    .mv-rich-row {
+      margin-bottom: 6px;
+    }
+
+    .mv-k {
+      font: 500 0.75rem var(--font-mono);
+    }
+
+    .mv-t {
+      padding: 0 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--mv-ink-3);
+      font: 500 0.625rem/1.6 var(--font-mono);
+      letter-spacing: 0.02em;
+    }
+
+    .mv-v {
+      min-width: 0;
+      font: 0.75rem/1.45 var(--font-mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .mv-leaf .mv-v {
+      flex: 1 1 200px;
+    }
+
+    .mv-inline {
+      color: var(--mv-ink-2);
+    }
+
+    .mv-long:not(.full) {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      overflow: hidden;
+    }
+
+    .mv-long.full {
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .mv-rich {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mv-change {
+      color: var(--mv-ink-3);
+      font-size: 0.6875rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mv-more {
+      color: var(--mv-ink-3);
+      font-size: 0.75rem;
+    }
+
+    .mv-fold,
+    .mv-copy {
+      padding: 1px 7px;
+      border: 1px solid var(--mv-line);
+      border-radius: 6px;
+      background: none;
+      color: var(--mv-accent);
+      font: 500 0.6875rem var(--font-ui);
+      cursor: pointer;
+    }
+
+    .mv-fold:hover,
+    .mv-copy:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+     
+    .mv-map {
+      position: relative;
+      width: 240px;
+      height: 144px;
+      margin: 2px 0;
+      overflow: hidden;
+      border-radius: 10px;
+      background: #0d1b2a;
+      box-shadow: inset 0 0 0 1px var(--mv-line);
+    }
+
+    .mv-map-art,
+    .mv-map-art svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .mv-pin {
+      position: absolute;
+      left: 50%;
+      top: var(--pin-y, 50%);
+      width: 12px;
+      height: 12px;
+      margin: -6px 0 0 -6px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 35%, transparent);
+    }
+
+    .mv-thermo {
+      position: relative;
+      display: inline-block;
+      width: 10px;
+      height: 28px;
+      margin: 0 4px 6px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .mv-thermo::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
+      border-radius: 50%;
+      background: var(--mv-t);
+    }
+
+    .mv-thermo i {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      bottom: 2px;
+      height: calc((100% - 4px) * var(--mv-f));
+      border-radius: 3px;
+      background: var(--mv-t);
+    }
+
+    .mv-swatch {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    }
+
+    .mv-bar {
+      display: inline-block;
+      width: 96px;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .mv-bar i {
+      display: block;
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #22c55e, #84cc16);
+    }
+
+    .mv-chip {
+      padding: 0 8px;
+      border-radius: 999px;
+      font: 600 0.6875rem/1.7 var(--font-ui);
+    }
+
+    .mv-chip.yes {
+      background: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+    }
+
+    .mv-chip.no {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--mv-ink-2);
+    }
+
+    .mv-when {
+      padding: 0 6px;
+      border-radius: 5px;
+      background: rgba(96, 165, 250, 0.14);
+      color: #bfdbfe;
+      font-size: 0.75rem;
+    }
+
+    .mv-img {
+      max-width: 200px;
+      max-height: 120px;
+      border-radius: 6px;
+      box-shadow: 0 0 0 1px var(--mv-line);
+    }
+
+    .mv-spark {
+      overflow: visible;
+    }
+
+    .mv-spark polyline {
+      fill: none;
+      stroke: var(--mv-accent);
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+
+     
+    .mv-source h3 {
+      margin: 4px 0 8px;
+      color: var(--mv-ink-3);
+      font: 600 0.6875rem/1.2 var(--font-ui);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .mv-source + .mv-source {
+      margin-top: 18px;
+    }
+
+    .mv-box {
+      margin: 0 0 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+      box-shadow: inset 0 0 0 1px var(--mv-line);
+    }
+
+    .mv-box > summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      list-style: none;
+      cursor: pointer;
+    }
+
+    .mv-box > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .mv-path {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mv-rows {
+      margin: 0;
+      padding: 0 10px 8px;
+    }
+
+    .mv-row {
+      display: grid;
+      grid-template-columns: minmax(140px, 0.6fr) minmax(0, 1.4fr);
+      gap: 14px;
+      padding: 4px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .mv-row dt {
+      color: var(--mv-ink-2);
+      font: 0.75rem/1.45 var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+
+    .mv-row dd {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 4px 8px;
+      margin: 0;
+      min-width: 0;
+    }
+
+    .mv-row .mv-v {
+      flex: 1 1 240px;
+    }
+
+    .mv-copy {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .mv-row:hover .mv-copy,
+    .mv-copy:focus-visible {
+      opacity: 1;
+    }
+
+     
+    @media (max-width: 700px) {
+      .mv {
+        padding: 0;
+      }
+
+      .mv-sheet {
+        border: 0;
+        border-radius: 0;
+      }
+
+      .mv-head {
+        padding: 10px 12px;
+      }
+
+      .mv-find {
+        order: 3;
+        max-width: none;
+        flex-basis: 100%;
+      }
+
+      .mv-body {
+        padding: 10px 12px 24px;
+      }
+
+      .mv-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
+      .mv-copy {
+        opacity: 1;
+      }
+
+      .mv-map {
+        width: 100%;
+        max-width: 320px;
+      }
+    }
+
+    @media (hover: none) {
+      .mv-copy {
+        opacity: 1;
+      }
+    }
+
+     
     .ss-btn .i-dot,
     .ss-btn .i-stem {
       stroke-width: 2.2;
@@ -10368,6 +11019,555 @@
       
       
       
+      
+
+      
+      function mvType(v) {
+        if (v === null || v === undefined) return 'null';
+        if (Array.isArray(v)) return 'array';
+        return typeof v === 'object' ? 'object' : typeof v;
+      }
+
+      
+      function mvNumber(v) {
+        if (typeof v === 'number') return isFinite(v) ? v : null;
+        if (typeof v === 'string' && /^\s*-?\d+(\.\d+)?([eE][-+]?\d+)?\s*$/.test(v)) return parseFloat(v);
+        return null;
+      }
+
+      
+      
+      function mvLeaf(path) {
+        var p = String(path || '').replace(/\[\d+\]$/, '');
+        var i = p.lastIndexOf('.');
+        return (i >= 0 ? p.slice(i + 1) : p).toLowerCase();
+      }
+
+      
+      
+      
+      function mvEpoch(n) {
+        if (n == null || !isFinite(n) || n <= 0) return null;
+        var scales = [[1e9, 1000], [1e12, 1], [1e15, 1e-3], [1e18, 1e-6]];
+        for (var i = 0; i < scales.length; i++) {
+          var lo = scales[i][0], k = scales[i][1];
+          if (n >= lo && n < lo * 4.1) return n * k;
+        }
+        return null;
+      }
+
+      
+      
+      function mvDuration(sec) {
+        if (sec == null || !isFinite(sec) || sec < 0) return '';
+        var whole = Math.floor(sec), h = Math.floor(whole / 3600), m = Math.floor(whole % 3600 / 60), s = whole % 60;
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        var frac = sec - whole >= 0.05 && sec < 60 ? (Math.round((sec - whole) * 10) / 10).toFixed(1).slice(1) : '';
+        return (h ? h + ':' + p(m) : String(m)) + ':' + p(s) + frac;
+      }
+
+      
+      
+      function mvTempColor(c) {
+        var f = Math.max(0, Math.min(1, c / 35));
+        var lerp = function (a, b) { return Math.round(a + (b - a) * f); };
+        return 'rgb(' + lerp(59, 239) + ',' + lerp(130, 68) + ',' + lerp(246, 68) + ')';
+      }
+
+      
+      function mvSparkline(series, w, h) {
+        if (!series || series.length < 2) return '';
+        var t0 = series[0][0], t1 = series[series.length - 1][0], lo = Infinity, hi = -Infinity;
+        series.forEach(function (p) { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); });
+        var dt = t1 - t0 || 1, dv = hi - lo || 1;
+        var pts = series.map(function (p, i) {
+          var x = t1 > t0 ? (p[0] - t0) / dt * (w - 2) + 1 : i / (series.length - 1) * (w - 2) + 1;
+          var y = h - 1 - (p[1] - lo) / dv * (h - 2);
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        });
+        return '<svg class="mv-spark" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '" aria-hidden="true">' +
+          '<polyline points="' + pts.join(' ') + '"/></svg>';
+      }
+
+      var MV_WHEN = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+      var MV_WHEN_UTC = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'UTC' });
+
+      
+      var MV_LAT = /^(lat|latitude|gpslatitude|gps_latitude)$/;
+      var MV_LON = /^(lon|lng|long|longitude|gpslongitude|gps_longitude)$/;
+
+      
+      function mvLatLon(v) {
+        if (mvType(v) !== 'object') return null;
+        var lat = null, lon = null;
+        Object.keys(v).forEach(function (k) {
+          var lk = k.toLowerCase(), n = mvNumber(v[k]);
+          if (n == null) return;
+          if (MV_LAT.test(lk)) lat = n;
+          else if (MV_LON.test(lk)) lon = n;
+        });
+        if (lat == null || lon == null || Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return null;
+        return { lat: lat, lon: lon };
+      }
+
+      
+      function mvISO6709(s) {
+        var m = /^([+-]\d{1,2}(?:\.\d+)?)([+-]\d{1,3}(?:\.\d+)?)/.exec(String(s));
+        if (!m) return null;
+        var lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+        return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat: lat, lon: lon } : null;
+      }
+
+      
+      
+      
+      
+      
+      var MV_DETECTORS = [
+        {
+          name: 'location',
+          test: function (key, v) {
+            if (mvType(v) === 'object') return mvLatLon(v);
+            if (typeof v === 'string' && /location|6709/.test(key)) return mvISO6709(v);
+            return null;
+          },
+          draw: function (d) {
+            return '<figure class="mv-map" data-lat="' + d.lat + '" data-lon="' + d.lon + '" role="img" aria-label="' +
+              escapeHTML('Map: ' + d.lat.toFixed(5) + ', ' + d.lon.toFixed(5)) + '"><div class="mv-map-art"></div><span class="mv-pin" aria-hidden="true"></span></figure>' +
+              '<span class="mv-dim">' + escapeHTML(Math.abs(d.lat).toFixed(5) + '° ' + (d.lat < 0 ? 'S' : 'N') + ', ' + Math.abs(d.lon).toFixed(5) + '° ' + (d.lon < 0 ? 'W' : 'E')) + '</span>';
+          }
+        },
+        {
+          name: 'image',
+          test: function (key, v) {
+            return typeof v === 'string' && /^data:image\/(png|jpe?g|gif|webp|bmp);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : null;
+          },
+          draw: function (src) { return '<img class="mv-img" alt="" src="' + escapeHTML(src) + '">'; },
+          text: false
+        },
+        {
+          name: 'color',
+          test: function (key, v) {
+            if (typeof v !== 'string') return null;
+            var s = v.trim();
+            if (/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s)) return s;
+            if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+\s*)?\)$/i.test(s)) return s;
+            return null;
+          },
+          draw: function (c) { return '<span class="mv-swatch" style="background:' + escapeHTML(c) + '"></span>'; }
+        },
+        {
+          name: 'temperature',
+          test: function (key, v) {
+            var n = mvNumber(v), unit = 'C';
+            if (n == null && typeof v === 'string') {
+              var m = /^\s*(-?\d+(?:\.\d+)?)\s*°?\s*([CF])\s*$/i.exec(v);
+              if (!m || (v.indexOf('°') < 0 && !/temp/.test(key))) return null;
+              n = parseFloat(m[1]);
+              unit = m[2].toUpperCase();
+            } else {
+              if (n == null || !/temp|celsius|fahrenheit/.test(key)) return null;
+              if (/fahrenheit|(^|_)f$|_f_|degf/.test(key)) unit = 'F';
+            }
+            var c = unit === 'F' ? (n - 32) * 5 / 9 : n;
+            return c > -90 && c < 150 ? { c: c, n: n, unit: unit } : null;
+          },
+          draw: function (d) {
+            var f = Math.max(0.06, Math.min(1, (d.c + 20) / 70));
+            return '<span class="mv-thermo" title="' + escapeHTML(d.n + ' °' + d.unit) + '" style="--mv-t:' + mvTempColor(d.c) + ';--mv-f:' + f.toFixed(3) + '"><i></i></span>' +
+              '<span class="mv-dim">' + escapeHTML((Math.round(d.c * 10) / 10) + ' °C') + '</span>';
+          }
+        },
+        {
+          name: 'time',
+          test: function (key, v) {
+            if (typeof v === 'string' && /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)?(Z|[+-]\d\d:?\d\d)?$/.test(v.trim())) {
+              var s = v.trim().replace(' ', 'T'), zoned = /(Z|[+-]\d\d:?\d\d)$/.test(s);
+              var d = new Date(zoned ? s : s + 'Z');
+              return isNaN(d) ? null : { ms: d.getTime(), utc: !zoned };
+            }
+            var n = mvNumber(v);
+            if (n == null || !/time|date|stamp|epoch|created|updated|modified|utc|clock|_at$|_(s|ms|us|ns)$/.test(key)) return null;
+            var ms = mvEpoch(n);
+            return ms == null ? null : { ms: ms, utc: false };
+          },
+          draw: function (d) {
+            return '<span class="mv-when">' + escapeHTML((d.utc ? MV_WHEN_UTC : MV_WHEN).format(new Date(d.ms))) + '</span>';
+          }
+        },
+        {
+          name: 'duration',
+          test: function (key, v) {
+            var n = mvNumber(v);
+            if (n == null || n < 0 || !/duration|elapsed|uptime|length|runtime|interval/.test(key)) return null;
+            if (/(_|^)ms$|millis/.test(key)) n /= 1000;
+            else if (/(_|^)us$|micros/.test(key)) n /= 1e6;
+            return n;
+          },
+          draw: function (sec) { return '<span class="mv-when">' + escapeHTML(mvDuration(sec)) + '</span>'; }
+        },
+        {
+          name: 'percent',
+          test: function (key, v) {
+            var n = mvNumber(v);
+            if (n == null) return null;
+            if (/ratio|fraction/.test(key) && n >= 0 && n <= 1) return n * 100;
+            if (/percent|pct|battery|humidity|charge|%/.test(key) && n >= 0 && n <= 100) return n;
+            return null;
+          },
+          draw: function (p) {
+            return '<span class="mv-bar" role="img" aria-label="' + escapeHTML(Math.round(p) + '%') + '"><i style="width:' + p.toFixed(1) + '%"></i></span>';
+          }
+        },
+        {
+          name: 'boolean',
+          test: function (key, v) { return typeof v === 'boolean' ? { v: v } : null; },
+          draw: function (d) { return '<span class="mv-chip ' + (d.v ? 'yes' : 'no') + '">' + (d.v ? 'true' : 'false') + '</span>'; },
+          text: false
+        },
+        {
+          name: 'series',
+          test: function (key, v, ctx) {
+            var f = ctx && ctx.field;
+            return f && f.series && f.series.length >= 3 && mvNumber(v) != null ? f : null;
+          },
+          draw: function (f) { return mvSparkline(f.series, 96, 22); }
+        }
+      ];
+
+      
+      
+      
+      function mvDetect(path, v, ctx) {
+        var key = mvLeaf(path), out = [];
+        for (var i = 0; i < MV_DETECTORS.length && out.length < 2; i++) {
+          var det = MV_DETECTORS[i], d;
+          try { d = det.test(key, v, ctx || {}); } catch (e) { d = null; }
+          if (d == null || d === false) continue;
+          
+          if (out.length && det.name !== 'series') continue;
+          out.push({ name: det.name, html: det.draw(d, ctx || {}), text: det.text !== false });
+        }
+        return out;
+      }
+
+      
+      
+      function mvRawGroups(raw) {
+        var out = [], at = new Map();
+        (raw || []).forEach(function (r) {
+          var key = (r.source || '') + '\u0000' + r.path, g = at.get(key);
+          if (!g) { g = { path: r.path, rows: [] }; at.set(key, g); out.push(g); }
+          g.rows.push(r);
+        });
+        return out;
+      }
+
+      
+      
+      function mvRawOf(d) {
+        var tags = ((d && d.tags) || []).map(function (t) { return { path: t.group, key: t.name, value: t.value, source: 'tags' }; });
+        return ((d && d.raw) || []).concat(tags);
+      }
+
+      
+      
+      var MV_SOURCES = [['boxes', 'Boxes'], ['timed', 'Timed metadata'], ['sei', 'SEI'], ['xmp', 'XMP'], ['tags', 'Tags']];
+      function mvSourceOf(path) {
+        var p = String(path || '');
+        if (/XMP/i.test(p)) return 'xmp';
+        if (/^SEI /.test(p)) return 'sei';
+        if (/\/(amf0|amf3|mett|metx|tx3g|text|stpp|wvtt)( |$)/.test(p)) return 'timed';
+        return 'boxes';
+      }
+
+      
+      
+      function mvMatch(q, text) {
+        var words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+        if (!words.length) return true;
+        var hay = String(text).toLowerCase();
+        return words.every(function (w) { return hay.indexOf(w) >= 0; });
+      }
+
+      
+      var MV_LONG = 160;
+
+      
+      
+      
+      function MetaView(opts) {
+        opts = opts || {};
+        var el = doc.createElement('div');
+        el.className = 'mv';
+        el.hidden = true;
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-modal', 'true');
+        el.setAttribute('aria-label', 'All metadata');
+        el.innerHTML =
+          '<div class="mv-sheet">' +
+          '<header class="mv-head"><div class="mv-title"><h2>All metadata</h2><span class="mv-name"></span></div>' +
+          '<div class="mv-tabs" role="tablist">' +
+          '<button type="button" role="tab" class="mv-tab" data-tab="structure" aria-selected="true">Structure <span class="mv-count"></span></button>' +
+          '<button type="button" role="tab" class="mv-tab" data-tab="raw" aria-selected="false">Raw <span class="mv-count"></span></button></div>' +
+          '<input class="mv-find" type="search" placeholder="Filter keys and values" aria-label="Filter the metadata" autocomplete="off" spellcheck="false">' +
+          '<button type="button" class="mv-close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>' +
+          '<div class="mv-body" tabindex="-1"><div class="mv-pane" data-pane="structure" role="tabpanel"></div><div class="mv-pane" data-pane="raw" role="tabpanel" hidden></div>' +
+          '<p class="mv-none" hidden>Nothing matches.</p></div>' +
+          '</div>';
+        (opts.host || doc.body).appendChild(el);
+        var q = function (s) { return el.querySelector(s); };
+        var find = q('.mv-find'), nameEl = q('.mv-name'), body = q('.mv-body');
+        var panes = { structure: q('[data-pane="structure"]'), raw: q('[data-pane="raw"]') };
+        var tabs = el.querySelectorAll('.mv-tab');
+        var tab = 'structure', data = null, back = null;
+
+        function open(d, name, from) {
+          data = d || {};
+          back = from || null;
+          nameEl.textContent = name || data.name || '';
+          var raw = mvRawOf(data), nStruct = (data.structures || []).length, nRaw = raw.length;
+          tabs[0].querySelector('.mv-count').textContent = numFmt.format(nStruct);
+          tabs[1].querySelector('.mv-count').textContent = numFmt.format(nRaw);
+          panes.structure.innerHTML = structuresHTML(data.structures || []);
+          panes.raw.innerHTML = rawHTML(raw);
+          find.value = '';
+          setTab(nStruct ? 'structure' : 'raw');
+          el.hidden = false;
+          el.classList.add('open');
+          drawMaps();
+          try { find.focus({ preventScroll: true }); } catch (e) { find.focus(); }
+        }
+
+        function close() {
+          if (el.hidden) return;
+          el.hidden = true;
+          el.classList.remove('open');
+          if (back && back.focus) back.focus();
+          if (opts.closed) opts.closed();
+        }
+
+        function setTab(t) {
+          tab = t;
+          tabs.forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === t)); });
+          panes.structure.hidden = t !== 'structure';
+          panes.raw.hidden = t !== 'raw';
+          filter(find.value);
+          drawMaps();
+        }
+
+        function drawMaps() {
+          if (!opts.map) return;
+          panes[tab].querySelectorAll('.mv-map:not(.drawn)').forEach(function (fig) {
+            if (fig.closest('[hidden]')) return;
+            fig.classList.add('drawn');
+            opts.map(fig.querySelector('.mv-map-art'), { lat: parseFloat(fig.getAttribute('data-lat')), lon: parseFloat(fig.getAttribute('data-lon')) });
+          });
+        }
+
+        
+        function structuresHTML(list) {
+          if (!list.length) return '<p class="mv-empty">No structured metadata.</p>';
+          return list.map(function (s, i) {
+            var meta = [];
+            if (s.count > 1) meta.push(numFmt.format(s.count) + ' messages');
+            if (s.timed) meta.push(s.count > 1 ? vpFmtTime(s.start) + '–' + vpFmtTime(s.end) : 'at ' + vpFmtTime(s.start));
+            return '<section class="mv-struct" data-i="' + i + '"><header><code class="mv-src">' + escapeHTML(s.source) + '</code>' +
+              (s.name ? '<span class="mv-sname">' + escapeHTML(s.name) + '</span>' : '') +
+              (meta.length ? '<span class="mv-dim">' + escapeHTML(meta.join(' · ')) + '</span>' : '') + '</header>' +
+              '<ul class="mv-tree" role="tree">' + nodeHTML('', '', s.value, s.fields || {}, 0, true) + '</ul></section>';
+          }).join('');
+        }
+
+        
+        function nodeHTML(path, key, v, fields, depth, root) {
+          var t = mvType(v), field = fields[path];
+          var label = root ? '' : '<span class="mv-k">' + escapeHTML(key) + '</span>';
+          var dets = mvDetect(path, v, { path: path, field: field });
+          var rich = dets.map(function (d) { return d.html; }).join('');
+          if (t === 'object' || t === 'array') {
+            var keys = t === 'array' ? v.map(function (_, i) { return i; }) : Object.keys(v).sort();
+            if (root && t === 'object') {
+              return (rich ? '<li class="mv-node mv-rich-row">' + rich + '</li>' : '') + keys.map(function (k) {
+                return nodeHTML(k, k, v[k], fields, depth + 1, false);
+              }).join('');
+            }
+            var shown = keys.slice(0, 500), more = keys.length - shown.length;
+            var kids = shown.map(function (k) {
+              var p = t === 'array' ? path + '[' + k + ']' : (path ? path + '.' + k : String(k));
+              return nodeHTML(p, t === 'array' ? '[' + k + ']' : k, v[k], fields, depth + 1, false);
+            }).join('') + (more > 0 ? '<li class="mv-more">' + numFmt.format(more) + ' more</li>' : '');
+            
+            
+            var plain = t === 'array' && v.length <= 12 && v.every(function (x) { return mvType(x) !== 'object' && mvType(x) !== 'array'; });
+            var open = t === 'object' ? depth <= 3 : false;
+            return '<li class="mv-node" role="treeitem"><details' + (open ? ' open' : '') + '><summary>' + label +
+              '<span class="mv-t">' + (t === 'array' ? '[' + numFmt.format(v.length) + ']' : '{' + numFmt.format(keys.length) + '}') + '</span>' +
+              (plain ? '<span class="mv-v mv-inline">' + escapeHTML(JSON.stringify(v)) + '</span>' : '') +
+              (rich ? '<span class="mv-rich">' + rich + '</span>' : '') + changeHTML(field) + '</summary>' +
+              '<ul role="group">' + kids + '</ul></details></li>';
+          }
+          var text = t === 'string' ? v : String(v);
+          var showText = dets.every(function (d) { return d.text; });
+          var long = text.length > MV_LONG;
+          return '<li class="mv-node mv-leaf" role="treeitem">' + label + '<span class="mv-t mv-' + t + '">' + t + '</span>' +
+            (rich ? '<span class="mv-rich">' + rich + '</span>' : '') +
+            (showText ? '<span class="mv-v' + (long ? ' mv-long' : '') + '">' + escapeHTML(text) + '</span>' : '') +
+            (long && showText ? '<button type="button" class="mv-fold" aria-expanded="false">Show all</button>' : '') +
+            changeHTML(field) + '</li>';
+        }
+
+        
+        
+        function changeHTML(f) {
+          if (!f) return '';
+          var bits = [];
+          if (f.min != null && f.max != null) bits.push(numFmt.format(f.min) + ' to ' + numFmt.format(f.max));
+          else bits.push(f.first + ' → ' + f.last);
+          bits.push(f.values > 1000 ? 'over 1,000 values' : numFmt.format(f.values) + ' values');
+          return '<span class="mv-change">' + escapeHTML(bits.join(' · ')) + '</span>';
+        }
+
+        
+        function rawHTML(raw) {
+          if (!raw.length) return '<p class="mv-empty">No raw metadata.</p>';
+          var bySource = {};
+          mvRawGroups(raw).forEach(function (g) {
+            var s = g.rows[0].source || mvSourceOf(g.path);
+            (bySource[s] = bySource[s] || []).push(g);
+          });
+          var h = '';
+          MV_SOURCES.forEach(function (src) {
+            var groups = bySource[src[0]];
+            if (!groups) return;
+            var n = groups.reduce(function (a, g) { return a + g.rows.length; }, 0);
+            h += '<section class="mv-source" data-source="' + src[0] + '"><h3>' + escapeHTML(src[1]) + ' <span class="mv-count">' + numFmt.format(n) + '</span></h3>';
+            groups.forEach(function (g) {
+              h += '<details class="mv-box" open><summary><code class="mv-path">' + escapeHTML(g.path) + '</code><span class="mv-count">' +
+                numFmt.format(g.rows.length) + '</span></summary><dl class="mv-rows">';
+              g.rows.forEach(function (r) {
+                var v = String(r.value), long = v.length > MV_LONG || v.indexOf('\n') >= 0;
+                h += '<div class="mv-row"><dt>' + escapeHTML(r.key) + '</dt><dd><span class="mv-v' + (long ? ' mv-long' : '') + '">' + escapeHTML(v) + '</span>' +
+                  (long ? '<button type="button" class="mv-fold" aria-expanded="false">Show all</button>' : '') +
+                  '<button type="button" class="mv-copy" aria-label="Copy the value">Copy</button></dd></div>';
+              });
+              h += '</dl></details>';
+            });
+            h += '</section>';
+          });
+          return h;
+        }
+
+        
+        function filter(query) {
+          var any = false;
+          if (tab === 'raw') {
+            panes.raw.querySelectorAll('.mv-box').forEach(function (box) {
+              var path = box.querySelector('.mv-path').textContent, shown = 0;
+              box.querySelectorAll('.mv-row').forEach(function (row) {
+                var ok = mvMatch(query, path + '\n' + row.querySelector('dt').textContent + '\n' + row.querySelector('.mv-v').textContent);
+                row.hidden = !ok;
+                if (ok) shown++;
+              });
+              box.hidden = !shown;
+              if (shown && query) box.open = true;
+              if (shown) any = true;
+            });
+            panes.raw.querySelectorAll('.mv-source').forEach(function (s) {
+              s.hidden = Array.prototype.every.call(s.querySelectorAll('.mv-box'), function (b) { return b.hidden; });
+            });
+          } else {
+            panes.structure.querySelectorAll('.mv-struct').forEach(function (s) {
+              var ok = mvMatch(query, s.textContent);
+              s.hidden = !ok;
+              if (ok) any = true;
+            });
+            if (!panes.structure.querySelector('.mv-struct')) any = true;
+          }
+          q('.mv-none').hidden = any || !query;
+        }
+
+        find.addEventListener('input', function () { filter(find.value); });
+        tabs.forEach(function (b) { b.addEventListener('click', function () { setTab(b.getAttribute('data-tab')); }); });
+        q('.mv-close').addEventListener('click', close);
+        el.addEventListener('click', function (e) {
+          if (e.target === el) { close(); return; }
+          var fold = e.target.closest && e.target.closest('.mv-fold');
+          if (fold) {
+            var v = fold.parentNode.querySelector('.mv-v'), full = !v.classList.contains('full');
+            v.classList.toggle('full', full);
+            fold.textContent = full ? 'Show less' : 'Show all';
+            fold.setAttribute('aria-expanded', String(full));
+            return;
+          }
+          var copy = e.target.closest && e.target.closest('.mv-copy');
+          if (copy) {
+            var text = copy.parentNode.querySelector('.mv-v').textContent;
+            var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1500); };
+            
+            
+            var fallback = function () {
+              var ta = doc.createElement('textarea');
+              ta.value = text;
+              ta.setAttribute('readonly', '');
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              el.appendChild(ta);
+              ta.select();
+              var ok = false;
+              try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+              ta.remove();
+              copy.focus();
+              if (ok) done();
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+            else fallback();
+          }
+        });
+        
+        
+        el.addEventListener('keydown', function (e) {
+          e.stopPropagation();
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            close();
+          }
+        });
+        el.addEventListener('toggle', function () { drawMaps(); }, true);
+
+        return {
+          el: el, open: open, close: close,
+          isOpen: function () { return !el.hidden; },
+          tab: function () { return tab; },
+          setTab: setTab
+        };
+      }
+
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       function InfoPanel(opts) {
         opts = opts || {};
         var panel = $('ss-panel'), body = $('ss-panel-body'), btn = $('ss-info');
@@ -10378,7 +11578,9 @@
         
         
         var SPANS = [360, 48, 12], level = 2;
-        var moreOpen = false, tagsOpen = false;
+        
+        
+        var shown = null, viewer = null;
         var WIDTH = 360, GAP = 14, DOCK_MIN_W = 900, DOCK_MIN_H = 480;
         var FETCH_AFTER = 120;
 
@@ -10422,6 +11624,7 @@
         }
         
         function close(quiet) {
+          if (viewer) viewer.close();
           if (!on) return;
           var inside = panel.contains(doc.activeElement);
           on = false;
@@ -10436,11 +11639,9 @@
 
         btn.addEventListener('click', toggle);
         $('ss-panel-close').addEventListener('click', function () { close(); });
-        body.addEventListener('toggle', function (e) {
-          if (e.target.classList.contains('ssi-more')) moreOpen = e.target.open;
-          if (e.target.classList.contains('ssi-tags')) tagsOpen = e.target.open;
-        }, true);
         body.addEventListener('click', function (e) {
+          var all = e.target.closest && e.target.closest('.ssi-all');
+          if (all) { openAll(all); return; }
           var z = e.target.closest && e.target.closest('[data-zoom]');
           if (!z) return;
           level = Math.max(0, Math.min(SPANS.length - 1, level + Number(z.getAttribute('data-zoom'))));
@@ -10510,7 +11711,9 @@
             h += '<p class="ssi-note">Details from the file itself are unavailable.</p>';
           }
           if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
-          if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);
+          if (d && d.groups && d.groups.length) h += groupsHTML(d);
+          if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length) || (d.tags && d.tags.length))) h += allHTML(d);
+          shown = d;
           body.innerHTML = h;
           body.setAttribute('aria-busy', String(state === 'loading'));
           if (loc) {
@@ -10600,45 +11803,16 @@
         }
 
         
-        function teaser(d) {
-          var pick = function (g, label) {
-            var v = '';
-            (d.groups || []).forEach(function (x) {
-              if (x.title === g) x.fields.forEach(function (f) { if (!v && f.label === label) v = f.value; });
-            });
-            return v;
-          };
-          var parts = [pick('Camera', 'Camera'), pick('Exposure', 'Aperture'), pick('Exposure', 'Shutter speed'),
-            pick('Exposure', 'ISO') && 'ISO ' + pick('Exposure', 'ISO'), pick('Song', 'Artist'), pick('Video', 'Codec').split(',')[0]];
-          var t = parts.filter(Boolean).slice(0, 4).join(' · ');
-          return t || d.format || '';
-        }
-
-        function moreHTML(d) {
-          var h = '<details class="ssi-more"' + (moreOpen ? ' open' : '') + '><summary><span class="ssi-sum">' +
-            '<span class="ssi-sum-t">More details</span><span class="ssi-dim">' + escapeHTML(teaser(d)) + '</span></span>' +
-            '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary>' +
-            '<div class="ssi-more-body">';
+        
+        
+        function groupsHTML(d) {
+          var h = '';
           (d.groups || []).forEach(function (g) {
             h += '<section class="ssi-group"><h3>' + escapeHTML(g.title) + '</h3><dl class="ssi-facts">';
             g.fields.forEach(function (f) { h += row(escapeHTML(f.label), escapeHTML(f.value)); });
             h += '</dl></section>';
           });
-          if (d.tags && d.tags.length) {
-            h += '<details class="ssi-tags"' + (tagsOpen ? ' open' : '') + '><summary><span class="ssi-sum-t">All tags</span>' +
-              '<span class="ssi-count">' + numFmt.format(d.tags.length) + '</span>' +
-              '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><dl class="ssi-raw">';
-            var last = '';
-            d.tags.forEach(function (tg) {
-              if (tg.group !== last) {
-                h += '<div class="ssi-raw-group">' + escapeHTML(tg.group) + '</div>';
-                last = tg.group;
-              }
-              h += '<div><dt>' + escapeHTML(tg.name) + '</dt><dd>' + escapeHTML(tg.value) + '</dd></div>';
-            });
-            h += '</dl></details>';
-          }
-          return h + '</div></details>';
+          return h;
         }
 
         
@@ -10716,8 +11890,8 @@
         
         
         
-        function mapView(loc, aspect) {
-          var span = SPANS[level];
+        function mapView(loc, aspect, lvl) {
+          var span = SPANS[lvl == null ? level : lvl];
           var k = span >= 360 ? 1 : Math.max(0.2, Math.cos(loc.lat * Math.PI / 180));
           var hw = span / 2, hh = hw * k * aspect;
           var cy = span >= 360 ? Math.max(-90 + hh, Math.min(90 - hh, loc.lat)) : loc.lat;
@@ -10744,7 +11918,8 @@
           });
         }
 
-        function mapSVG(countries, loc, v, country, px) {
+        function mapSVG(countries, loc, v, country, px, lvl) {
+          if (lvl == null) lvl = level;
           var k = v.k, land = '', here = '';
           var shifts = [0];
           if (v.x0 < -180) shifts.push(360);
@@ -10764,7 +11939,7 @@
           });
           var x = v.x0 * k, y = -v.y1, w = (v.x1 - v.x0) * k, h = v.y1 - v.y0;
           
-          var step = [30, 10, 2][level], grid = '';
+          var step = [30, 10, 2][lvl], grid = '';
           for (var lon = Math.ceil(v.x0 / step) * step; lon <= v.x1; lon += step) grid += 'M' + r2(lon * k) + ' ' + r2(y) + 'V' + r2(y + h);
           for (var lat = Math.ceil(v.y0 / step) * step; lat <= v.y1; lat += step) grid += 'M' + r2(x) + ' ' + r2(-lat) + 'H' + r2(x + w);
           var extra = '', cx = loc.lon * k, cy = -loc.lat, unit = w / px; 
@@ -10772,7 +11947,7 @@
             var rad = loc.accuracy / 111320;
             if (rad / unit > 3) extra += '<circle class="ssi-acc" cx="' + cx + '" cy="' + cy + '" r="' + rad + '"/>';
           }
-          if (loc.direction != null && level > 0) {
+          if (loc.direction != null && lvl > 0) {
             
             var len = 46 * unit, a = loc.direction * Math.PI / 180, spread = 0.42;
             var p1 = [cx + Math.sin(a - spread) * len, cy - Math.cos(a - spread) * len];
@@ -10787,13 +11962,52 @@
 
         
         function ownsKey(e) {
+          if (viewer && viewer.isOpen()) {
+            if (e.key === 'Escape') {
+              viewer.close();
+              e.preventDefault();
+            }
+            return true;
+          }
           return on && panel.contains(e.target) && /^(Home|End|PageUp|PageDown|ArrowUp|ArrowDown| |Enter)$/.test(e.key);
+        }
+
+        
+        
+        
+        function allHTML(d) {
+          var parts = [];
+          if (d.structures && d.structures.length) parts.push(numFmt.format(d.structures.length) + ' structured');
+          var nRaw = (d.raw || []).length + (d.tags || []).length;
+          if (nRaw) parts.push(numFmt.format(nRaw) + ' raw keys');
+          return '<button type="button" class="ssi-all"><span class="ssi-sum"><span class="ssi-sum-t">All metadata</span>' +
+            '<span class="ssi-dim">' + escapeHTML(parts.join(' · ')) + '</span></span>' +
+            '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></button>';
+        }
+
+        function openAll(from) {
+          if (!shown) return;
+          if (!viewer) viewer = MetaView({ host: panel.parentNode, map: smallMap });
+          viewer.open(shown, cur ? cur.name : shown.name, from);
+        }
+
+        
+        function smallMap(art, loc) {
+          loadWorld().then(function (countries) {
+            if (!art.isConnected) return;
+            var w = art.clientWidth || 240, hgt = art.clientHeight || Math.round(w * 0.6);
+            var lvl = SPANS.length - 1, v = mapView(loc, hgt / w, lvl);
+            art.innerHTML = mapSVG(countries, loc, v, '', w, lvl);
+            art.parentNode.style.setProperty('--pin-y', ((v.y1 - loc.lat) / (v.y1 - v.y0) * 100) + '%');
+            art.parentNode.classList.add('ready');
+          }, function () { });
         }
 
         sync();
         return {
           open: open, close: close, toggle: toggle, show: show, fit: fit, room: room, roomBelow: roomBelow, ownsKey: ownsKey,
           isOpen: function () { return on; },
+          viewer: function () { return viewer; },
           _view: mapView, _taken: fmtTaken
         };
       }

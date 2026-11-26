@@ -101,7 +101,7 @@ test('a photo\'s place on the map, its date, name and size, with the rest folded
   const facts = await p.$$eval('.ssi-body > .ssi-facts dt', (d) => d.map((x) => x.textContent));
   assert.deepEqual(facts, ['Taken', 'Name', 'Size']);
   assert.match(await p.textContent('.ssi-body > .ssi-facts'), /UTC\+2/);
-  assert.equal(await p.getAttribute('.ssi-more', 'open'), null, 'the details start folded');
+  assert.equal(await p.locator('#ss-panel-body details').count(), 0, 'nothing folded');
 
   // Docked, the photo moves over to make room: the panel covers none of it.
   const panel = await rect(p, '#ss-panel'), after = await media(p);
@@ -112,16 +112,13 @@ test('a photo\'s place on the map, its date, name and size, with the rest folded
   assert.ok(pin.left > map.left && pin.right < map.right && pin.bottom > map.top && pin.bottom <= map.bottom + 1);
   await shot(p, 'info-photo');
 
-  await p.click('.ssi-more > summary');
-  assert.equal(await p.getAttribute('.ssi-more', 'open'), '');
   const groups = await p.$$eval('.ssi-group h3', (h) => h.map((x) => x.textContent));
   assert.deepEqual(groups, ['Camera', 'Exposure', 'Image', 'Description', 'File']);
-  assert.match(await p.textContent('.ssi-more'), /Display P3/);
+  assert.match(await p.textContent('.ssi-body'), /Display P3/);
   await p.waitForTimeout(400);
   // Scrolled within the panel, not the page.
-  await p.evaluate(() => { const b = document.getElementById('ss-panel-body'); b.scrollTop = document.querySelector('.ssi-more').offsetTop - b.offsetTop - 8; });
+  await p.evaluate(() => { const b = document.getElementById('ss-panel-body'); b.scrollTop = document.querySelector('.ssi-group').offsetTop - b.offsetTop - 8; });
   await shot(p, 'info-details');
-  await p.click('.ssi-more > summary');
 
   // Escape closes the panel, and only then the slideshow.
   await p.keyboard.press('Escape');
