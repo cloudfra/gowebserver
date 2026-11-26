@@ -2932,6 +2932,30 @@ main {
   pointer-events: none;
 }
 
+/* In full screen they come in from beyond the screen's edges when the
+   controls come, and go back out when they go. */
+.ss.is-fs .ss-nav {
+  transition: opacity 0.3s var(--ease-out), background-color 0.2s, transform 0.2s var(--ease), translate 0.42s var(--ease);
+}
+
+.ss.is-fs.chrome-off .ss-prev {
+  translate: calc(-100% - 24px - env(safe-area-inset-left)) 0;
+}
+
+.ss.is-fs.chrome-off .ss-next {
+  translate: calc(100% + 24px + env(safe-area-inset-right)) 0;
+}
+
+.ss.is-fs.info-docked.chrome-off .ss-next {
+  translate: calc(100% + 24px + var(--ssi-room, 0px) + env(safe-area-inset-right)) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss.is-fs.chrome-off .ss-nav {
+    translate: none;
+  }
+}
+
 .ss-bottom {
   bottom: 0;
   padding: 28px max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
@@ -3262,17 +3286,19 @@ main {
 }
 
 /* One shadow for the whole dock, cast from the bar down across its full
-   width behind the controls (not one behind each of them), so the
-   picture darkens evenly under it. It comes and goes with the bar. */
+   width behind the controls (not one behind each of them): darkest at
+   the bar, fading as it goes down, none above it. It's the strip's own
+   gray, so the strip of scenes, open, runs on into it as one surface.
+   It comes and goes with the bar. */
 .vd-panel::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  top: 30px;
+  top: 53px;
   bottom: 0;
   z-index: -1;
-  background: linear-gradient(to bottom, rgba(4, 5, 8, 0), rgba(4, 5, 8, 0.5) 30%, rgba(4, 5, 8, 0.72));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--vd-card) 86%, transparent), color-mix(in srgb, var(--vd-card) 46%, transparent) 55%, transparent);
   pointer-events: none;
   transition: opacity 0.3s var(--ease-out);
 }
@@ -3458,7 +3484,8 @@ main {
   flex-direction: column;
   align-items: center;
   max-width: 240px;
-  padding: 0 10px 7px;
+  margin-top: -4px;
+  padding: 0 10px 6px;
   background: var(--vd-card);
 }
 
@@ -3472,11 +3499,10 @@ main {
   text-overflow: ellipsis;
 }
 
+/* The time is the one at the bottom left already: not shown again here
+   (kept for assistive tech, which reads the dock's own). */
 .vd-pop-time {
-  font-size: 0.875rem;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  display: none;
 }
 
 /* ---- The preview rising out of the bar, and the bar stretched into
@@ -3544,11 +3570,10 @@ main {
   position: absolute;
   overflow: hidden;
   isolation: isolate;
-  border-radius: 14px;
   background:
     linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 16%, transparent), transparent 42%),
-    var(--vd-card);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 -14px 40px rgba(0, 0, 0, 0.5);
+    linear-gradient(to bottom, var(--vd-card), color-mix(in srgb, var(--vd-card) 86%, transparent));
+  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
 }
 
@@ -3592,9 +3617,9 @@ main {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--vd-scenes-base);
-  height: calc(var(--vd-scene-h) + 14px);
-  padding-top: 14px;
+  bottom: calc(var(--vd-scenes-base) - 24px);
+  height: calc(var(--vd-scene-h) + 44px);
+  padding: 20px 0 24px;
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
@@ -5028,46 +5053,148 @@ summary:hover .ssi-chev {
   margin-top: 18px;
 }
 
-/* ---- The panel melts into the slide ----
-   Its glass is drawn by a layer reaching past its leading edge (left,
-   docked; top, as a sheet), feathered from nothing to the panel's
-   color, and tinted with the slide's own color (accent.js's --amb-h
-   and --amb-c): no hard edge against the picture. */
+/* ---- The panel: solid, floating ----
+   One solid panel in the dock's dark gray (the strip of scenes' and the
+   preview card's, #16181e), with rounded corners and a drop shadow under
+   it: no glass, no edge fading into the slide. */
 .ssi {
-  --ssi-feather: 64px;
-  --ssi-tint: oklch(0.2 calc(var(--amb-c, 0.03) * 0.35) var(--amb-h, 265) / 0.84);
-  border-color: transparent;
-  background: none;
-  box-shadow: none;
+  --ssi-card: #16181e;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--ssi-card);
+  box-shadow: 0 28px 60px -16px rgba(0, 0, 0, 0.75), 0 6px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
-.ssi::before {
+/* ---- Its buttons, and the metadata viewer's, move as the dock's do ----
+   An icon button: a soft disc grows in behind it on hover, its icon
+   lifts a little (the close button's X turns a quarter), and pressed,
+   the icon gives; the button's own box never changes size. A line that
+   opens something (All metadata, a folded section) nudges its chevron
+   on; tabs and small buttons ease their color and ground. */
+.ssi-x,
+.mv-close {
+  position: relative;
+  isolation: isolate;
+  transition: color 0.16s;
+}
+
+.ssi-x::before,
+.mv-close::before {
   content: "";
   position: absolute;
+  inset: 0;
   z-index: -1;
-  inset: 0 0 0 calc(-1 * var(--ssi-feather));
-  border-radius: 0 18px 18px 0;
-  background: var(--ssi-tint);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  backdrop-filter: blur(22px) saturate(1.5);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
-  mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
-  pointer-events: none;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.13);
+  opacity: 0;
+  transform: scale(0.55);
+  transition: opacity 0.18s var(--ease-out), transform 0.22s var(--ease);
 }
 
-.ss.info-sheet .ssi {
-  --ssi-feather: 44px;
-  border-color: transparent;
+.ssi-x:hover,
+.mv-close:hover {
+  background: transparent;
 }
 
-.ss.info-sheet .ssi::before {
-  inset: calc(-1 * var(--ssi-feather)) 0 0 0;
-  border-radius: 0;
-  background: var(--ssi-tint);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
-  mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+.ssi-x:active {
+  transform: none;
+}
+
+.ssi-x svg,
+.mv-close svg {
+  transition: scale 0.2s var(--ease), rotate 0.32s var(--ease);
+}
+
+@media (hover: hover), (any-hover: hover) {
+  .ssi-x:hover::before,
+  .mv-close:hover::before {
+    opacity: 1;
+    transform: none;
+  }
+
+  .ssi-x:hover svg,
+  .mv-close:hover svg {
+    scale: 1.1;
+    rotate: 90deg;
+  }
+
+  .ssi-all:hover .ssi-chev {
+    translate: 2px -2px;
+  }
+
+  .ssi-more:not([open]) > summary:hover .ssi-chev,
+  .ssi-tags:not([open]) > summary:hover .ssi-chev {
+    translate: 2px 0;
+  }
+
+  .ssi-osm:hover svg {
+    translate: 1px -1px;
+  }
+
+  .ssi-zbtn:hover:not(:disabled) {
+    color: #fff;
+  }
+}
+
+.ssi-x:active svg,
+.mv-close:active svg {
+  scale: 0.9;
+  transition-duration: 0.08s;
+}
+
+.ssi-x:active::before,
+.mv-close:active::before {
+  opacity: 1;
+  transform: none;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ssi-chev,
+.ssi-osm svg {
+  transition: transform 0.3s var(--ease), translate 0.22s var(--ease);
+}
+
+.ssi-all,
+.ssi-more > summary,
+.ssi-tags > summary,
+.mv-tab,
+.mv-fold,
+.mv-copy,
+.ssi-zbtn {
+  transition: background-color 0.18s var(--ease-out), color 0.16s, box-shadow 0.18s var(--ease-out);
+}
+
+.ssi-all:active,
+.mv-fold:active,
+.mv-copy:active,
+.ssi-zbtn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mv-tab:hover:not([aria-selected="true"]) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--mv-ink);
+}
+
+.mv-tab:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ssi-x svg,
+  .mv-close svg,
+  .ssi-chev,
+  .ssi-osm svg {
+    scale: none !important;
+    rotate: none !important;
+    translate: none !important;
+  }
+
+  .ssi-x::before,
+  .mv-close::before {
+    transform: none;
+  }
 }
 
 /* ---- All metadata: the line that opens the viewer ---- */

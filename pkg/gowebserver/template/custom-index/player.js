@@ -349,7 +349,7 @@ function VideoDock(opts) {
   var scanEl = q('.vd-scan'), scanT = null;
   var tl = q('.vd-tl'), segsEl = q('.vd-segs'), ticksEl = q('.vd-ticks'), bandsEl = q('.vd-bands'), head = q('.vd-head');
   var pop = q('.vd-pop'), popFrame = q('.vd-pop-frame'), popImg = q('.vd-pop-img'), popCanvas = q('.vd-pop-canvas');
-  var popLabel = q('.vd-pop-label'), popTime = q('.vd-pop-time');
+  var popLabel = q('.vd-pop-label'), popTime = q('.vd-pop-time'), popText = q('.vd-pop-text');
   var btnPlay = q('.vd-play'), cur = q('.vd-cur'), durEl = q('.vd-dur'), chapEl = q('.vd-chap');
   var btnMute = q('.vd-mute'), volume = q('.vd-volume'), btnRate = q('.vd-rate'), rateText = q('.vd-rate-text');
   var btnCC = q('.vd-cc'), btnFull = q('.vd-full'), btnMore = q('.vd-more'), btnMarkers = q('.vd-mk-menu');
@@ -928,6 +928,9 @@ function VideoDock(opts) {
     if (h.chapter && h.chapter.title) label = label ? h.chapter.title + ' · ' + label : h.chapter.title;
     popLabel.textContent = label;
     popLabel.hidden = !label;
+    // Under the bar, only a chapter or a marker: the time is already at
+    // the bottom left.
+    popText.hidden = !label;
     var th = preview.image(t), sz = preview.size();
     if (th) {
       // The sprite's frame, covering the box (cut evenly if the box isn't
@@ -1249,6 +1252,16 @@ function VideoDock(opts) {
   tl.addEventListener('pointerup', endDrag);
   tl.addEventListener('pointercancel', endDrag);
   tl.addEventListener('pointerleave', function () { if (!dragging) hidePop(); });
+  // The wheel on the timeline brings the strip of scenes up, on the time
+  // under the pointer (or the video's own), and then scrolls it.
+  tl.addEventListener('wheel', function (e) {
+    if (!v || !(duration() > 0)) return;
+    e.preventDefault();
+    if (scenes.isOpen()) { scenes.wheel(e); return; }
+    if (scenes.busy() || dragging) return;
+    var at = hoverT;
+    openScenes(at != null ? at : v.currentTime, at != null ? popCenter() : null);
+  }, { passive: false });
   tl.addEventListener('keydown', function (e) {
     if (!v) return;
     var t = vpSliderKey(e, v.currentTime, duration());

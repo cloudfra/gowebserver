@@ -136,10 +136,10 @@ const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thu
   'custom-index/scenes.js', 'custom-index/player.js', 'custom-index/metaview.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
 // The strip's height in the stand-in, which has no layout: the bar
-// (26) and 6 either side of it, and the compact dock's 63px scenes and 14
+// (26) and 6 either side of it, and the compact dock's 63px scenes and 20
 // over them. Its clip when it's all out, and when it's the preview's
 // card (the lit scene's box, and 6 around it).
-const FULL = 38 + 63 + 14, OPEN_CLIP = 'inset(0px 0px 0px 0px round 14px)';
+const FULL = 38 + 63 + 20, OPEN_CLIP = 'inset(0px 0px 0px 0px round 0px)';
 const insets = (clip) => (clip.match(/-?[\d.]+px/g) || []).slice(0, 4).map(parseFloat);
 
 // A slideshow over two videos, talk-0.mp4 lasting dur seconds, with its
@@ -359,7 +359,7 @@ test('the timeline held and pulled up stretches into the strip, and past a point
   // The card grown out sideways 0.64 of the way (a little ahead of the
   // scenes): 0.36 of its insets left.
   const [top, , , left] = insets(s.clip);
-  assert.equal(top, Math.round(8 * 0.36), 'the card\'s top, nearly the strip\'s');
+  assert.equal(top, Math.round(14 * 0.36), 'the card\'s top, nearly the strip\'s');
   assert.ok(left > 0, 'not all the way out: ' + s.clip);
   assert.equal(s.u, '0.4', 'the scenes unfolding as far');
   assert.equal(s.still, true);
@@ -586,4 +586,27 @@ test('pulled open and still held, pulling back down folds it, nothing picked', a
   assert.equal(t.panel().open, false, 'back down: folding');
   assert.equal(v.currentTime, 300, 'nothing picked');
   t.pg.document.fire('pointerup', { clientX: 300, clientY: 505, pointerId: 4, pointerType: 'mouse' });
+});
+
+test('the wheel on the timeline brings the strip up on the time under the pointer, and then scrolls it', async () => {
+  const t = setup();
+  await t.open(600);
+  t.tl('pointermove', 240, 510);
+  const e = t.q('.vd-tl').fire('wheel', { deltaY: 40, deltaX: 0, deltaMode: 0, clientX: 240, clientY: 510 });
+  assert.equal(e.defaultPrevented, true, 'not the page\'s');
+  assert.equal(t.panel().open, true);
+  assert.deepEqual(t.panel().lit, [4], '4:00, under the pointer');
+  const view = t.q('.vd-scenes-view'), at = view.scrollLeft;
+  t.q('.vd-tl').fire('wheel', { deltaY: 100, deltaX: 0, deltaMode: 0 });
+  assert.equal(view.scrollLeft, at + 100, 'then it scrolls');
+});
+
+test('under the bar, the preview shows a chapter, never the time', async () => {
+  const t = setup({ meta: { duration: 600, chapters: [{ start: 0, end: 300, title: 'Intro' }] } });
+  await t.open(600);
+  t.tl('pointermove', 120, 510);
+  assert.equal(t.q('.vd-pop-text').hidden, false);
+  assert.equal(t.q('.vd-pop-label').textContent, 'Intro');
+  t.tl('pointermove', 450, 510);
+  assert.equal(t.q('.vd-pop-text').hidden, true, 'no chapter: nothing under the bar');
 });

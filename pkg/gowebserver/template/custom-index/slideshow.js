@@ -121,6 +121,7 @@ var slideshow = (function () {
     var x = p.l + (W - p.l - p.r - w) / 2, y = p.t + (H - p.t - p.b - h) / 2;
     var x0 = Math.max(x, p.l), y0 = Math.max(y, p.t);
     var x1 = Math.min(x + w, W - p.r), y1 = Math.min(y + h, H - p.b);
+    dockAt = { x: x0, y: y0 };
     dock.place({ x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) });
     stripInline();
   }
@@ -278,19 +279,25 @@ var slideshow = (function () {
   // and time at the left and the controls at the right (the row's gap,
   // .vd-gap; strip-inline, at --ss-in-*), and comes and goes with the
   // dock. Too narrow a gap, and it isn't shown.
-  var STRIP_INLINE_MIN = 120, STRIP_INLINE_STEP = 41, inlineW = 0;
+  // Where the gap is is measured within the dock, and placed from where
+  // the dock rests in its slide (dockAt, from placeDock), not from where
+  // it is on screen: a slide just moved to is still sliding in, and its
+  // dock with it, so the screen would put the strip off to the side, out
+  // of reach of the pointer.
+  var STRIP_INLINE_MIN = 120, STRIP_INLINE_STEP = 41, inlineW = 0, dockAt = { x: 0, y: 0 };
   function stripInline() {
     var gap = dock.el.querySelector('.vd-gap'), row = dock.el.querySelector('.vd-row');
     var on = !!(isOpen && isFullscreen() && finePointer.matches && hasStrip() && list[idx] && list[idx].video && dock.current() && gap && row);
     var w = 0;
     if (on) {
-      var g = gap.getBoundingClientRect(), r = row.getBoundingClientRect(), f = frame.getBoundingClientRect();
+      var g = gap.getBoundingClientRect(), r = row.getBoundingClientRect(), d = dock.el.getBoundingClientRect();
+      var fh = frame.getBoundingClientRect().height;
       w = Math.round(g.width - 12);
       on = g.width >= STRIP_INLINE_MIN;
       if (on) {
-        dlg.style.setProperty('--ss-in-l', Math.round(g.left - f.left + 6) + 'px');
+        dlg.style.setProperty('--ss-in-l', Math.round(dockAt.x + g.left - d.left + 6) + 'px');
         dlg.style.setProperty('--ss-in-w', w + 'px');
-        dlg.style.setProperty('--ss-in-b', Math.round(f.bottom - (r.top + r.height / 2) - 22) + 'px');
+        dlg.style.setProperty('--ss-in-b', Math.round(fh - (dockAt.y + r.top - d.top + r.height / 2) - 22) + 'px');
       }
     }
     var was = dlg.classList.contains('strip-inline');

@@ -71,7 +71,7 @@ test('one shadow, from the bar across the whole dock, none behind each control',
   assert.equal(s.bar, 'none', 'nor a band of its own behind the bar');
 });
 
-test('the preview is a card through the bar: its picture where its scene will be, its time under the bar', async (t) => {
+test('the preview is a card through the bar: its picture where its scene will be, no time under the bar', async (t) => {
   if (!video) return t.skip('this browser can\'t encode the video');
   const p = b.page;
   const tl = await rect(p, '#ss-stage .vd-tl');
@@ -80,11 +80,15 @@ test('the preview is a card through the bar: its picture where its scene will be
   await p.mouse.move(x, y, { steps: 3 });
   await p.waitForFunction(() => document.querySelector('#ss-stage .vdock').dataset.preview === 'frame', null, { timeout: 15000 });
   await p.waitForTimeout(400);
-  const frame = await rect(p, '#ss-stage .vd-pop-frame'), bubble = await rect(p, '#ss-stage .vd-pop-text');
+  const frame = await rect(p, '#ss-stage .vd-pop-frame'), card = await rect(p, '#ss-stage .vd-pop');
   const colors = await p.evaluate(() => ['.vd-pop', '.vd-pop-text'].map((c) => getComputedStyle(document.querySelector('#ss-stage ' + c)).backgroundColor));
   assert.deepEqual([Math.round(frame.width), Math.round(frame.height)], [160, 90], 'a scene\'s size');
   assert.ok(Math.abs(frame.bottom - (tl.top - 6)) <= 1, 'its picture 6px over the bar: ' + frame.bottom + ' / ' + tl.top);
-  assert.ok(bubble.top >= tl.bottom, 'its time under the bar');
+  // The time is at the bottom left already; with no chapter here, nothing
+  // under the bar but the card's edge.
+  assert.equal(await p.$eval('#ss-stage .vd-pop-text', (e) => e.hidden), true, 'no bubble without a chapter');
+  assert.equal(await p.$eval('#ss-stage .vd-pop-time', (e) => getComputedStyle(e).display), 'none', 'never the time');
+  assert.ok(card.bottom <= tl.bottom + 8, 'the card ends just under the bar: ' + card.bottom + ' / ' + tl.bottom);
   assert.equal(colors[0], colors[1], 'card and bubble one solid gray');
   // Taken and pulled up: the strip grows around it, its scene where the
   // picture was.
