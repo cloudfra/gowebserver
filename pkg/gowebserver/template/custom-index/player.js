@@ -356,6 +356,16 @@ function VideoDock(opts) {
   var menu = q('.vd-menu'), menuTitle = q('.vd-menu-title'), menuList = q('.vd-menu-list');
   var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip'), panel = q('.vd-panel');
 
+  // Coming and going (.vd-rise, custom-index.css): the timeline first,
+  // then the controls along the row after it, each a step later (--vd-i),
+  // and going, the same backward (--vd-n, the last one's step).
+  var risers = [tl].concat(Array.prototype.slice.call(q('.vd-left').children), Array.prototype.slice.call(q('.vd-right').children));
+  risers.forEach(function (x, i) {
+    x.classList.add('vd-rise');
+    x.style.setProperty('--vd-i', String(i));
+  });
+  el.style.setProperty('--vd-n', String(risers.length - 1));
+
   var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
   var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;
   var tracks = [], capOn = -1, menuKind = '', hoverT = null, hoverX = 0;

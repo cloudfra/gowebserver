@@ -3149,6 +3149,11 @@ main {
   /* The shadow behind what's read: how dark, and how far it feathers. */
   --vd-shade: rgba(4, 5, 8, 0.7);
   --vd-feather: 14px;
+  /* The preview's box, and the strip of scenes it grows into. */
+  --vd-preview-bg: #0c0d10;
+  /* The video's own color (accent.js), deep and quiet, for what bleeds
+     into that gray. */
+  --vd-bleed: oklch(0.42 calc(var(--amb-c, 0.04) * 0.9) var(--amb-h, 265));
   position: absolute;
   z-index: 2;
   display: flex;
@@ -3178,12 +3183,54 @@ main {
   isolation: isolate;
   padding: 40px 12px 8px;
   pointer-events: none;
-  transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
 }
 
-.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel {
+/* Coming and going: the timeline fades in and slides up from the bottom
+ * first, then the time and each control along the row after it, a step
+ * apart (--vd-i, set by player.js), all the same distance and easing;
+ * going, the same backward, the last control first and the timeline
+ * last (--vd-n). The shadows behind the controls come and go with them.
+ * The controls' own hover motion is on what's inside them, so the two
+ * never fight. */
+.vd-rise {
+  transition:
+    opacity 0.26s var(--ease-out) calc(var(--vd-i, 0) * 32ms),
+    translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
+}
+
+.vd-btn.vd-rise {
+  transition:
+    color 0.16s,
+    opacity 0.26s var(--ease-out) calc(var(--vd-i, 0) * 32ms),
+    translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
+}
+
+.vd-cluster::before {
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-rise {
   opacity: 0;
-  transform: translateY(10px);
+  translate: 0 14px;
+  pointer-events: none;
+  transition:
+    opacity 0.22s var(--ease-out) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms),
+    translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
+}
+
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-btn.vd-rise {
+  transition:
+    color 0.16s,
+    opacity 0.22s var(--ease-out) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms),
+    translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
+}
+
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster::before {
+  opacity: 0;
+  transition-delay: 0.12s;
+}
+
+.ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster {
   pointer-events: none;
 }
 
@@ -3319,7 +3366,7 @@ main {
   position: relative;
   overflow: hidden;
   border-radius: 10px;
-  background: #0c0d10;
+  background: var(--vd-preview-bg);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
 }
 
@@ -3366,15 +3413,18 @@ main {
 /* ---- The preview rising out of the bar, and the bar stretched into
  * the strip of scenes (scenes.js) ----
  * The preview grows up out of the timeline when it comes. Held and
- * pulled up, the timeline stretches: a black strip grows up from behind
- * it (its height follows the pull, then eases open with a little
- * spring), the video's own bottom edge (.vd-scenes-glow, a few pixels
- * of it, blurred wide) spilling into its top over a faint wash of the
- * accent. The scenes unfold out of the one under the pointer (--fx, how
- * far each is from it, and --u, how far stretched), and slide in from
- * the side as the strip scrolls (.enter). The bar stays along the
- * bottom, on top, with a mark (.vd-scan) at the time the strip is
- * scrolled to. The scene nearest the time is ringed in the color the
+ * pulled up, the timeline stretches: a strip in the preview's own very
+ * dark gray grows up from behind it (its height follows the pull, then
+ * eases open with a little spring). The video's color bleeds into it at
+ * the top, where its bottom edge glows in (.vd-scenes-glow, a few pixels
+ * of it, blurred wide), and along the bottom around the bar, so strip
+ * and bar are one tinted surface. The scenes come up out of the bar as
+ * if pulled, each by its own --p (0 to 1): the one nearest the pointer
+ * first, its neighbors after it in a chain; eased, each waits its --cd,
+ * the chain running on when it opens and back when it folds. Open, they
+ * slide in from the side as the strip scrolls (.enter). The bar stays
+ * along the bottom, on top, with a mark (.vd-scan) at the time the strip
+ * is scrolled to. The scene nearest the time is ringed in the color the
  * bar plays in (--vd-played); hovering one rings it faintly. */
 .vd-pop.rise {
   transform-origin: 50% 100%;
@@ -3403,6 +3453,12 @@ main {
   --vd-rail: 7px;
 }
 
+/* The bar's own shadow gives way to the strip's surface around it. */
+.vdock.scenes-open .vd-tl::before,
+.vdock.pulling .vd-tl::before {
+  opacity: 0;
+}
+
 .vd-scan {
   position: absolute;
   top: 50%;
@@ -3423,8 +3479,11 @@ main {
   overflow: hidden;
   isolation: isolate;
   border-radius: 14px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--vd-played) 18%, #050506), #000 72%);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 -14px 40px rgba(0, 0, 0, 0.5);
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 34%, transparent), transparent 58%),
+    linear-gradient(to top, color-mix(in srgb, var(--vd-bleed) 26%, transparent), transparent calc(var(--vd-scenes-base, 38px) + 22px)),
+    var(--vd-preview-bg);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 -14px 40px rgba(0, 0, 0, 0.5);
   opacity: clamp(0, calc(var(--u) * 6), 1);
   pointer-events: auto;
 }
@@ -3433,12 +3492,13 @@ main {
   transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
 }
 
+/* Folding, the strip waits for the chain to sink before it shrinks. */
 .vd-scenes.eased:not(.open) {
-  transition: height 0.38s var(--ease), opacity 0.3s 0.08s;
+  transition: height 0.38s var(--ease) 0.2s, opacity 0.3s 0.3s;
 }
 
 /* The video's bottom edge, stretched across the top and blurred into a
-   glow that fades down into the black. */
+   glow that fades down into the gray. */
 .vd-scenes-glow {
   position: absolute;
   top: -24px;
@@ -3490,28 +3550,29 @@ main {
   height: var(--vd-scene-h);
 }
 
+/* Down in the bar (--p 0) to up in place (--p 1), growing from its
+   bottom edge as it comes. */
 .vd-scene {
+  --p: 0;
   position: absolute;
   top: 0;
   width: var(--vd-scene-w);
   height: var(--vd-scene-h);
-  opacity: clamp(0, calc(var(--u) * 1.4 - 0.2), 1);
-  transform: translateX(calc(var(--fx, 0px) * (1 - var(--u)))) scale(calc(0.6 + 0.4 * var(--u)));
-}
-
-/* The one the pull started on is the preview, grown: always there. */
-.vd-scene.on {
-  opacity: 1;
+  opacity: clamp(0, calc(var(--p) * 2.5), 1);
+  transform: translateY(calc((1 - var(--p)) * (var(--vd-scene-h) + 18px))) scale(calc(0.86 + 0.14 * var(--p)));
+  transform-origin: 50% 100%;
 }
 
 .vd-scenes.eased .vd-scene {
   transition:
-    transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) calc(var(--d, 0) * 30ms),
-    opacity 0.25s linear calc(var(--d, 0) * 30ms);
+    transform 0.5s cubic-bezier(0.34, 1.45, 0.5, 1) var(--cd, 0ms),
+    opacity 0.2s linear var(--cd, 0ms);
 }
 
 .vd-scenes.eased:not(.open) .vd-scene {
-  transition: transform 0.36s var(--ease), opacity 0.22s linear;
+  transition:
+    transform 0.32s var(--ease) var(--cd, 0ms),
+    opacity 0.2s linear calc(var(--cd, 0ms) + 0.1s);
 }
 
 .vd-scenes.settled .vd-scene {
@@ -4249,6 +4310,17 @@ main {
   .vdock .vd-scene-card {
     transform: none !important;
     animation: none;
+  }
+
+  /* The controls come and go fading, where they are, all at once. */
+  .vdock .vd-rise,
+  .vdock .vd-btn.vd-rise {
+    translate: none !important;
+    transition: color 0.16s, opacity 0.2s linear !important;
+  }
+
+  .vdock .vd-scene {
+    transition: opacity 0.2s linear !important;
   }
 
   .vdock .vd-pop.rise {
