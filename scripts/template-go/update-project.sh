@@ -24,7 +24,7 @@
 #      required_version constraint aligned with TERRAFORM_VERSION
 #   4. re-vendor third_party/ from the upstream archives the makefiles fetch
 #   5. move the Go modules to their latest releases through the repo's own
-#      `make deps` target, then verify the checksums
+#      `make upgrade-deps` target, then verify the checksums
 #
 # Step 2 only touches pins that hold a concrete version; a pin set to `latest`
 # is left alone. Every tool is pinned, so builds are reproducible and an
@@ -64,7 +64,7 @@ Usage: $0 [options]
 
 Update the checkout to the newest template-go release, bump the pinned tool
 versions in Makefile_toolchain.mk, and move the Go modules to their latest
-releases with the repo's own "make deps" target. Changes are left
+releases with the repo's own "make upgrade-deps" target. Changes are left
 uncommitted for review.
 
 Options:
@@ -712,10 +712,10 @@ refresh_vendored() {
 
 # --- step 6: move the Go modules to their latest releases -------------------
 
-# The bump is delegated to the repo's own "make deps" target (go get -u
+# The bump is delegated to the repo's own "make upgrade-deps" target (go get -u
 # ./... + go mod tidy + go mod download) so a scheduled run moves Go modules
-# exactly the way a local "make deps" does. "go mod verify" runs afterwards
-# because the deps target checks nothing about the downloaded checksums.
+# exactly the way a local "make upgrade-deps" does. "go mod verify" runs
+# afterwards because that target checks nothing about the downloaded checksums.
 update_go() {
   echo
   echo "== go.mod =="
@@ -728,12 +728,12 @@ update_go() {
     return 0
   fi
   if [[ "$DRY_RUN" == true ]]; then
-    echo "  would run: make deps && go mod verify"
+    echo "  would run: make upgrade-deps && go mod verify"
     return 0
   fi
   if ! (
     cd "$TARGET" &&
-      make deps &&
+      make upgrade-deps &&
       go mod verify
   ); then
     echo "  error: go module update failed" >&2

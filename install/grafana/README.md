@@ -2,10 +2,10 @@
 
 Dashboards for a gowebserver scraped by Prometheus (see [../prometheus](../prometheus/README.md)).
 
-Dashboard | File | Shows
-----------|------|------
-gowebserver | [dashboards/gowebserver.json](dashboards/gowebserver.json) | Requests by what answered them, time to first byte, directory listings by stage, the text viewer, uploads, proxied requests, and the process (CPU, memory, goroutines, file descriptors).
-gowebserver thumbnails | [dashboards/gowebserver-thumbnails.json](dashboards/gowebserver-thumbnails.json) | Thumbnail requests and how many come from the store, each stage of making one, the render slots, the store's size and speed, and ffmpeg.
+| Dashboard              | File                                                                             | Shows                                                                                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| gowebserver            | [dashboards/gowebserver.json](dashboards/gowebserver.json)                       | Requests by what answered them, time to first byte, directory listings by stage, the text viewer, uploads, proxied requests, and the process (CPU, memory, goroutines, file descriptors). |
+| gowebserver thumbnails | [dashboards/gowebserver-thumbnails.json](dashboards/gowebserver-thumbnails.json) | Thumbnail requests and how many come from the store, each stage of making one, the render slots, the store's size and speed, and ffmpeg.                                                  |
 
 Each has a data source, a job and an instance picker at the top. The job defaults to `gowebserver`, the name the example scrape configuration uses.
 
