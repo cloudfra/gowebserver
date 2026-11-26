@@ -28,6 +28,14 @@ TAR = tar
 
 GO_TEST_COUNT = 25
 
+# The deflake pass runs the whole suite GO_TEST_COUNT times inside one test
+# binary, which has outgrown go test's default 10m alarm: the last count-25
+# run that finished took 505s, the four after it were cut off after 21
+# repeats. Sized for 25 repeats with room for a slow runner, and still
+# inside the CI jobs' 30m timeout once build assets and test assets are paid
+# for.
+GO_TEST_TIMEOUT = 15m
+
 ifeq ($(PRODUCTION), 1)
 	IGNORE_LINT_CHECK =
 else
@@ -273,7 +281,7 @@ test-go: $(TEST_ASSETS)
 	$(GO) test -shuffle=on -tags testing ${SOURCE_DIRS}
 
 test-deflake: $(TEST_ASSETS)
-	CGO_ENABLED=1 $(GO) test -shuffle=on -tags testing $(GO_RACE) ${SOURCE_DIRS} -cover -count $(GO_TEST_COUNT) -test.short
+	CGO_ENABLED=1 $(GO) test -shuffle=on -tags testing $(GO_RACE) ${SOURCE_DIRS} -cover -count $(GO_TEST_COUNT) -timeout $(GO_TEST_TIMEOUT) -test.short
 
 ifneq ($(wildcard install/terraform),)
 test-tf: $(TERRAFORM) $(TEST_ASSETS)
