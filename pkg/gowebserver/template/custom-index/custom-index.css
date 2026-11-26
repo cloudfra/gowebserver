@@ -4864,6 +4864,53 @@ summary:hover .ssi-chev {
   text-transform: uppercase;
 }
 
+/* ---- The details, one list after the facts ---- */
+.ssi-body > .ssi-group {
+  margin-top: 18px;
+}
+
+/* ---- The panel melts into the slide ----
+   Its glass is drawn by a layer reaching past its leading edge (left,
+   docked; top, as a sheet), feathered from nothing to the panel's
+   color, and tinted with the slide's own color (accent.js's --amb-h
+   and --amb-c): no hard edge against the picture. */
+.ssi {
+  --ssi-feather: 64px;
+  --ssi-tint: oklch(0.2 calc(var(--amb-c, 0.03) * 0.35) var(--amb-h, 265) / 0.84);
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.ssi::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 calc(-1 * var(--ssi-feather));
+  border-radius: 0 18px 18px 0;
+  background: var(--ssi-tint);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+  mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+  pointer-events: none;
+}
+
+.ss.info-sheet .ssi {
+  --ssi-feather: 44px;
+  border-color: transparent;
+}
+
+.ss.info-sheet .ssi::before {
+  inset: calc(-1 * var(--ssi-feather)) 0 0 0;
+  border-radius: 0;
+  background: var(--ssi-tint);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+  mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+}
+
 /* ---- All metadata: the line that opens the viewer ---- */
 .ssi-all {
   display: flex;

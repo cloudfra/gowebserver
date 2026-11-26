@@ -5357,6 +5357,49 @@
     }
 
      
+    .ssi-body > .ssi-group {
+      margin-top: 18px;
+    }
+
+     
+    .ssi {
+      --ssi-feather: 64px;
+      --ssi-tint: oklch(0.2 calc(var(--amb-c, 0.03) * 0.35) var(--amb-h, 265) / 0.84);
+      border-color: transparent;
+      background: none;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .ssi::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 0 calc(-1 * var(--ssi-feather));
+      border-radius: 0 18px 18px 0;
+      background: var(--ssi-tint);
+      -webkit-backdrop-filter: blur(22px) saturate(1.5);
+      backdrop-filter: blur(22px) saturate(1.5);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+      mask-image: linear-gradient(90deg, transparent, #000 var(--ssi-feather));
+      pointer-events: none;
+    }
+
+    .ss.info-sheet .ssi {
+      --ssi-feather: 44px;
+      border-color: transparent;
+    }
+
+    .ss.info-sheet .ssi::before {
+      inset: calc(-1 * var(--ssi-feather)) 0 0 0;
+      border-radius: 0;
+      background: var(--ssi-tint);
+      -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+      mask-image: linear-gradient(180deg, transparent, #000 var(--ssi-feather));
+    }
+
+     
     .ssi-all {
       display: flex;
       align-items: center;
@@ -11213,8 +11256,8 @@
       function mvRawGroups(raw) {
         var out = [], at = new Map();
         (raw || []).forEach(function (r) {
-          var g = at.get(r.path);
-          if (!g) { g = { path: r.path, rows: [] }; at.set(r.path, g); out.push(g); }
+          var key = (r.source || '') + '\u0000' + r.path, g = at.get(key);
+          if (!g) { g = { path: r.path, rows: [] }; at.set(key, g); out.push(g); }
           g.rows.push(r);
         });
         return out;
@@ -11222,7 +11265,14 @@
 
       
       
-      var MV_SOURCES = [['boxes', 'Boxes'], ['timed', 'Timed metadata'], ['sei', 'SEI'], ['xmp', 'XMP']];
+      function mvRawOf(d) {
+        var tags = ((d && d.tags) || []).map(function (t) { return { path: t.group, key: t.name, value: t.value, source: 'tags' }; });
+        return ((d && d.raw) || []).concat(tags);
+      }
+
+      
+      
+      var MV_SOURCES = [['boxes', 'Boxes'], ['timed', 'Timed metadata'], ['sei', 'SEI'], ['xmp', 'XMP'], ['tags', 'Tags']];
       function mvSourceOf(path) {
         var p = String(path || '');
         if (/XMP/i.test(p)) return 'xmp';
@@ -11276,11 +11326,11 @@
           data = d || {};
           back = from || null;
           nameEl.textContent = name || data.name || '';
-          var nStruct = (data.structures || []).length, nRaw = (data.raw || []).length;
+          var raw = mvRawOf(data), nStruct = (data.structures || []).length, nRaw = raw.length;
           tabs[0].querySelector('.mv-count').textContent = numFmt.format(nStruct);
           tabs[1].querySelector('.mv-count').textContent = numFmt.format(nRaw);
           panes.structure.innerHTML = structuresHTML(data.structures || []);
-          panes.raw.innerHTML = rawHTML(data.raw || []);
+          panes.raw.innerHTML = rawHTML(raw);
           find.value = '';
           setTab(nStruct ? 'structure' : 'raw');
           el.hidden = false;
@@ -11383,7 +11433,7 @@
           if (!raw.length) return '<p class="mv-empty">No raw metadata.</p>';
           var bySource = {};
           mvRawGroups(raw).forEach(function (g) {
-            var s = mvSourceOf(g.path);
+            var s = g.rows[0].source || mvSourceOf(g.path);
             (bySource[s] = bySource[s] || []).push(g);
           });
           var h = '';
@@ -11528,7 +11578,6 @@
         
         
         var SPANS = [360, 48, 12], level = 2;
-        var moreOpen = false, tagsOpen = false;
         
         
         var shown = null, viewer = null;
@@ -11590,10 +11639,6 @@
 
         btn.addEventListener('click', toggle);
         $('ss-panel-close').addEventListener('click', function () { close(); });
-        body.addEventListener('toggle', function (e) {
-          if (e.target.classList.contains('ssi-more')) moreOpen = e.target.open;
-          if (e.target.classList.contains('ssi-tags')) tagsOpen = e.target.open;
-        }, true);
         body.addEventListener('click', function (e) {
           var all = e.target.closest && e.target.closest('.ssi-all');
           if (all) { openAll(all); return; }
@@ -11666,8 +11711,8 @@
             h += '<p class="ssi-note">Details from the file itself are unavailable.</p>';
           }
           if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
-          if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);
-          if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length))) h += allHTML(d);
+          if (d && d.groups && d.groups.length) h += groupsHTML(d);
+          if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length) || (d.tags && d.tags.length))) h += allHTML(d);
           shown = d;
           body.innerHTML = h;
           body.setAttribute('aria-busy', String(state === 'loading'));
@@ -11758,45 +11803,16 @@
         }
 
         
-        function teaser(d) {
-          var pick = function (g, label) {
-            var v = '';
-            (d.groups || []).forEach(function (x) {
-              if (x.title === g) x.fields.forEach(function (f) { if (!v && f.label === label) v = f.value; });
-            });
-            return v;
-          };
-          var parts = [pick('Camera', 'Camera'), pick('Exposure', 'Aperture'), pick('Exposure', 'Shutter speed'),
-            pick('Exposure', 'ISO') && 'ISO ' + pick('Exposure', 'ISO'), pick('Song', 'Artist'), pick('Video', 'Codec').split(',')[0]];
-          var t = parts.filter(Boolean).slice(0, 4).join(' · ');
-          return t || d.format || '';
-        }
-
-        function moreHTML(d) {
-          var h = '<details class="ssi-more"' + (moreOpen ? ' open' : '') + '><summary><span class="ssi-sum">' +
-            '<span class="ssi-sum-t">More details</span><span class="ssi-dim">' + escapeHTML(teaser(d)) + '</span></span>' +
-            '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary>' +
-            '<div class="ssi-more-body">';
+        
+        
+        function groupsHTML(d) {
+          var h = '';
           (d.groups || []).forEach(function (g) {
             h += '<section class="ssi-group"><h3>' + escapeHTML(g.title) + '</h3><dl class="ssi-facts">';
             g.fields.forEach(function (f) { h += row(escapeHTML(f.label), escapeHTML(f.value)); });
             h += '</dl></section>';
           });
-          if (d.tags && d.tags.length) {
-            h += '<details class="ssi-tags"' + (tagsOpen ? ' open' : '') + '><summary><span class="ssi-sum-t">All tags</span>' +
-              '<span class="ssi-count">' + numFmt.format(d.tags.length) + '</span>' +
-              '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><dl class="ssi-raw">';
-            var last = '';
-            d.tags.forEach(function (tg) {
-              if (tg.group !== last) {
-                h += '<div class="ssi-raw-group">' + escapeHTML(tg.group) + '</div>';
-                last = tg.group;
-              }
-              h += '<div><dt>' + escapeHTML(tg.name) + '</dt><dd>' + escapeHTML(tg.value) + '</dd></div>';
-            });
-            h += '</dl></details>';
-          }
-          return h + '</div></details>';
+          return h;
         }
 
         
@@ -11962,7 +11978,8 @@
         function allHTML(d) {
           var parts = [];
           if (d.structures && d.structures.length) parts.push(numFmt.format(d.structures.length) + ' structured');
-          if (d.raw && d.raw.length) parts.push(numFmt.format(d.raw.length) + ' raw keys');
+          var nRaw = (d.raw || []).length + (d.tags || []).length;
+          if (nRaw) parts.push(numFmt.format(nRaw) + ' raw keys');
           return '<button type="button" class="ssi-all"><span class="ssi-sum"><span class="ssi-sum-t">All metadata</span>' +
             '<span class="ssi-dim">' + escapeHTML(parts.join(' · ')) + '</span></span>' +
             '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></button>';

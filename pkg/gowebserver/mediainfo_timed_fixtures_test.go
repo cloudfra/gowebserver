@@ -20,6 +20,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"math"
 	"strconv"
 	"time"
@@ -273,11 +276,13 @@ var sensorStart = time.Date(2025, 3, 14, 9, 30, 0, 0, time.UTC)
 func sensorReading(i, n int) map[string]any {
 	f := float64(i) / float64(max(1, n-1))
 	return map[string]any{
-		"gps":           map[string]any{"lat": 46.5191 + f*0.002, "lon": 6.6323 + f*0.003, "alt_m": 372.5},
-		"temperature_c": math.Round((18.5+7*f+math.Sin(f*9)*0.8)*10) / 10,
-		"counter":       i,
-		"battery_pct":   math.Round(98 - 11*f),
-		"timestamp":     sensorStart.Add(time.Duration(i) * 100 * time.Millisecond).UnixMilli(),
+		"gps":            map[string]any{"lat": 46.5191 + f*0.002, "lon": 6.6323 + f*0.003, "alt_m": 372.5},
+		"temperature_c":  math.Round((18.5+7*f+math.Sin(f*9)*0.8)*10) / 10,
+		"engine":         map[string]any{"temp_c": math.Round((78+14*f)*10) / 10, "rpm": 2400 + i*10},
+		"outside_temp_c": math.Round((-4.5+2*f)*10) / 10,
+		"counter":        i,
+		"battery_pct":    math.Round(98 - 11*f),
+		"timestamp":      sensorStart.Add(time.Duration(i) * 100 * time.Millisecond).UnixMilli(),
 		"device": map[string]any{
 			"id": "sensor-01", "firmware": "2.4.1",
 			"status": map[string]any{"ok": i%17 != 16, "led": "#2bd2ff", "uptime_s": 3600 + i/10},
@@ -305,10 +310,26 @@ func eventTrack(length float64) fixtureTrack {
 	t.samples = append(t.samples, append(amfString("onStart"), amfObjectBytes("version", amfNumber(2))...))
 	t.times = append(t.times, 0)
 	for i := 0; float64(i) < length; i++ {
-		t.samples = append(t.samples, amfMessage("event", map[string]any{"seq": i, "level": []string{"info", "info", "warn"}[i%3], "color": "#ff7a59"}))
+		t.samples = append(t.samples, amfMessage("event", map[string]any{"seq": i, "level": []string{"info", "info", "warn"}[i%3], "color": "#ff7a59", "snapshot": snapshotPNG(i)}))
 		t.times = append(t.times, uint32(i*1000+500))
 	}
 	return t
+}
+
+// snapshotPNG is a small made-up picture (a gradient, shifted by i) as
+// a data: URL, as some writers put a thumbnail in their messages.
+func snapshotPNG(i int) string {
+	img := image.NewRGBA(image.Rect(0, 0, 48, 32))
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 48; x++ {
+			img.Set(x, y, color.RGBA{uint8(40 + x*4 + i*8), uint8(90 + y*4), uint8(200 - x*2), 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		panic(err)
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
 }
 
 // mdtaMeta is a moov meta box of QuickTime keys (mdta), made up.

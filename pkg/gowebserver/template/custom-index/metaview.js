@@ -258,16 +258,23 @@ function mvDetect(path, v, ctx) {
 function mvRawGroups(raw) {
   var out = [], at = new Map();
   (raw || []).forEach(function (r) {
-    var g = at.get(r.path);
-    if (!g) { g = { path: r.path, rows: [] }; at.set(r.path, g); out.push(g); }
+    var key = (r.source || '') + '\u0000' + r.path, g = at.get(key);
+    if (!g) { g = { path: r.path, rows: [] }; at.set(key, g); out.push(g); }
     g.rows.push(r);
   });
   return out;
 }
 
+// Everything a document lists as it is: its raw keys, then its tags
+// (EXIF, GPS, ID3...) under their group.
+function mvRawOf(d) {
+  var tags = ((d && d.tags) || []).map(function (t) { return { path: t.group, key: t.name, value: t.value, source: 'tags' }; });
+  return ((d && d.raw) || []).concat(tags);
+}
+
 // The kind of source a raw path is: XMP, SEI, a timed metadata track,
-// or the file's boxes.
-var MV_SOURCES = [['boxes', 'Boxes'], ['timed', 'Timed metadata'], ['sei', 'SEI'], ['xmp', 'XMP']];
+// or the file's boxes (tags say they're tags).
+var MV_SOURCES = [['boxes', 'Boxes'], ['timed', 'Timed metadata'], ['sei', 'SEI'], ['xmp', 'XMP'], ['tags', 'Tags']];
 function mvSourceOf(path) {
   var p = String(path || '');
   if (/XMP/i.test(p)) return 'xmp';
@@ -321,11 +328,11 @@ function MetaView(opts) {
     data = d || {};
     back = from || null;
     nameEl.textContent = name || data.name || '';
-    var nStruct = (data.structures || []).length, nRaw = (data.raw || []).length;
+    var raw = mvRawOf(data), nStruct = (data.structures || []).length, nRaw = raw.length;
     tabs[0].querySelector('.mv-count').textContent = numFmt.format(nStruct);
     tabs[1].querySelector('.mv-count').textContent = numFmt.format(nRaw);
     panes.structure.innerHTML = structuresHTML(data.structures || []);
-    panes.raw.innerHTML = rawHTML(data.raw || []);
+    panes.raw.innerHTML = rawHTML(raw);
     find.value = '';
     setTab(nStruct ? 'structure' : 'raw');
     el.hidden = false;
@@ -428,7 +435,7 @@ function MetaView(opts) {
     if (!raw.length) return '<p class="mv-empty">No raw metadata.</p>';
     var bySource = {};
     mvRawGroups(raw).forEach(function (g) {
-      var s = mvSourceOf(g.path);
+      var s = g.rows[0].source || mvSourceOf(g.path);
       (bySource[s] = bySource[s] || []).push(g);
     });
     var h = '';

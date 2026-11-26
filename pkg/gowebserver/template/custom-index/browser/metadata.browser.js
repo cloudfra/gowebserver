@@ -76,6 +76,13 @@ test('the panel stays as it was, with the readings\' place on its map, and a lin
   });
   assert.equal(playable, true);
   await shot(p, 'meta-panel');
+  // One list, nothing folded: the details follow the facts.
+  assert.equal(await p.locator('#ss-panel-body details').count(), 0);
+  const groups = await p.$$eval('.ssi-body > .ssi-group h3', (h) => h.map((x) => x.textContent));
+  assert.deepEqual(groups, ['Video', 'Audio', 'Data', 'Description', 'File']);
+  await p.evaluate(() => { const b = document.getElementById('ss-panel-body'); b.scrollTop = b.scrollHeight; });
+  await shot(p, 'meta-panel-scrolled');
+  await p.evaluate(() => { document.getElementById('ss-panel-body').scrollTop = 0; });
 });
 
 test('the viewer: the structure as a tree, values drawn by what they are', async () => {
@@ -97,6 +104,37 @@ test('the viewer: the structure as a tree, values drawn by what they are', async
   }
   assert.match(await first.locator('header').textContent(), /messages/);
   await shot(p, 'meta-structure');
+  // Every representation, close up: a hot and a cold thermometer among
+  // them, and the picture an AMF0 message carries.
+  const picks = {
+    map: ['gps', 'summary'], 'thermometer-hot': ['temp_c'], 'thermometer-cold': ['outside_temp_c'], sparkline: ['temperature_c'],
+    swatch: ['led'], bar: ['battery_pct'], image: ['snapshot'], chip: ['ok'], date: ['timestamp'], duration: ['uptime_s'],
+  };
+  const found = await p.evaluate((picks) => Object.keys(picks).filter((name) => {
+    const [key, part] = picks[name];
+    const k = Array.from(document.querySelectorAll('.mv-k')).find((e) => e.textContent === key);
+    if (!k) return false;
+    let el = k.closest('li');
+    if (part) el = el.querySelector(part) || el;
+    el.dataset.shot = name;
+    return true;
+  }), picks);
+  assert.deepEqual(found, Object.keys(picks));
+  const has = { map: '.mv-map', 'thermometer-hot': '.mv-thermo', 'thermometer-cold': '.mv-thermo', sparkline: '.mv-spark', swatch: '.mv-swatch', bar: '.mv-bar', image: '.mv-img', chip: '.mv-chip', date: '.mv-when', duration: '.mv-when' };
+  for (const name of Object.keys(picks)) {
+    assert.ok(await p.locator('[data-shot="' + name + '"] ' + has[name]).count(), name);
+  }
+  const colors = await p.$$eval('[data-shot^="thermometer"] .mv-thermo', (t) => t.map((x) => getComputedStyle(x.querySelector('i')).backgroundColor));
+  assert.deepEqual(colors, ['rgb(239, 68, 68)', 'rgb(59, 130, 246)'], 'hot red, cold blue');
+  if (SHOTS) {
+    for (const name of Object.keys(picks)) {
+      const el = p.locator('[data-shot="' + name + '"]');
+      await el.scrollIntoViewIfNeeded();
+      await p.waitForTimeout(150);
+      await el.screenshot({ path: path.join(SHOTS, (b.name === 'chromium' ? '' : b.name + '-') + 'detector-' + name + '.png') });
+    }
+    await p.evaluate(() => { document.querySelector('.mv-body').scrollTop = 0; });
+  }
   // Lists fold with their length, and open.
   const accel = first.locator('.mv-node details').filter({ hasText: 'accel' }).first();
   assert.equal(await accel.getAttribute('open'), null);
@@ -115,7 +153,7 @@ test('the viewer: every raw key by source, copyable, filtered', async () => {
   const p = b.page;
   await p.click('.mv-tab[data-tab="raw"]');
   const kinds = await p.$$eval('.mv-source', (s) => s.map((x) => x.getAttribute('data-source')));
-  assert.deepEqual(kinds, ['boxes', 'timed', 'sei', 'xmp']);
+  assert.deepEqual(kinds, ['boxes', 'timed', 'sei', 'xmp', 'tags']);
   assert.ok(await p.locator('.mv-path', { hasText: 'moov/meta/keys' }).count(), 'the mdta keys');
   await shot(p, 'meta-raw');
   await p.fill('.mv-find', 'temperature');

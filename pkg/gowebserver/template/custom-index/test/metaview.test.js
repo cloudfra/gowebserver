@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const { page, load, markup } = require('../../harness.js');
 
 const NAMES = ['mvType', 'mvNumber', 'mvLeaf', 'mvEpoch', 'mvDuration', 'mvTempColor', 'mvSparkline', 'mvLatLon', 'mvISO6709',
-  'mvDetect', 'mvRawGroups', 'mvSourceOf', 'mvMatch', 'MetaView', 'MV_DETECTORS'];
+  'mvDetect', 'mvRawGroups', 'mvRawOf', 'mvSourceOf', 'mvMatch', 'MetaView', 'MV_DETECTORS'];
 const FILES = ['custom-index/util.js', 'custom-index/diag.js', 'custom-index/thumbs.js', 'custom-index/data.js', 'custom-index/scenes.js',
   'custom-index/player.js', 'custom-index/metaview.js', 'custom-index/info.js', 'custom-index/slideshow.js'];
 
@@ -217,6 +217,20 @@ test('the raw keys: by kind of source, then where; copyable; long values folded'
   assert.equal(e.defaultPrevented, true);
   assert.equal(reached, 0);
   assert.equal(v.isOpen(), false);
+});
+
+test('a file\'s tags are raw keys too, under their group, apart from the boxes', () => {
+  const s = mv();
+  const doc = { raw: [{ path: 'XMP', key: 'dc:title', value: 'T' }], tags: [{ group: 'EXIF', name: 'Make', value: 'Example' }, { group: 'XMP', name: 'dc:title', value: 'T' }] };
+  assert.equal(s.mvRawOf(doc).length, 3);
+  assert.equal(s.mvRawGroups(s.mvRawOf(doc)).length, 3, 'a tag group named as a box is its own');
+  const v = s.MetaView({ host: s.pg.document.getElementById('host') });
+  v.open(doc, 'p.jpg');
+  assert.equal(v.tab(), 'raw', 'nothing structured: it opens on the raw keys');
+  const sources = v.el.querySelectorAll('.mv-source');
+  assert.deepEqual(sources.map((x) => x.getAttribute('data-source')), ['xmp', 'tags']);
+  assert.deepEqual(sources[1].querySelectorAll('.mv-path').map((p) => p.textContent), ['EXIF', 'XMP']);
+  assert.equal(v.el.querySelectorAll('.mv-tab')[1].querySelector('.mv-count').textContent, '3');
 });
 
 test('values are text, never markup', () => {

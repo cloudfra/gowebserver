@@ -103,14 +103,14 @@ test('the panel asks for nothing until it is opened, then for the slide on scree
   assert.equal(t.body.querySelector('.ssi-skel'), null);
 });
 
-test('it shows the place first, then the date, name and size, and keeps the details folded', async () => {
+test('it shows the place first, then the date, name and size, and the details after, unfolded', async () => {
   const t = setup(3, { docs: { 'p1.jpg?info': PHOTO } });
   t.slideshow.open(t.all, 1, null, false);
   t.key('i');
   await t.flush();
 
   const top = t.body.children.map((el) => el.className);
-  assert.deepEqual(top, ['ssi-loc', 'ssi-facts', 'ssi-text', 'ssi-more']);
+  assert.deepEqual(top, ['ssi-loc', 'ssi-facts', 'ssi-text', 'ssi-group', 'ssi-group', 'ssi-group', 'ssi-all']);
   const labels = t.body.querySelectorAll('.ssi-facts')[0].querySelectorAll('dt').map((d) => d.textContent);
   assert.deepEqual(labels, ['Taken', 'Name', 'Size']);
   assert.equal(t.body.querySelector('.ssi-where').textContent, 'Eiffel Tower, Paris, France');
@@ -128,12 +128,12 @@ test('it shows the place first, then the date, name and size, and keeps the deta
   // Lyrics, as text.
   assert.equal(t.body.querySelector('.ssi-prose').textContent, 'Line one\nLine <two>');
   assert.equal(t.body.querySelector('.ssi-lang').textContent, 'eng');
-  // The rest is folded away, with a hint of what's in it.
-  const more = t.body.querySelector('.ssi-more');
-  assert.equal(more.hasAttribute('open'), false);
-  assert.match(more.querySelector('summary').textContent, /More details.*Apple iPhone 15 Pro · ƒ\/1\.8 · 1\/250 s/);
-  assert.deepEqual(more.querySelectorAll('.ssi-group h3').map((h) => h.textContent), ['Camera', 'Exposure', 'Image']);
-  assert.match(more.querySelector('.ssi-tags summary').textContent, /All tags\s*2/);
+  // The rest follows, in the server's order, nothing folded; every tag
+  // is in the viewer.
+  assert.equal(t.body.querySelectorAll('details').length, 0);
+  assert.deepEqual(t.body.querySelectorAll('.ssi-group h3').map((h) => h.textContent), ['Camera', 'Exposure', 'Image']);
+  assert.match(t.body.querySelector('.ssi-group').textContent, /Apple iPhone 15 Pro/);
+  assert.match(t.body.querySelector('.ssi-all').textContent, /All metadata.*2 raw keys/);
 });
 
 test('the map is drawn from the server\'s own world map, fetched once', async () => {

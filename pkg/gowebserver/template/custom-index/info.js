@@ -10,12 +10,12 @@
 //   3. the file's name;
 //   4. its size, with the picture's dimensions and the length;
 //   5. text the file carries: lyrics, a description, a comment;
-//   6. behind "More details": the camera and lens, the exposure, the
-//      song, the video and audio streams, the color (model, bit depth,
-//      color space, ICC profile, gamma), the description and the file
-//      format, and then every tag read, as the file has it;
-//   7. "All metadata": everything the file holds, raw and structured,
-//      in a view with room for it (metaview.js).
+//   6. then the details, one list under light headings, in the server's
+//      order: the camera and lens, the exposure, the song, the video and
+//      audio streams, the color (model, bit depth, color space, ICC
+//      profile, gamma), the description and the file format;
+//   7. "All metadata": everything the file holds, raw (every tag too)
+//      and structured, in a view with room for it (metaview.js).
 //
 // The map is drawn here from the server's own world map (?worldmap,
 // fetched the first time a place is shown), so where a photo was taken
@@ -33,7 +33,6 @@ function InfoPanel(opts) {
   // The outlines are too coarse to show more than a region: closer in,
   // the OpenStreetMap link is the way.
   var SPANS = [360, 48, 12], level = 2;
-  var moreOpen = false, tagsOpen = false;
   // The document on show, and the viewer of all of it (metaview.js),
   // made the first time it's asked for.
   var shown = null, viewer = null;
@@ -95,10 +94,6 @@ function InfoPanel(opts) {
 
   btn.addEventListener('click', toggle);
   $('ss-panel-close').addEventListener('click', function () { close(); });
-  body.addEventListener('toggle', function (e) {
-    if (e.target.classList.contains('ssi-more')) moreOpen = e.target.open;
-    if (e.target.classList.contains('ssi-tags')) tagsOpen = e.target.open;
-  }, true);
   body.addEventListener('click', function (e) {
     var all = e.target.closest && e.target.closest('.ssi-all');
     if (all) { openAll(all); return; }
@@ -171,8 +166,8 @@ function InfoPanel(opts) {
       h += '<p class="ssi-note">Details from the file itself are unavailable.</p>';
     }
     if (d && d.text) d.text.forEach(function (x, i) { h += textHTML(x, i); });
-    if (d && ((d.groups && d.groups.length) || (d.tags && d.tags.length))) h += moreHTML(d);
-    if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length))) h += allHTML(d);
+    if (d && d.groups && d.groups.length) h += groupsHTML(d);
+    if (d && ((d.raw && d.raw.length) || (d.structures && d.structures.length) || (d.tags && d.tags.length))) h += allHTML(d);
     shown = d;
     body.innerHTML = h;
     body.setAttribute('aria-busy', String(state === 'loading'));
@@ -262,46 +257,17 @@ function InfoPanel(opts) {
       '<div class="ssi-prose' + (x.synced ? ' synced' : '') + '" tabindex="0">' + text + '</div></section>';
   }
 
-  // A line under "More details" of what's in it, so it's worth opening.
-  function teaser(d) {
-    var pick = function (g, label) {
-      var v = '';
-      (d.groups || []).forEach(function (x) {
-        if (x.title === g) x.fields.forEach(function (f) { if (!v && f.label === label) v = f.value; });
-      });
-      return v;
-    };
-    var parts = [pick('Camera', 'Camera'), pick('Exposure', 'Aperture'), pick('Exposure', 'Shutter speed'),
-      pick('Exposure', 'ISO') && 'ISO ' + pick('Exposure', 'ISO'), pick('Song', 'Artist'), pick('Video', 'Codec').split(',')[0]];
-    var t = parts.filter(Boolean).slice(0, 4).join(' · ');
-    return t || d.format || '';
-  }
-
-  function moreHTML(d) {
-    var h = '<details class="ssi-more"' + (moreOpen ? ' open' : '') + '><summary><span class="ssi-sum">' +
-      '<span class="ssi-sum-t">More details</span><span class="ssi-dim">' + escapeHTML(teaser(d)) + '</span></span>' +
-      '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary>' +
-      '<div class="ssi-more-body">';
+  // The details, in the server's order (mediaGroupRank, then each
+  // group's mediaFieldRank): one list under light headings, all of it
+  // there as it scrolls. Every tag as the file has it is in the viewer.
+  function groupsHTML(d) {
+    var h = '';
     (d.groups || []).forEach(function (g) {
       h += '<section class="ssi-group"><h3>' + escapeHTML(g.title) + '</h3><dl class="ssi-facts">';
       g.fields.forEach(function (f) { h += row(escapeHTML(f.label), escapeHTML(f.value)); });
       h += '</dl></section>';
     });
-    if (d.tags && d.tags.length) {
-      h += '<details class="ssi-tags"' + (tagsOpen ? ' open' : '') + '><summary><span class="ssi-sum-t">All tags</span>' +
-        '<span class="ssi-count">' + numFmt.format(d.tags.length) + '</span>' +
-        '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></summary><dl class="ssi-raw">';
-      var last = '';
-      d.tags.forEach(function (tg) {
-        if (tg.group !== last) {
-          h += '<div class="ssi-raw-group">' + escapeHTML(tg.group) + '</div>';
-          last = tg.group;
-        }
-        h += '<div><dt>' + escapeHTML(tg.name) + '</dt><dd>' + escapeHTML(tg.value) + '</dd></div>';
-      });
-      h += '</dl></details>';
-    }
-    return h + '</div></details>';
+    return h;
   }
 
   // ---- Dates ----
@@ -467,7 +433,8 @@ function InfoPanel(opts) {
   function allHTML(d) {
     var parts = [];
     if (d.structures && d.structures.length) parts.push(numFmt.format(d.structures.length) + ' structured');
-    if (d.raw && d.raw.length) parts.push(numFmt.format(d.raw.length) + ' raw keys');
+    var nRaw = (d.raw || []).length + (d.tags || []).length;
+    if (nRaw) parts.push(numFmt.format(nRaw) + ' raw keys');
     return '<button type="button" class="ssi-all"><span class="ssi-sum"><span class="ssi-sum-t">All metadata</span>' +
       '<span class="ssi-dim">' + escapeHTML(parts.join(' · ')) + '</span></span>' +
       '<svg class="ssi-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></button>';
