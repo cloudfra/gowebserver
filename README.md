@@ -72,13 +72,13 @@ Without ffmpeg, the features that need it are turned off.
 
 Request an image or video with `width` and/or `height` query parameters to get a thumbnail instead of the file, e.g. `photo.jpg?width=512&height=512`. The enhanced index (`-enhancedindex`) uses these for its photo grid, slideshow and video posters.
 
-| Parameter | Meaning |
-| --- | --- |
-| `width`, `height` | Size in pixels, 1 to 4096. With only one, the other follows the file's aspect ratio (never enlarged). |
-| `fit` | How the file fills a `width` x `height` box: `cover` fills it and crops the overflow (default), `contain` fits inside and pads with `background`, `fill` stretches, `inside` fits inside at the file's ratio without padding or enlarging, `outside` covers the box at the file's ratio without cropping or enlarging. |
-| `format` | `webp`, `jpeg`, `png` or `gif`. Defaults to `webp` when the browser accepts it and [ffmpeg](#ffmpeg) can write it, otherwise `png` for images with transparency and `jpeg` for the rest. `webp` needs ffmpeg; without it the default is used. |
-| `background` | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for webp, png and gif, black for jpeg. |
-| `quality` | WebP or JPEG quality, 1 to 100 (default 75). |
+| Parameter         | Meaning                                                                                                                                                                                                                                                                                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `width`, `height` | Size in pixels, 1 to 4096. With only one, the other follows the file's aspect ratio (never enlarged).                                                                                                                                                                                                                  |
+| `fit`             | How the file fills a `width` x `height` box: `cover` fills it and crops the overflow (default), `contain` fits inside and pads with `background`, `fill` stretches, `inside` fits inside at the file's ratio without padding or enlarging, `outside` covers the box at the file's ratio without cropping or enlarging. |
+| `format`          | `webp`, `jpeg`, `png` or `gif`. Defaults to `webp` when the browser accepts it and [ffmpeg](#ffmpeg) can write it, otherwise `png` for images with transparency and `jpeg` for the rest. `webp` needs ffmpeg; without it the default is used.                                                                          |
+| `background`      | Padding color for `fit=contain`: `RRGGBB`, `RRGGBBAA` or `transparent`. Defaults to transparent for webp, png and gif, black for jpeg.                                                                                                                                                                                 |
+| `quality`         | WebP or JPEG quality, 1 to 100 (default 75).                                                                                                                                                                                                                                                                           |
 
 Images in JPEG, PNG, GIF, WebP, BMP and TIFF are supported, and JPEG EXIF orientation is applied. Other image formats are served unchanged. Video thumbnails are the first keyframe 10 seconds or more into the video (or an earlier frame of a shorter one), made with [ffmpeg](#ffmpeg). When that frame is too dark to show anything (a black intro, a fade, titles on black), up to three later ones are tried (30 seconds and a minute in, a quarter and half way through) and the first bright one is used. Without ffmpeg, or while it can't be started, video thumbnail requests return 415 and the file browser shows the videos themselves. A video ffmpeg can't make a thumbnail of gets 415 too, and that's remembered for an hour, so it isn't tried again for every size or page load. Thumbnails are cached in a BoltDB file, so they survive restarts; a thumbnail is replaced when its file changes. Set the file with `thumbnails.cachePath` (`-thumbnails.cachepath`). By default it's in the user cache directory (`~/.cache/gowebserver/thumbnails.db` on Linux), and `memory:` keeps thumbnails in memory only. If the file can't be opened, for example because another gowebserver is using it, thumbnails are kept in memory instead, after waiting up to a minute for the lock. Turn the feature off with `-thumbnails.enabled=false`.
 
@@ -115,12 +115,12 @@ What isn't: no file or folder name. Each is replaced by a token, the first 10 he
 
 ## Downloads
 
-|   OS    | Arch  | Link
-| ------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-linux_amd64`
-| Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-linux_arm64`
-| Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing`
-| macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-darwin_arm64`
+| OS      | Arch  | Link                                                                                                                                                                                                       |
+| ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux   | amd64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-linux_amd64`                                                                                                      |
+| Linux   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-linux_arm64`                                                                                                      |
+| Windows | amd64 | `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri "https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-windows_amd64.exe" -OutFile "server.exe" -UseBasicParsing` |
+| macOS   | arm64 | `curl -O -L https://github.com/cloudfra/gowebserver/releases/download/v3.8.1/gowebserver-darwin_arm64`                                                                                                     |
 
 ## Docker Images
 
@@ -166,20 +166,20 @@ make bench
 
 ## Common make targets
 
-| Target            | Description
-| ----------------- | ------------------------------------------------------------------------
-| `make all`        | Build binaries for all supported platforms.
-| `make run`        | Build and run the server locally on port 8181.
-| `make test`       | Run the unit test suite (Go and Terraform).
-| `make test-deflake` | Run the Go tests under the race detector to catch flaky tests.
-| `make bench`      | Run benchmarks.
-| `make lint`       | Run the full lint suite (Go, Terraform, Docker, YAML, shell, markdown, vulnerabilities).
-| `make coverage`   | Generate a test coverage report.
-| `make deps`       | Download and tidy Go module dependencies.
-| `make tools`      | Download the pinned toolchain used by `make lint` and friends.
-| `make clean`      | Remove build artifacts.
-| `make presubmit`  | Run the same checks CI runs on every push and pull request.
-| `make docker-images` | Build the Docker images.
+| Target               | Description                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `make all`           | Build binaries for all supported platforms.                                              |
+| `make run`           | Build and run the server locally on port 8181.                                           |
+| `make test`          | Run the unit test suite (Go and Terraform).                                              |
+| `make test-deflake`  | Run the Go tests under the race detector to catch flaky tests.                           |
+| `make bench`         | Run benchmarks.                                                                          |
+| `make lint`          | Run the full lint suite (Go, Terraform, Docker, YAML, shell, markdown, vulnerabilities). |
+| `make coverage`      | Generate a test coverage report.                                                         |
+| `make deps`          | Download and tidy Go module dependencies.                                                |
+| `make tools`         | Download the pinned toolchain used by `make lint` and friends.                           |
+| `make clean`         | Remove build artifacts.                                                                  |
+| `make presubmit`     | Run the same checks CI runs on every push and pull request.                              |
+| `make docker-images` | Build the Docker images.                                                                 |
 
 ## Project layout
 

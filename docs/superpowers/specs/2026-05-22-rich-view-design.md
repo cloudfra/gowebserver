@@ -31,12 +31,12 @@ http.ServeMux → richViewHandler → customIndexHandler → http.FileServer(nFS
 
 ### Request Routing in `richViewHandler`
 
-| Condition | Action |
-|---|---|
-| `?view=rich` absent | Pass through to next handler |
-| `?view=rich` present, path is a directory | Redirect to path without query param |
-| `?view=rich` present, file is binary/non-text | Pass through (serve raw) |
-| `?view=rich` present, file is text/code | Read, highlight, return HTML page |
+| Condition                                     | Action                               |
+| --------------------------------------------- | ------------------------------------ |
+| `?view=rich` absent                           | Pass through to next handler         |
+| `?view=rich` present, path is a directory     | Redirect to path without query param |
+| `?view=rich` present, file is binary/non-text | Pass through (serve raw)             |
+| `?view=rich` present, file is text/code       | Read, highlight, return HTML page    |
 
 ---
 
@@ -124,13 +124,13 @@ For all other entries: both icon and filename link to raw file (existing behavio
 
 ## Error Handling
 
-| Scenario | Behavior |
-|---|---|
-| File > 10 MB | Render HTML page with "File too large for rich view" message and raw link |
-| Binary content type detected | Fall through to raw `baseHandler.ServeHTTP` |
-| Unknown/invalid theme | Fall back to monokai silently |
-| File open error | HTTP 500 with error text |
-| Empty file | Render page with empty code block (Chroma handles gracefully) |
+| Scenario                     | Behavior                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| File > 10 MB                 | Render HTML page with "File too large for rich view" message and raw link |
+| Binary content type detected | Fall through to raw `baseHandler.ServeHTTP`                               |
+| Unknown/invalid theme        | Fall back to monokai silently                                             |
+| File open error              | HTTP 500 with error text                                                  |
+| Empty file                   | Render page with empty code block (Chroma handles gracefully)             |
 
 ---
 
@@ -170,13 +170,13 @@ The Chroma library is pure Go, no CGO, widely used in the Go ecosystem (Hugo, et
 
 ## File Inventory
 
-| Action | File |
-|---|---|
-| Create | `pkg/gowebserver/richview.go` |
-| Create | `pkg/gowebserver/richview_test.go` |
-| Create | `pkg/gowebserver/rich-view.html` |
+| Action | File                                                                           |
+| ------ | ------------------------------------------------------------------------------ |
+| Create | `pkg/gowebserver/richview.go`                                                  |
+| Create | `pkg/gowebserver/richview_test.go`                                             |
+| Create | `pkg/gowebserver/rich-view.html`                                               |
 | Modify | `pkg/gowebserver/filesystem.go` — wire `richViewHandler` in `newHandlerFromFS` |
-| Modify | `pkg/gowebserver/customindex.go` — add `IsViewable` to `DirEntry`, compute it |
-| Modify | `pkg/gowebserver/filetypes.go` — add `isRichViewable` |
+| Modify | `pkg/gowebserver/customindex.go` — add `IsViewable` to `DirEntry`, compute it  |
+| Modify | `pkg/gowebserver/filetypes.go` — add `isRichViewable`                          |
 | Modify | `pkg/gowebserver/custom-index.html` — split icon/name links for viewable files |
-| Modify | `go.mod` / `go.sum` — add `github.com/alecthomas/chroma/v2` |
+| Modify | `go.mod` / `go.sum` — add `github.com/alecthomas/chroma/v2`                    |
