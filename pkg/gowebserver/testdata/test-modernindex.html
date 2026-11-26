@@ -3671,6 +3671,10 @@
        
       --vd-shade: rgba(4, 5, 8, 0.7);
       --vd-feather: 14px;
+       
+      --vd-preview-bg: #0c0d10;
+       
+      --vd-bleed: oklch(0.42 calc(var(--amb-c, 0.04) * 0.9) var(--amb-h, 265));
       position: absolute;
       z-index: 2;
       display: flex;
@@ -3699,12 +3703,48 @@
       isolation: isolate;
       padding: 40px 12px 8px;
       pointer-events: none;
-      transition: opacity 0.28s var(--ease-out), transform 0.36s var(--ease);
     }
 
-    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel {
+     
+    .vd-rise {
+      transition:
+        opacity 0.26s var(--ease-out) calc(var(--vd-i, 0) * 32ms),
+        translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
+    }
+
+    .vd-btn.vd-rise {
+      transition:
+        color 0.16s,
+        opacity 0.26s var(--ease-out) calc(var(--vd-i, 0) * 32ms),
+        translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
+    }
+
+    .vd-cluster::before {
+      transition: opacity 0.3s var(--ease-out);
+    }
+
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-rise {
       opacity: 0;
-      transform: translateY(10px);
+      translate: 0 14px;
+      pointer-events: none;
+      transition:
+        opacity 0.22s var(--ease-out) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms),
+        translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
+    }
+
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-btn.vd-rise {
+      transition:
+        color 0.16s,
+        opacity 0.22s var(--ease-out) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms),
+        translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
+    }
+
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster::before {
+      opacity: 0;
+      transition-delay: 0.12s;
+    }
+
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster {
       pointer-events: none;
     }
 
@@ -3837,7 +3877,7 @@
       position: relative;
       overflow: hidden;
       border-radius: 10px;
-      background: #0c0d10;
+      background: var(--vd-preview-bg);
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
     }
 
@@ -3909,6 +3949,12 @@
       --vd-rail: 7px;
     }
 
+     
+    .vdock.scenes-open .vd-tl::before,
+    .vdock.pulling .vd-tl::before {
+      opacity: 0;
+    }
+
     .vd-scan {
       position: absolute;
       top: 50%;
@@ -3929,8 +3975,11 @@
       overflow: hidden;
       isolation: isolate;
       border-radius: 14px;
-      background: linear-gradient(to bottom, color-mix(in srgb, var(--vd-played) 18%, #050506), #000 72%);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 -14px 40px rgba(0, 0, 0, 0.5);
+      background:
+        linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 34%, transparent), transparent 58%),
+        linear-gradient(to top, color-mix(in srgb, var(--vd-bleed) 26%, transparent), transparent calc(var(--vd-scenes-base, 38px) + 22px)),
+        var(--vd-preview-bg);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 -14px 40px rgba(0, 0, 0, 0.5);
       opacity: clamp(0, calc(var(--u) * 6), 1);
       pointer-events: auto;
     }
@@ -3939,8 +3988,9 @@
       transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
     }
 
+     
     .vd-scenes.eased:not(.open) {
-      transition: height 0.38s var(--ease), opacity 0.3s 0.08s;
+      transition: height 0.38s var(--ease) 0.2s, opacity 0.3s 0.3s;
     }
 
      
@@ -3994,28 +4044,28 @@
       height: var(--vd-scene-h);
     }
 
+     
     .vd-scene {
+      --p: 0;
       position: absolute;
       top: 0;
       width: var(--vd-scene-w);
       height: var(--vd-scene-h);
-      opacity: clamp(0, calc(var(--u) * 1.4 - 0.2), 1);
-      transform: translateX(calc(var(--fx, 0px) * (1 - var(--u)))) scale(calc(0.6 + 0.4 * var(--u)));
-    }
-
-     
-    .vd-scene.on {
-      opacity: 1;
+      opacity: clamp(0, calc(var(--p) * 2.5), 1);
+      transform: translateY(calc((1 - var(--p)) * (var(--vd-scene-h) + 18px))) scale(calc(0.86 + 0.14 * var(--p)));
+      transform-origin: 50% 100%;
     }
 
     .vd-scenes.eased .vd-scene {
       transition:
-        transform 0.5s cubic-bezier(0.34, 1.4, 0.5, 1) calc(var(--d, 0) * 30ms),
-        opacity 0.25s linear calc(var(--d, 0) * 30ms);
+        transform 0.5s cubic-bezier(0.34, 1.45, 0.5, 1) var(--cd, 0ms),
+        opacity 0.2s linear var(--cd, 0ms);
     }
 
     .vd-scenes.eased:not(.open) .vd-scene {
-      transition: transform 0.36s var(--ease), opacity 0.22s linear;
+      transition:
+        transform 0.32s var(--ease) var(--cd, 0ms),
+        opacity 0.2s linear calc(var(--cd, 0ms) + 0.1s);
     }
 
     .vd-scenes.settled .vd-scene {
@@ -4747,6 +4797,17 @@
       .vdock .vd-scene-card {
         transform: none !important;
         animation: none;
+      }
+
+       
+      .vdock .vd-rise,
+      .vdock .vd-btn.vd-rise {
+        translate: none !important;
+        transition: color 0.16s, opacity 0.2s linear !important;
+      }
+
+      .vdock .vd-scene {
+        transition: opacity 0.2s linear !important;
       }
 
       .vdock .vd-pop.rise {
@@ -9042,6 +9103,10 @@
       
       
       
+      
+      
+      
+      
 
       
       
@@ -9118,6 +9183,27 @@
         if (d >= open) return { state: 'open', p: 1, r: 1 };
         var p = d / open;
         return { state: 'pulling', p: p, r: VP_PULL_GIVE * p };
+      }
+
+      
+      
+      
+      
+      var VP_CHAIN_LAG = 0.12;
+      var VP_CHAIN_RISE = 0.35;
+      function vpChain(r, d) {
+        return Math.max(0, Math.min(1, (r - Math.max(0, d) * VP_CHAIN_LAG) / VP_CHAIN_RISE));
+      }
+
+      
+      
+      
+      var VP_CHAIN_MS = 40;
+      
+      var VP_CLOSE_MS = 700;
+      function vpChainDelay(d, out, far) {
+        d = Math.max(0, Math.min(far, d));
+        return Math.round((out ? d : far - d) * VP_CHAIN_MS);
       }
 
       
@@ -9234,10 +9320,24 @@
         }
 
         
-        function fold(f) {
+        
+        function place(f) {
+          if (!(anchorX > 0)) { f._d = Math.abs(f._i - sel); return; }
           var vr = view.getBoundingClientRect();
           var mid = vr.left + PAD + f._i * pitch + fw / 2 - view.scrollLeft;
-          f.style.setProperty('--fx', (anchorX > 0 ? Math.round(anchorX - mid) : 0) + 'px');
+          f._d = Math.abs(anchorX - mid) / pitch;
+        }
+
+        
+        
+        function chain(r, eased) {
+          var far = 0;
+          mounted.forEach(function (f) { far = Math.max(far, Math.min(f._d || 0, 8)); });
+          mounted.forEach(function (f) {
+            var d = f._d || 0;
+            f.style.setProperty('--p', String(eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, d) * 1000) / 1000));
+            f.style.setProperty('--cd', (eased ? vpChainDelay(d, r > 0, far) : 0) + 'ms');
+          });
         }
 
         
@@ -9259,10 +9359,14 @@
           for (var i = w[0]; i < w[1]; i++) {
             if (mounted.has(i)) continue;
             var f = frame(i);
-            if (state === 'pulling') fold(f);
-            else if (state === 'open' && dir) {
-              f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
-              f.classList.add('enter');
+            place(f);
+            if (state === 'open') {
+              
+              f.style.setProperty('--p', '1');
+              if (dir) {
+                f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
+                f.classList.add('enter');
+              }
             }
             rail.appendChild(f);
             mounted.set(i, f);
@@ -9286,10 +9390,12 @@
         
         
         
+        
         function show(r, eased) {
           el.classList.toggle('eased', !!eased);
           el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
-          el.style.height = Math.round(base + (full - base) * r) + 'px';
+          el.style.height = Math.round(base + (full - base) * Math.min(1, r * 1.5)) + 'px';
+          chain(r, eased);
         }
 
         
@@ -9334,7 +9440,7 @@
           if (state !== 'pulling') return;
           state = 'closing';
           show(0, true);
-          closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+          closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
           if (opts.closed) opts.closed('back');
         }
 
@@ -9381,7 +9487,7 @@
           if (lit) {
             var r = lit.getBoundingClientRect();
             anchorX = r.left + r.width / 2;
-            mounted.forEach(fold);
+            mounted.forEach(place);
           }
           el.classList.remove('open', 'settled');
           opts.scan(null);
@@ -9390,7 +9496,7 @@
             finish();
           } else {
             show(0, true);
-            closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+            closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
           }
           if (opts.closed) opts.closed(why);
         }
@@ -9881,6 +9987,16 @@
         var btnCC = q('.vd-cc'), btnFull = q('.vd-full'), btnMore = q('.vd-more'), btnMarkers = q('.vd-mk-menu');
         var menu = q('.vd-menu'), menuTitle = q('.vd-menu-title'), menuList = q('.vd-menu-list');
         var cap = q('.vd-cap'), flash = q('.vd-flash'), tip = q('.vd-tip'), panel = q('.vd-panel');
+
+        
+        
+        
+        var risers = [tl].concat(Array.prototype.slice.call(q('.vd-left').children), Array.prototype.slice.call(q('.vd-right').children));
+        risers.forEach(function (x, i) {
+          x.classList.add('vd-rise');
+          x.style.setProperty('--vd-i', String(i));
+        });
+        el.style.setProperty('--vd-n', String(risers.length - 1));
 
         var v = null, it = null, meta = null, layout = vpLayout(null, 0), hiddenKinds = Object.create(null), thumbCues = null;
         var segEls = [], dragging = false, wasPaused = true, pendingAt = null, lastReport = 0, metaFor = null;

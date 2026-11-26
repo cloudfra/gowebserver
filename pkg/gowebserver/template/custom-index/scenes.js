@@ -2,11 +2,14 @@
 // The video dock's film strip of scenes (player.js opens it): the
 // timeline itself, stretched. While the timeline is held (a mouse press,
 // a finger scrubbing), pulling up off it stretches the bar upward into a
-// black strip with the video's colors bleeding into its top, and the
-// scenes, one a minute, unfold out of it to either side of the one
-// under the pointer. It follows the pull with some resistance (vpPull)
-// and, past a point, snaps open; let go before that and it springs back
-// into the bar, the press a plain scrub. Open, the bar is still along
+// very dark gray strip (the preview's own gray) with the video's colors
+// bleeding into it, and the scenes, one a minute, come up out of the bar
+// as if pulled: the one nearest the pointer first, then its neighbors on
+// either side, one after another (vpChain), as far as the pull has gone.
+// It follows the pull with some resistance (vpPull) and, past a point,
+// snaps open, the rest of the chain coming up; let go before that and
+// it springs back into the bar, the chain run backward, the press a
+// plain scrub. Open, the bar is still along
 // its bottom, and scrolling the strip (wheel, trackpad, a drag, a
 // swipe, the arrow keys) moves a mark along the bar to the time in its
 // middle (opts.scan), the reverse of scrubbing; scenes slide in as they
@@ -14,7 +17,8 @@
 // timeline plays in. A scene picked (a click, a tap, Enter) grows out to
 // fill the video, which goes there and plays (the dock does that part:
 // opts.pick). Swiping or dragging it down folds it back into the bar, as
-// do Escape and a press elsewhere.
+// do Escape and a press elsewhere: the scenes sink back in the reverse
+// of the chain, the farthest first and the nearest last.
 //
 // A long video has many scenes, so only the ones in view and a few to
 // either side are in the page (vpSceneWindow), and only those ask for
@@ -97,6 +101,27 @@ function vpPull(dy, dead, open) {
   if (d >= open) return { state: 'open', p: 1, r: 1 };
   var p = d / open;
   return { state: 'pulling', p: p, r: VP_PULL_GIVE * p };
+}
+
+// How far up out of the bar (0 to 1) a scene d scenes from the pointer
+// is with the strip r of the way open: the nearest comes first, each a
+// little after the one before it (VP_CHAIN_LAG of the pull later), and
+// each takes VP_CHAIN_RISE of the pull to come all the way up.
+var VP_CHAIN_LAG = 0.12;
+var VP_CHAIN_RISE = 0.35;
+function vpChain(r, d) {
+  return Math.max(0, Math.min(1, (r - Math.max(0, d) * VP_CHAIN_LAG) / VP_CHAIN_RISE));
+}
+
+// How long (ms) a scene d scenes from the pointer waits before it moves
+// when the strip eases open (out: the nearest first) or closed (the
+// farthest, at most far, first), so the chain runs on, or back.
+var VP_CHAIN_MS = 40;
+// How long folding back takes, the chain's longest wait and its sinking.
+var VP_CLOSE_MS = 700;
+function vpChainDelay(d, out, far) {
+  d = Math.max(0, Math.min(far, d));
+  return Math.round((out ? d : far - d) * VP_CHAIN_MS);
 }
 
 // The part of a sw x sh picture to draw into dw x dh so it covers it,
@@ -212,11 +237,25 @@ function SceneStrip(host, tl, opts) {
     });
   }
 
-  // Each scene folded into the one under x (a client x), to unfold from.
-  function fold(f) {
+  // How far scene f is from x (a client x), in scenes: its place in the
+  // chain. Without an x, from the lit scene.
+  function place(f) {
+    if (!(anchorX > 0)) { f._d = Math.abs(f._i - sel); return; }
     var vr = view.getBoundingClientRect();
     var mid = vr.left + PAD + f._i * pitch + fw / 2 - view.scrollLeft;
-    f.style.setProperty('--fx', (anchorX > 0 ? Math.round(anchorX - mid) : 0) + 'px');
+    f._d = Math.abs(anchorX - mid) / pitch;
+  }
+
+  // Each scene's rise (--p) for the strip r open, and when eased, its
+  // wait (--cd), the chain run out or back.
+  function chain(r, eased) {
+    var far = 0;
+    mounted.forEach(function (f) { far = Math.max(far, Math.min(f._d || 0, 8)); });
+    mounted.forEach(function (f) {
+      var d = f._d || 0;
+      f.style.setProperty('--p', String(eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, d) * 1000) / 1000));
+      f.style.setProperty('--cd', (eased ? vpChainDelay(d, r > 0, far) : 0) + 'ms');
+    });
   }
 
   // The scenes in view and a few either side are in the page, and no
@@ -238,10 +277,14 @@ function SceneStrip(host, tl, opts) {
     for (var i = w[0]; i < w[1]; i++) {
       if (mounted.has(i)) continue;
       var f = frame(i);
-      if (state === 'pulling') fold(f);
-      else if (state === 'open' && dir) {
-        f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
-        f.classList.add('enter');
+      place(f);
+      if (state === 'open') {
+        // Open, a scene coming in is already up, and slides in.
+        f.style.setProperty('--p', '1');
+        if (dir) {
+          f.style.setProperty('--ex', (dir > 0 ? 36 : -36) + 'px');
+          f.classList.add('enter');
+        }
       }
       rail.appendChild(f);
       mounted.set(i, f);
@@ -264,11 +307,13 @@ function SceneStrip(host, tl, opts) {
 
   // ---- Stretching and folding ----
   // How far stretched: r (0 to 1) of the way from the bar to open, at
-  // once (with the pull) or eased.
+  // once (with the pull) or eased. The strip makes room a little ahead
+  // of the scenes, which come up into it in their chain.
   function show(r, eased) {
     el.classList.toggle('eased', !!eased);
     el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
-    el.style.height = Math.round(base + (full - base) * r) + 'px';
+    el.style.height = Math.round(base + (full - base) * Math.min(1, r * 1.5)) + 'px';
+    chain(r, eased);
   }
 
   // Lays out the row on time t, with the scene nearest it under client
@@ -313,7 +358,7 @@ function SceneStrip(host, tl, opts) {
     if (state !== 'pulling') return;
     state = 'closing';
     show(0, true);
-    closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+    closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
     if (opts.closed) opts.closed('back');
   }
 
@@ -355,12 +400,12 @@ function SceneStrip(host, tl, opts) {
     clearTimeout(settleTimer);
     drag = null;
     el.removeAttribute('aria-activedescendant');
-    // The scenes fold back toward the lit one (or the picked one).
+    // The chain runs back from the lit (or picked) one: it goes last.
     var lit = mounted.get(sel);
     if (lit) {
       var r = lit.getBoundingClientRect();
       anchorX = r.left + r.width / 2;
-      mounted.forEach(fold);
+      mounted.forEach(place);
     }
     el.classList.remove('open', 'settled');
     opts.scan(null);
@@ -369,7 +414,7 @@ function SceneStrip(host, tl, opts) {
       finish();
     } else {
       show(0, true);
-      closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : 420);
+      closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
     }
     if (opts.closed) opts.closed(why);
   }

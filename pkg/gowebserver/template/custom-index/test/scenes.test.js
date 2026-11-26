@@ -21,7 +21,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { page, load, plain, markup } = require('../../harness.js');
 
-const NAMES = ['vpSceneStep', 'vpSceneCount', 'vpSceneNearest', 'vpSceneWindow', 'vpSceneScroll', 'vpSceneScan', 'vpPull', 'vpCover',
+const NAMES = ['vpSceneStep', 'vpSceneCount', 'vpSceneNearest', 'vpSceneWindow', 'vpSceneScroll', 'vpSceneScan', 'vpPull', 'vpChain', 'vpChainDelay', 'vpCover',
   'VP_PULL_DEAD', 'VP_PULL_OPEN', 'VP_PULL_GIVE'];
 
 function sc() {
@@ -75,6 +75,25 @@ test('the lit scene opens under the preview, as far as the ends allow', () => {
   // 10 scenes are 16 + 9 * 172 + 160 + 16 = 1740 wide: at most 1140 in.
   assert.equal(p.vpSceneScroll(9, 10, 160, 172, 16, 100, 600), 1140);
   assert.equal(p.vpSceneScroll(2, 3, 160, 172, 16, 300, 600), 0, 'a strip narrower than the view stays put');
+});
+
+test('the scenes come up in a chain: the nearest first, its neighbors after', () => {
+  const p = sc();
+  // A little way into the pull: only the nearest is moving.
+  assert.ok(p.vpChain(0.1, 0) > 0);
+  assert.equal(p.vpChain(0.1, 1), 0);
+  // Further: the nearest is up, the next coming, the far ones waiting.
+  const at = [0, 0.5, 1, 2, 3, 5].map((d) => p.vpChain(0.4, d));
+  assert.equal(at[0], 1, 'the nearest, all the way up');
+  for (let i = 1; i < at.length; i++) assert.ok(at[i] <= at[i - 1], 'each no further than the one nearer: ' + at);
+  assert.ok(at[2] > 0 && at[2] < 1, 'the next on its way');
+  assert.equal(at[5], 0, 'the far ones still in the bar');
+  assert.equal(p.vpChain(p.VP_PULL_GIVE, 8), 0, 'so far out it waits for the snap');
+  assert.equal(p.vpChain(0, 0), 0, 'nothing before the pull');
+  // Eased: out, the nearest goes first; back, the farthest does.
+  assert.deepEqual([0, 1, 2, 4].map((d) => p.vpChainDelay(d, true, 4)), [0, 40, 80, 160]);
+  assert.deepEqual([0, 1, 2, 4].map((d) => p.vpChainDelay(d, false, 4)), [160, 120, 80, 0]);
+  assert.equal(p.vpChainDelay(9, true, 4), 160, 'no longer than the farthest in view');
 });
 
 test('a picture covers its box, cut evenly', () => {
@@ -266,6 +285,9 @@ test('the keys move the lit scene and the bar\'s mark; Escape folds the strip an
   assert.deepEqual(t.panel().lit, [0]);
   const e = t.key('Escape');
   assert.equal(e.defaultPrevented, true, 'the dialog doesn\'t close');
+  const back = (i) => parseInt(t.q('#vd-scene-' + i).style.getPropertyValue('--cd'), 10);
+  assert.ok(back(0) > back(2), 'folding, the farthest goes first and the lit one last: ' + [back(0), back(2)]);
+  assert.equal(t.q('#vd-scene-0').style.getPropertyValue('--p'), '0');
   assert.equal(t.dlg.open, true);
   let s = t.panel();
   assert.equal(s.open, false);
@@ -273,7 +295,7 @@ test('the keys move the lit scene and the bar\'s mark; Escape folds the strip an
   assert.equal(s.u, '0');
   assert.equal(s.scan, null, 'the mark goes');
   assert.equal(s.up, false);
-  t.pg.tick(500);
+  t.pg.tick(800);
   s = t.panel();
   assert.equal(s.hidden, true);
   assert.deepEqual(s.mounted, []);
@@ -330,12 +352,19 @@ test('the timeline held and pulled up stretches into the strip, and past a point
   assert.equal(s.hidden, false);
   assert.equal(s.open, false);
   assert.equal(s.eased, false, 'with the pointer, not eased');
-  assert.equal(s.height, Math.round(BASE + (FULL - BASE) * 0.4) + 'px');
+  assert.equal(s.height, Math.round(BASE + (FULL - BASE) * 0.6) + 'px', 'the strip a little ahead of the scenes');
   assert.equal(s.u, '0.4', 'the scenes unfolding as far');
   assert.equal(s.still, true);
   assert.equal(t.q('.vdock').classList.contains('pulling'), true, 'the preview gives way to the strip');
   assert.equal(v.currentTime, 300, 'pulling doesn\'t seek');
   assert.deepEqual(s.lit, [5], 'on the time the pull started from');
+  // The chain, out of the bar: the scene under the pointer up, the ones
+  // either side less so the farther they are.
+  const rise = (i) => parseFloat(t.q('#vd-scene-' + i).style.getPropertyValue('--p'));
+  assert.equal(rise(5), 1, 'the nearest, up');
+  assert.ok(rise(4) < 1 && rise(4) > 0 && Math.abs(rise(4) - rise(6)) < 0.05, 'its neighbors on their way, alike');
+  assert.ok(rise(3) < rise(4) && rise(7) < rise(6), 'the next ones behind them');
+  assert.equal(rise(1), 0, 'the far ones still in the bar');
   // Past the point: open.
   t.tl('pointermove', 360, 500 - D - O);
   s = t.panel();
@@ -343,6 +372,10 @@ test('the timeline held and pulled up stretches into the strip, and past a point
   assert.equal(s.height, FULL + 'px');
   assert.equal(s.eased, true, 'it snaps the rest of the way');
   assert.equal(t.q('.vdock').classList.contains('scrubbing'), false, 'the scrub is over');
+  // The rest of the chain comes up, each after the one nearer.
+  const wait = (i) => parseInt(t.q('#vd-scene-' + i).style.getPropertyValue('--cd'), 10);
+  assert.equal(rise(1), 1, 'all on their way up');
+  assert.ok(wait(5) < wait(4) && wait(4) < wait(3) && wait(3) < wait(2), 'the nearest first');
   t.tl('pointerup', 360, 300);
   assert.equal(v.currentTime, 300, 'letting go doesn\'t seek');
   assert.equal(t.panel().open, true);
@@ -359,7 +392,7 @@ test('let go before it opens and it springs back into the bar, the press a scrub
   assert.equal(s.height, BASE + 'px', 'back into the bar');
   assert.equal(s.eased, true);
   assert.equal(v.currentTime, 120, 'seeks where it was let go, as a scrub');
-  t.pg.tick(500);
+  t.pg.tick(800);
   assert.equal(t.panel().hidden, true);
   // Pulled, then back down below the line: back down, and scrubbing on.
   t.tl('pointerdown', 300, 510);
@@ -488,4 +521,18 @@ test('moving to another slide folds the strip at once', async () => {
   assert.equal(t.$('ss-name').textContent, 'talk-1.mp4');
   assert.equal(t.panel().hidden, true);
   assert.equal(t.dlg.classList.contains('scenes-up'), false);
+});
+
+test('the timeline, the time and each control come and go in order', async () => {
+  const t = setup();
+  await t.open(600);
+  const dock = t.q('.vdock');
+  const risers = dock.querySelectorAll('.vd-rise');
+  const order = risers.map((x) => +x.style.getPropertyValue('--vd-i'));
+  assert.deepEqual(order, order.map((_, i) => i), 'a step each, in the page\'s order');
+  assert.ok(risers[0].classList.contains('vd-tl'), 'the timeline first');
+  assert.ok(risers[1].classList.contains('vd-play'), 'then play');
+  assert.ok(risers[2].classList.contains('vd-time'), 'then the time');
+  assert.ok(risers.some((x) => x.classList.contains('vd-full')), 'and every control, to full screen');
+  assert.equal(dock.style.getPropertyValue('--vd-n'), String(risers.length - 1), 'going, the last first');
 });
