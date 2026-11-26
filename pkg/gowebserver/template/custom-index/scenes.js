@@ -177,7 +177,7 @@ function SceneStrip(host, tl, opts) {
   host.insertBefore(el, tl);
   var glow = el.firstChild, view = el.lastChild, rail = view.firstChild;
 
-  var GAP = 12, PAD = 16, TOP = 14, BELOW = 6;
+  var GAP = 12, PAD = 16, TOP = 20, BELOW = 6;
   var state = 'closed'; // closed, pulling, open, closing
   var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1;
   var base = 0, full = 0, width = 0, anchorX = NaN, lastScroll = 0;
@@ -191,8 +191,8 @@ function SceneStrip(host, tl, opts) {
 
   // ---- Laying it out ----
   // The strip is the timeline grown up: its bottom a little below the
-  // timeline's, its sides the timeline's, as tall as the bar (base)
-  // when folded and the scenes over the bar (full) when open.
+  // timeline's, the dock's whole width, and the scenes over the bar
+  // (full) tall.
   function measure() {
     var size = vpSceneSize(opts.compact(), opts.aspect());
     fw = size.w;
@@ -204,10 +204,11 @@ function SceneStrip(host, tl, opts) {
     el.style.setProperty('--vd-scene-w', fw + 'px');
     el.style.setProperty('--vd-scene-h', fh + 'px');
     el.style.setProperty('--vd-scenes-base', base + 'px');
-    var bw = tl.offsetWidth || tl.getBoundingClientRect().width;
-    el.style.left = (tl.offsetLeft - BELOW) + 'px';
-    el.style.width = (bw + BELOW * 2) + 'px';
-    width = bw + BELOW * 2;
+    // Edge to edge, the dock's whole width (its panel's).
+    var bw = host.clientWidth || host.offsetWidth || ((tl.offsetWidth || tl.getBoundingClientRect().width) + 2 * tl.offsetLeft);
+    el.style.left = '0px';
+    el.style.width = bw + 'px';
+    width = bw;
     el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop - tlH - BELOW) + 'px';
     rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
   }
@@ -335,7 +336,8 @@ function SceneStrip(host, tl, opts) {
     var e = eased ? (r > 0 ? 1 : 0) : Math.min(1, r * 1.6);
     var left = PAD + sel * pitch - view.scrollLeft - 6, right = width - (left + fw + 12);
     var c = function (x) { return Math.max(0, Math.round(x * (1 - e))) + 'px'; };
-    el.style.clipPath = 'inset(' + c(TOP - 6) + ' ' + c(right) + ' 0px ' + c(left) + ' round 14px)';
+    // Rounded as the card is, square once out.
+    el.style.clipPath = 'inset(' + c(TOP - 6) + ' ' + c(right) + ' 0px ' + c(left) + ' round ' + c(14) + ')';
     chain(r, eased);
   }
 
@@ -512,15 +514,16 @@ function SceneStrip(host, tl, opts) {
 
   // ---- The pointer ----
   view.addEventListener('scroll', scrolled, { passive: true });
-  // A mouse wheel scrolls it sideways, as does a trackpad.
-  view.addEventListener('wheel', function (e) {
+  // A mouse wheel scrolls it sideways, as does a trackpad (here, or on
+  // the timeline under it: wheel()).
+  function wheel(e) {
     if (state !== 'open') return;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      view.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewWidth() : 1);
-      scrolled();
-    }
+    var dx = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    view.scrollLeft += dx * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewWidth() : 1);
+    scrolled();
     e.preventDefault();
-  }, { passive: false });
+  }
+  view.addEventListener('wheel', wheel, { passive: false });
   // A mouse drags it along (a finger scrolls it natively); either one
   // swiping it down folds it back into the bar.
   el.addEventListener('pointerdown', function (e) {
@@ -568,7 +571,7 @@ function SceneStrip(host, tl, opts) {
   }
 
   return {
-    el: el, open: open, pull: pull, release: release, close: close, key: key, press: press,
+    el: el, open: open, pull: pull, release: release, close: close, key: key, press: press, wheel: wheel,
     isOpen: isOpen, busy: function () { return state !== 'closed'; },
     pulling: function () { return state === 'pulling'; },
     // The pictures that were waiting may be in now (a sprite loaded).

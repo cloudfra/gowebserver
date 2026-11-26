@@ -79,6 +79,7 @@ const panel = (p) => p.evaluate(() => {
     top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), width: Math.round(r.width), height: Math.round(r.height),
     tlTop: Math.round(tr.top), tlBottom: Math.round(tr.bottom), tlLeft: Math.round(tr.left), tlWidth: Math.round(tr.width),
     video: [Math.round(vr.top), Math.round(vr.bottom)], dockBottom: Math.round(dr.bottom),
+    dockLeft: Math.round(dr.left), dockWidth: Math.round(dr.width),
     scan: scan.hidden ? null : scan.style.left,
     stripOn: document.getElementById('ss').classList.contains('strip-on'),
   };
@@ -125,16 +126,16 @@ test('the timeline held and pulled up stretches into the strip, a scene a minute
   assert.equal(s.open, false, 'not yet');
   assert.ok(s.bottom >= s.tlBottom && s.top < s.tlTop, 'grown up out of the bar: ' + JSON.stringify(s));
   const halfClip = await p.$eval('#ss-stage .vd-scenes', (e) => e.style.clipPath);
-  assert.doesNotMatch(halfClip, /^inset\(0px( 0px)* round 14px\)$/, 'half way: the preview\'s card, growing out');
+  assert.doesNotMatch(halfClip, /^inset\(0px( 0px)*( round 0px)?\)$/, 'half way: the preview\'s card, growing out');
   await p.mouse.move(x, tl.y - 150, { steps: 4 });
   await p.mouse.up();
   await p.waitForSelector('#ss-stage .vd-scenes.open');
   await settled(p);
   s = await panel(p);
-  assert.match(await p.$eval('#ss-stage .vd-scenes', (e) => e.style.clipPath), /^inset\(0px( 0px)* round 14px\)$/, 'all the way out');
+  assert.match(await p.$eval('#ss-stage .vd-scenes', (e) => e.style.clipPath), /^inset\(0px( 0px)*( round 0px)?\)$/, 'all the way out');
   assert.equal(s.count, 12);
   assert.equal(s.lit, '6:00, The deep', 'the scene nearest where the pull started');
-  assert.ok(Math.abs(s.left - (s.tlLeft - 6)) <= 1 && Math.abs(s.width - (s.tlWidth + 12)) <= 1, 'as wide as the bar: ' + JSON.stringify(s));
+  assert.ok(Math.abs(s.left - s.dockLeft) <= 1 && Math.abs(s.width - s.dockWidth) <= 1, 'edge to edge, the dock\'s width: ' + JSON.stringify(s));
   assert.ok(s.bottom > s.tlBottom && s.bottom - s.tlBottom <= 8, 'the bar along its bottom');
   assert.deepEqual(s.video, before.video, 'the video doesn\'t move');
   assert.equal(s.scan, '50%', 'a mark on the bar at 6:00');

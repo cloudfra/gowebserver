@@ -152,9 +152,13 @@ test('pulled up, the scenes come out of the bar nearest first, on the preview\'s
       up: Array.from(el.querySelectorAll('.vd-scene')).every((f) => getComputedStyle(f).opacity === '1'),
     };
   });
-  assert.equal(s.bg, previewBg, 'the strip is the gray of the preview\'s card and bubble');
-  assert.match(s.image, /^linear-gradient\(/, 'with the video\'s color bleeding in at the top');
-  assert.equal((s.image.match(/linear-gradient/g) || []).length, 1, 'only at the top');
+  // The card's and bubble's gray (previewBg), solid at the top and
+  // thinning to the bottom where the shadow under the bar takes over;
+  // over it, a faint bleed of the video's color at the top.
+  const gray = previewBg.match(/\d+/g).slice(0, 3).join(', ');
+  assert.equal(gray, '22, 24, 30');
+  assert.match(s.image, /rgba?\(22, 24, 30|srgb 0\.086\d* 0\.094\d* 0\.117\d*/, 'the strip is the gray of the preview\'s card and bubble: ' + s.image);
+  assert.equal((s.image.match(/linear-gradient/g) || []).length, 2, 'the bleed, and the gray under it');
   assert.equal(s.up, true, 'all up once open');
   // Folded: the chain back into the bar, the farthest first.
   await p.keyboard.press('Escape');
