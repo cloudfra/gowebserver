@@ -3573,6 +3573,55 @@
       cursor: auto;
     }
 
+     
+    .ss.is-fs.strip-inline .ss-bottom,
+    .ss.is-fs.strip-inline:not(.strip-on) .ss-bottom:not(:focus-within) {
+      left: var(--ss-in-l, 0px);
+      right: auto;
+      bottom: var(--ss-in-b, 0px);
+      width: var(--ss-in-w, 0px);
+      padding: 0;
+      background: none;
+      opacity: 1;
+      transform: none;
+      transition: opacity 0.26s var(--ease-out) 0.1s, transform 0.34s var(--ease) 0.1s;
+    }
+
+    .ss.is-fs.strip-inline:not(.strip-on) .ss-bottom .ss-strip {
+      pointer-events: auto;
+    }
+
+    .ss.is-fs.strip-inline .ss-strip {
+      height: 44px;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+      mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    }
+
+    .ss.is-fs.strip-inline .ss-strip button {
+      width: 36px;
+      height: 36px;
+      margin-top: 4px;
+      border-radius: 5px;
+    }
+
+    .ss.is-fs.strip-inline .ss-strip button[aria-current] {
+      transform: none;
+    }
+
+    .ss.is-fs.strip-inline.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within),
+    .ss.is-fs.strip-inline.scenes-up .ss-bottom:not(:focus-within) {
+      opacity: 0;
+      transform: translateY(14px);
+      pointer-events: none;
+      transition: opacity 0.22s var(--ease-out), transform 0.32s var(--ease);
+    }
+
+    .ss.is-fs.strip-inline.chrome-off:not(.strip-on) .ss-bottom:not(:focus-within) .ss-strip,
+    .ss.is-fs.strip-inline.scenes-up .ss-bottom:not(:focus-within) .ss-strip {
+      pointer-events: none;
+    }
+
     .ss.chrome-off .ss-top,
     .ss.chrome-off .ss-nav,
     .ss.is-fs.chrome-off:not(.strip-on) .ss-bottom {
@@ -3674,6 +3723,8 @@
        
       --vd-preview-bg: #0c0d10;
        
+      --vd-card: #16181e;
+       
       --vd-bleed: oklch(0.42 calc(var(--amb-c, 0.04) * 0.9) var(--amb-h, 265));
       position: absolute;
       z-index: 2;
@@ -3719,7 +3770,17 @@
         translate 0.38s var(--ease) calc(var(--vd-i, 0) * 32ms);
     }
 
-    .vd-cluster::before {
+     
+    .vd-panel::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 30px;
+      bottom: 0;
+      z-index: -1;
+      background: linear-gradient(to bottom, rgba(4, 5, 8, 0), rgba(4, 5, 8, 0.5) 30%, rgba(4, 5, 8, 0.72));
+      pointer-events: none;
       transition: opacity 0.3s var(--ease-out);
     }
 
@@ -3739,9 +3800,9 @@
         translate 0.32s var(--ease) calc((var(--vd-n, 0) - var(--vd-i, 0)) * 24ms);
     }
 
-    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster::before {
+    .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-panel::before {
       opacity: 0;
-      transition-delay: 0.12s;
+      transition-delay: 0.16s;
     }
 
     .ss.chrome-off .vdock:not(.paused):not(.scrubbing):not(.menu-open):not(.scenes-open) .vd-cluster {
@@ -3759,19 +3820,6 @@
       pointer-events: auto;
     }
 
-     
-    .vd-tl::before {
-      content: "";
-      position: absolute;
-      inset: 4px -6px;
-      z-index: -1;
-      border-radius: 999px;
-      background: var(--vd-shade);
-      opacity: 0.7;
-      filter: blur(calc(var(--vd-feather) * 0.75));
-      pointer-events: none;
-    }
-
     .vd-tl:focus-visible {
       border-radius: 8px;
       box-shadow: 0 0 0 2px var(--accent);
@@ -3779,6 +3827,7 @@
 
     .vd-rail {
       position: absolute;
+      z-index: 3;
       left: 0;
       right: 0;
       top: 50%;
@@ -3841,6 +3890,7 @@
 
     .vd-head {
       position: absolute;
+      z-index: 4;
       top: 50%;
       width: 15px;
       height: 15px;
@@ -3863,22 +3913,31 @@
      
     .vd-pop {
       position: absolute;
-      bottom: calc(100% + 10px);
+      top: calc(-1 * (var(--vd-pop-h, 90px) + 12px));
       z-index: 2;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      padding: 6px 6px 0;
+      border-radius: 14px;
+      background: var(--vd-card);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 36px 4px rgba(0, 0, 0, 0.5);
       transform: translateX(-50%);
       pointer-events: none;
+    }
+
+     
+    .vd-pop-gap {
+      flex: none;
+      height: 38px;
     }
 
     .vd-pop-frame {
       position: relative;
       overflow: hidden;
-      border-radius: 10px;
+      border-radius: 8px;
       background: var(--vd-preview-bg);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 36px 4px rgba(0, 0, 0, 0.55);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
     }
 
     .vd-pop-img {
@@ -3898,10 +3957,8 @@
       flex-direction: column;
       align-items: center;
       max-width: 240px;
-      padding: 5px 10px 6px;
-      border-radius: 9px;
-      background: var(--vd-glass);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 24px 2px rgba(0, 0, 0, 0.5);
+      padding: 0 10px 7px;
+      background: var(--vd-card);
     }
 
     .vd-pop-label {
@@ -3923,17 +3980,17 @@
 
      
     .vd-pop.rise {
-      transform-origin: 50% 100%;
+      transform-origin: 50% calc(var(--vd-pop-h, 90px) + 25px);
       animation: vd-pop-rise 0.28s var(--ease-out);
     }
 
     @keyframes vd-pop-rise {
       from {
         opacity: 0;
-        transform: translateX(-50%) translateY(16px) scale(0.4, 0.08);
+        transform: translateX(-50%) scale(0.06);
       }
 
-      60% {
+      55% {
         opacity: 1;
       }
     }
@@ -3949,14 +4006,11 @@
       --vd-rail: 7px;
     }
 
-     
-    .vdock.scenes-open .vd-tl::before,
-    .vdock.pulling .vd-tl::before {
-      opacity: 0;
-    }
+
 
     .vd-scan {
       position: absolute;
+      z-index: 4;
       top: 50%;
       width: 4px;
       height: calc(var(--vd-rail) + 14px);
@@ -3976,21 +4030,23 @@
       isolation: isolate;
       border-radius: 14px;
       background:
-        linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 34%, transparent), transparent 58%),
-        linear-gradient(to top, color-mix(in srgb, var(--vd-bleed) 26%, transparent), transparent calc(var(--vd-scenes-base, 38px) + 22px)),
-        var(--vd-preview-bg);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.4), 0 -14px 40px rgba(0, 0, 0, 0.5);
-      opacity: clamp(0, calc(var(--u) * 6), 1);
+        linear-gradient(to bottom, color-mix(in srgb, var(--vd-bleed) 16%, transparent), transparent 42%),
+        var(--vd-card);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 -14px 40px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
     }
 
     .vd-scenes.eased {
-      transition: height 0.46s cubic-bezier(0.3, 1.25, 0.45, 1), opacity 0.3s;
+      transition: clip-path 0.46s cubic-bezier(0.3, 1.15, 0.45, 1), opacity 0.2s;
     }
 
      
     .vd-scenes.eased:not(.open) {
-      transition: height 0.38s var(--ease) 0.2s, opacity 0.3s 0.3s;
+      transition: clip-path 0.34s var(--ease) 0.2s, opacity 0.18s 0.5s;
+    }
+
+    .vd-scenes.gone {
+      opacity: 0;
     }
 
      
@@ -4003,13 +4059,13 @@
       height: 110px;
       opacity: 0;
       filter: blur(24px) saturate(1.25);
-      -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
-      mask-image: linear-gradient(to bottom, #000 25%, transparent);
+      -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 70%);
+      mask-image: linear-gradient(to bottom, #000 10%, transparent 70%);
       pointer-events: none;
     }
 
     .vd-scenes-glow.drawn {
-      opacity: 0.6;
+      opacity: 0.28;
     }
 
      
@@ -4098,7 +4154,7 @@
       background-size: 250% 100%;
       box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 6px 18px rgba(0, 0, 0, 0.6);
       cursor: pointer;
-      transition: transform 0.26s var(--ease), box-shadow 0.2s;
+      transition: box-shadow 0.2s var(--ease-out);
       animation: vd-shimmer 1.4s linear infinite;
     }
 
@@ -4117,18 +4173,18 @@
     }
 
     .vd-scene:hover .vd-scene-card {
-      transform: translateY(-4px);
-      box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--vd-played) 55%, transparent), 0 10px 24px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 18px 3px color-mix(in srgb, var(--accent) 55%, transparent);
     }
 
      
     .vd-scene.on .vd-scene-card {
-      box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent), 0 10px 26px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 0 6px color-mix(in srgb, var(--vd-played) 26%, transparent);
     }
 
-    .vd-scene:active .vd-scene-card {
-      transform: scale(0.97);
+    .vd-scene.on:hover .vd-scene-card {
+      box-shadow: 0 0 0 2.5px var(--vd-played), 0 0 18px 4px color-mix(in srgb, var(--accent) 60%, transparent);
     }
+
 
     .vd-scene-pic {
       display: block;
@@ -4228,17 +4284,6 @@
       flex: none;
     }
 
-    .vd-cluster::before {
-      content: "";
-      position: absolute;
-      inset: -12px -18px;
-      z-index: -1;
-      border-radius: 28px;
-      background: var(--vd-shade);
-      filter: blur(var(--vd-feather));
-      pointer-events: none;
-    }
-
     .vd-btn {
       --vd-push: 0px;
       flex: none;
@@ -4296,7 +4341,7 @@
         transform: none;
       }
 
-      .vd-btn:hover > :is(svg, .vd-rate-text) {
+      .vd-btn:hover > svg {
         scale: 1.1;
       }
 
@@ -4305,13 +4350,10 @@
         translate: 0 -1px;
       }
 
-      .vd-rate:hover > .vd-rate-text {
-        translate: 1px 0;
-      }
     }
 
      
-    .vd-btn:active > :is(svg, .vd-rate-text) {
+    .vd-btn:active > svg {
       scale: 0.92;
       transition-duration: 0.08s;
     }
@@ -4471,26 +4513,51 @@
 
      
     .vd-vol-slide {
-      width: 0;
-      overflow: hidden;
+      position: absolute;
+      left: 50%;
+      bottom: 100%;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 124px;
+      padding-bottom: 6px;
+      border-radius: 18px;
+      background: var(--vd-card);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.5);
       opacity: 0;
-      transition: width 0.22s var(--ease), opacity 0.18s;
+      translate: -50% 8px;
+      visibility: hidden;
+      transition: opacity 0.18s var(--ease-out), translate 0.22s var(--ease), visibility 0s 0.22s;
+    }
+
+    .vd-vol-slide::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      height: 8px;
     }
 
     .vd-vol:hover .vd-vol-slide,
     .vd-vol:focus-within .vd-vol-slide {
-      width: 88px;
       opacity: 1;
+      translate: -50% -4px;
+      visibility: visible;
+      transition: opacity 0.18s var(--ease-out), translate 0.22s var(--ease), visibility 0s;
     }
 
     .vd-volume {
       --vol: 100%;
       display: block;
-      width: 76px;
-      height: 24px;
-      margin: 0 8px 0 4px;
+      width: 24px;
+      height: 96px;
+      margin: 0;
       background: transparent;
       cursor: pointer;
+      writing-mode: vertical-lr;
+      direction: rtl;
       -webkit-appearance: none;
       appearance: none;
     }
@@ -4502,15 +4569,17 @@
     }
 
     .vd-volume::-webkit-slider-runnable-track {
-      height: 4px;
+      width: 4px;
+      height: 100%;
+      margin: 0 auto;
       border-radius: 2px;
-      background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
+      background: linear-gradient(to top, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
     }
 
     .vd-volume::-webkit-slider-thumb {
       width: 13px;
       height: 13px;
-      margin-top: -4.5px;
+      margin-left: -4.5px;
       border: 0;
       border-radius: 50%;
       background: #fff;
@@ -4520,9 +4589,10 @@
     }
 
     .vd-volume::-moz-range-track {
-      height: 4px;
+      width: 4px;
+      height: 100%;
       border-radius: 2px;
-      background: linear-gradient(to right, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
+      background: linear-gradient(to top, var(--vd-played) var(--vol), var(--vd-track) var(--vol));
     }
 
     .vd-volume::-moz-range-thumb {
@@ -9107,6 +9177,9 @@
       
       
       
+      
+      
+      
 
       
       
@@ -9123,6 +9196,15 @@
       var VP_PULL_GIVE = 0.8;
       
       var VP_SCENE_EXTRA = 3;
+
+      
+      
+      
+      function vpSceneSize(compact, aspect) {
+        var w = compact ? 112 : 160;
+        if (!(aspect > 0)) aspect = 16 / 9;
+        return { w: w, h: Math.round(Math.max(w * 0.42, Math.min(w, w / aspect))) };
+      }
 
       
       function vpSceneStep(dur) {
@@ -9232,6 +9314,9 @@
       
       
       
+      
+      
+      
       function SceneStrip(host, tl, opts) {
         var el = doc.createElement('div');
         el.className = 'vd-scenes';
@@ -9247,7 +9332,7 @@
         var GAP = 12, PAD = 16, TOP = 14, BELOW = 6;
         var state = 'closed'; 
         var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1;
-        var base = 0, full = 0, anchorX = NaN, lastScroll = 0;
+        var base = 0, full = 0, width = 0, anchorX = NaN, lastScroll = 0;
         var mounted = new Map(); 
         var closeTimer = 0, settleTimer = 0, rafPending = false;
         var drag = null, dragged = false;
@@ -9261,11 +9346,9 @@
         
         
         function measure() {
-          fw = opts.compact() ? 112 : 160;
-          var a = opts.aspect();
-          if (!(a > 0)) a = 16 / 9;
-          
-          fh = Math.round(Math.max(fw * 0.42, Math.min(fw, fw / a)));
+          var size = vpSceneSize(opts.compact(), opts.aspect());
+          fw = size.w;
+          fh = size.h;
           pitch = fw + GAP;
           var tlH = tl.offsetHeight || 26;
           base = tlH + BELOW * 2;
@@ -9276,6 +9359,7 @@
           var bw = tl.offsetWidth || tl.getBoundingClientRect().width;
           el.style.left = (tl.offsetLeft - BELOW) + 'px';
           el.style.width = (bw + BELOW * 2) + 'px';
+          width = bw + BELOW * 2;
           el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop - tlH - BELOW) + 'px';
           rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
         }
@@ -9330,13 +9414,17 @@
 
         
         
+        
+        
+        
         function chain(r, eased) {
           var far = 0;
           mounted.forEach(function (f) { far = Math.max(far, Math.min(f._d || 0, 8)); });
           mounted.forEach(function (f) {
-            var d = f._d || 0;
-            f.style.setProperty('--p', String(eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, d) * 1000) / 1000));
-            f.style.setProperty('--cd', (eased ? vpChainDelay(d, r > 0, far) : 0) + 'ms');
+            var d = f._d || 0, lit = f._i === sel && state !== 'closing';
+            var up = eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, Math.max(0, d - 1)) * 1000) / 1000;
+            f.style.setProperty('--p', lit ? '1' : String(up));
+            f.style.setProperty('--cd', (lit || !eased ? 0 : vpChainDelay(d, r > 0, far)) + 'ms');
           });
         }
 
@@ -9391,10 +9479,15 @@
         
         
         
+        
         function show(r, eased) {
           el.classList.toggle('eased', !!eased);
           el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
-          el.style.height = Math.round(base + (full - base) * Math.min(1, r * 1.5)) + 'px';
+          el.style.height = full + 'px';
+          var e = eased ? (r > 0 ? 1 : 0) : Math.min(1, r * 1.6);
+          var left = PAD + sel * pitch - view.scrollLeft - 6, right = width - (left + fw + 12);
+          var c = function (x) { return Math.max(0, Math.round(x * (1 - e))) + 'px'; };
+          el.style.clipPath = 'inset(' + c(TOP - 6) + ' ' + c(right) + ' 0px ' + c(left) + ' round 14px)';
           chain(r, eased);
         }
 
@@ -9410,7 +9503,7 @@
           clearMounted();
           sel = vpSceneNearest(t, step, n);
           el.hidden = false;
-          el.classList.remove('open', 'settled', 'eased');
+          el.classList.remove('open', 'settled', 'eased', 'gone');
           el.dataset.count = String(n);
           el.dataset.step = String(step);
           opts.glow(glow);
@@ -9423,6 +9516,10 @@
           lastScroll = view.scrollLeft;
           state = 'pulling';
           render();
+          
+          
+          var lit = mounted.get(sel), c = lit && lit.querySelector('canvas');
+          if (c && opts.seed && opts.seed(c)) lit.classList.add('ready');
           show(0, false);
           return true;
         }
@@ -9440,6 +9537,7 @@
           if (state !== 'pulling') return;
           state = 'closing';
           show(0, true);
+          el.classList.add('gone');
           closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
           if (opts.closed) opts.closed('back');
         }
@@ -9496,6 +9594,7 @@
             finish();
           } else {
             show(0, true);
+            el.classList.add('gone');
             closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
           }
           if (opts.closed) opts.closed(why);
@@ -9505,7 +9604,7 @@
           clearTimeout(closeTimer);
           state = 'closed';
           clearMounted();
-          el.classList.remove('open', 'settled', 'eased');
+          el.classList.remove('open', 'settled', 'eased', 'gone');
           el.hidden = true;
           el.dataset.mounted = '0';
         }
@@ -9576,12 +9675,12 @@
         }, { passive: false });
         
         
-        view.addEventListener('pointerdown', function (e) {
+        el.addEventListener('pointerdown', function (e) {
           if (state !== 'open' || e.button > 0) return;
           drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: view.scrollLeft, moved: false, mouse: e.pointerType === 'mouse' };
           dragged = false;
         });
-        view.addEventListener('pointermove', function (e) {
+        el.addEventListener('pointermove', function (e) {
           if (!drag || drag.id !== e.pointerId) return;
           var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
           if (dy > 40 && dy > Math.abs(dx) * 1.5) {
@@ -9594,7 +9693,7 @@
           if (!drag.moved && Math.abs(dx) > 4) {
             drag.moved = true;
             el.classList.add('dragging');
-            try { view.setPointerCapture(e.pointerId); } catch (err) { }
+            try { el.setPointerCapture(e.pointerId); } catch (err) { }
           }
           if (drag.moved) {
             view.scrollLeft = drag.left - dx;
@@ -9607,8 +9706,8 @@
           drag = null;
           el.classList.remove('dragging');
         }
-        view.addEventListener('pointerup', endDrag);
-        view.addEventListener('pointercancel', endDrag);
+        el.addEventListener('pointerup', endDrag);
+        el.addEventListener('pointercancel', endDrag);
         rail.addEventListener('click', function (e) {
           if (dragged) { dragged = false; return; }
           var f = e.target.closest && e.target.closest('.vd-scene');
@@ -9948,7 +10047,7 @@
           '<div class="vd-head"></div><div class="vd-scan" hidden></div>' +
           '<div class="vd-pop" aria-hidden="true" hidden>' +
           '<div class="vd-pop-frame" hidden><div class="vd-pop-img"></div><canvas class="vd-pop-canvas" width="0" height="0"></canvas></div>' +
-          '<div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
+          '<div class="vd-pop-gap"></div><div class="vd-pop-text"><span class="vd-pop-label" hidden></span><span class="vd-pop-time"></span></div>' +
           '</div>' +
           '</div>' +
           '<div class="vd-row"><span class="vd-cluster vd-left">' +
@@ -10412,9 +10511,11 @@
             return !s || (!s.ready && !s.failed);
           }
 
+          
+          
           function size() {
-            var w = 176, vw = (sv && sv.videoWidth) || (v && v.videoWidth) || 16, vh = (sv && sv.videoHeight) || (v && v.videoHeight) || 9;
-            return { w: w, h: Math.max(40, Math.min(176, Math.round(w * vh / vw))) };
+            var vw = (sv && sv.videoWidth) || (v && v.videoWidth) || 16, vh = (sv && sv.videoHeight) || (v && v.videoHeight) || 9;
+            return vpSceneSize(el.classList.contains('compact'), vw / vh);
           }
 
           
@@ -10505,7 +10606,8 @@
               var s = size(), dpr = Math.min(window.devicePixelRatio || 1, 2);
               if (popCanvas.width !== Math.round(s.w * dpr)) { popCanvas.width = Math.round(s.w * dpr); popCanvas.height = Math.round(s.h * dpr); }
               try {
-                popCanvas.getContext('2d').drawImage(sv, 0, 0, popCanvas.width, popCanvas.height);
+                var k = vpCover(sv.videoWidth, sv.videoHeight, popCanvas.width, popCanvas.height);
+                popCanvas.getContext('2d').drawImage(sv, k.x, k.y, k.w, k.h, 0, 0, popCanvas.width, popCanvas.height);
                 drawn = true;
                 shownT = sv._t;
               } catch (e) {
@@ -10557,16 +10659,19 @@
           if (h.chapter && h.chapter.title) label = label ? h.chapter.title + ' · ' + label : h.chapter.title;
           popLabel.textContent = label;
           popLabel.hidden = !label;
-          var th = preview.image(t);
+          var th = preview.image(t), sz = preview.size();
           if (th) {
-            var scale = Math.min(1, 176 / th.w);
+            
+            
+            var scale = Math.max(sz.w / th.w, sz.h / th.h);
+            var ox = (sz.w - th.w * scale) / 2, oy = (sz.h - th.h * scale) / 2;
             popFrame.hidden = false;
-            popFrame.style.width = Math.round(th.w * scale) + 'px';
-            popFrame.style.height = Math.round(th.h * scale) + 'px';
+            popFrame.style.width = sz.w + 'px';
+            popFrame.style.height = sz.h + 'px';
             popImg.hidden = false;
             popCanvas.hidden = true;
             popImg.style.backgroundImage = 'url("' + String(th.url).replace(/["\\]/g, '\\$&') + '")';
-            popImg.style.backgroundPosition = (-th.x * scale) + 'px ' + (-th.y * scale) + 'px';
+            popImg.style.backgroundPosition = (ox - th.x * scale) + 'px ' + (oy - th.y * scale) + 'px';
             popImg.style.backgroundSize = th.sheetW ? (th.sheetW * scale) + 'px ' + (th.sheetH * scale) + 'px' : '';
             el.dataset.preview = 'image';
           } else {
@@ -10577,12 +10682,14 @@
             popImg.hidden = true;
             popCanvas.hidden = !hasFrame;
             if (hasFrame) {
-              var s = preview.size();
-              popFrame.style.width = s.w + 'px';
-              popFrame.style.height = s.h + 'px';
+              popFrame.style.width = sz.w + 'px';
+              popFrame.style.height = sz.h + 'px';
             }
             el.dataset.preview = hasFrame ? 'frame' : 'none';
           }
+          
+          
+          pop.style.setProperty('--vd-pop-h', (popFrame.hidden ? 0 : sz.h) + 'px');
           if (pop.hidden) {
             
             pop.classList.remove('rise');
@@ -10590,7 +10697,9 @@
             void pop.offsetWidth;
             pop.classList.add('rise');
           }
-          var r = tl.getBoundingClientRect(), half = pop.offsetWidth / 2;
+          
+          
+          var r = tl.getBoundingClientRect(), half = sz.w / 2 + 10;
           pop.style.left = Math.max(half, Math.min(r.width - half, x - r.left)) + 'px';
           update();
         }
@@ -10613,7 +10722,7 @@
         
         
         
-        var resumeAfterScenes = false, zoom = null, pulled = null, pullFrom = 0;
+        var resumeAfterScenes = false, zoom = null, pulled = null, pullFrom = 0, held = null;
         var scenes = SceneStrip(panel, tl, {
           duration: duration,
           aspect: function () {
@@ -10625,6 +10734,7 @@
             return h.chapter ? h.chapter.title : '';
           },
           glow: glowScenes,
+          seed: seedScene,
           paint: paintScene,
           cancel: function (c) {
             if (c._job) { preview.cancel(c._job); c._job = null; }
@@ -10648,6 +10758,21 @@
           scanEl.hidden = scanT == null;
           if (scanT != null) scanEl.style.left = Math.min(100, scanT / dur * 100) + '%';
           update();
+        }
+
+        
+        
+        function seedScene(c) {
+          if (!c.getContext) return false;
+          var t = pulled ? pulled.t : hoverT;
+          if (t != null && preview.drawImage(t, c) === 'done') return true;
+          if (popCanvas.hidden || !preview.hasFrame() || !popCanvas.width) return false;
+          try {
+            c.getContext('2d').drawImage(popCanvas, 0, 0, c.width, c.height);
+            return true;
+          } catch (e) {
+            return false;
+          }
         }
 
         
@@ -10770,6 +10895,19 @@
         }
 
         doc.addEventListener('pointerdown', function (e) { scenes.press(e); }, true);
+        
+        
+        doc.addEventListener('pointermove', function (e) {
+          if (held == null || e.pointerId !== held) return;
+          if (!scenes.isOpen()) { held = null; return; }
+          if (pullFrom - e.clientY < VP_PULL_DEAD) {
+            held = null;
+            scenes.close('down');
+          }
+        });
+        ['pointerup', 'pointercancel'].forEach(function (type) {
+          doc.addEventListener(type, function (e) { if (e.pointerId === held) held = null; });
+        });
 
         
         tl.addEventListener('pointerdown', function (e) {
@@ -10804,6 +10942,8 @@
                 try { tl.releasePointerCapture(e.pointerId); } catch (err) { }
                 resumeAfterScenes = !wasPaused;
                 openScenes(from.t, from.x);
+                
+                held = e.pointerId;
                 return;
               }
               if (!el.classList.contains('pulling')) {
@@ -10923,7 +11063,8 @@
         }
         el.addEventListener('pointerover', function (e) {
           var b = e.target.closest && e.target.closest('.vd-btn');
-          if (!b || e.pointerType === 'touch' || b === tipFor) return;
+          
+          if (!b || e.pointerType === 'touch' || b === tipFor || b.classList.contains('vd-mute')) return;
           hideTip();
           tipTimer = setTimeout(function () { showTip(b); }, VP_TIP_DELAY);
         });
@@ -12252,6 +12393,7 @@
           var x0 = Math.max(x, p.l), y0 = Math.max(y, p.t);
           var x1 = Math.min(x + w, W - p.r), y1 = Math.min(y + h, H - p.b);
           dock.place({ x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) });
+          stripInline();
         }
 
         
@@ -12401,6 +12543,41 @@
         function hasStrip() {
           return CFG.thumbs && list.length > 1;
         }
+        
+        
+        
+        
+        
+        
+        var STRIP_INLINE_MIN = 120, STRIP_INLINE_STEP = 41, inlineW = 0;
+        function stripInline() {
+          var gap = dock.el.querySelector('.vd-gap'), row = dock.el.querySelector('.vd-row');
+          var on = !!(isOpen && isFullscreen() && finePointer.matches && hasStrip() && list[idx] && list[idx].video && dock.current() && gap && row);
+          var w = 0;
+          if (on) {
+            var g = gap.getBoundingClientRect(), r = row.getBoundingClientRect(), f = frame.getBoundingClientRect();
+            w = Math.round(g.width - 12);
+            on = g.width >= STRIP_INLINE_MIN;
+            if (on) {
+              dlg.style.setProperty('--ss-in-l', Math.round(g.left - f.left + 6) + 'px');
+              dlg.style.setProperty('--ss-in-w', w + 'px');
+              dlg.style.setProperty('--ss-in-b', Math.round(f.bottom - (r.top + r.height / 2) - 22) + 'px');
+            }
+          }
+          var was = dlg.classList.contains('strip-inline');
+          if (on && !was) hideStrip();
+          dlg.classList.toggle('strip-inline', on);
+          
+          if (on !== was || (on && Math.abs(w - inlineW) >= STRIP_INLINE_STEP)) {
+            inlineW = on ? w : 0;
+            renderStrip();
+          }
+        }
+
+        
+        
+        if (window.ResizeObserver) new ResizeObserver(function () { if (isOpen) stripInline(); }).observe(dock.el.querySelector('.vd-gap'));
+
         
         
         function stripBand() {
@@ -12717,7 +12894,9 @@
           stripRoom();
           
           
-          var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor(((innerWidth - info.room() - STRIP_MARGIN) / STRIP_STEP - 1) / 2)));
+          var inline = dlg.classList.contains('strip-inline');
+          var room = inline ? inlineW : innerWidth - info.room() - STRIP_MARGIN, perStep = inline ? STRIP_INLINE_STEP : STRIP_STEP;
+          var radius = Math.max(1, Math.min(STRIP_RADIUS, Math.floor((room / perStep - 1) / 2)));
           var lo = Math.max(0, idx - radius), hi = Math.min(list.length - 1, idx + radius);
           var keep = {};
           Array.prototype.slice.call(strip.children).forEach(function (b) {
@@ -12794,7 +12973,8 @@
           dlg.classList.remove('strip-on');
         }
         function stripZone(e) {
-          if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up')) return;
+          if (!isFullscreen() || strip.hidden || dlg.classList.contains('no-strip') || dlg.classList.contains('scenes-up') ||
+            dlg.classList.contains('strip-inline')) return;
           var bottom = frame.getBoundingClientRect().bottom, top = bottom - STRIP_ZONE;
           var m = currentMedia();
           if (m && m.tagName === 'VIDEO') top = bottom - (dlg.classList.contains('strip-on') ? stripBand() : STRIP_EDGE);

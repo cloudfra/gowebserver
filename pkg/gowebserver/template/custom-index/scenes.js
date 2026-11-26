@@ -1,11 +1,13 @@
 // ===== Scenes =====
 // The video dock's film strip of scenes (player.js opens it): the
 // timeline itself, stretched. While the timeline is held (a mouse press,
-// a finger scrubbing), pulling up off it stretches the bar upward into a
-// very dark gray strip (the preview's own gray) with the video's colors
-// bleeding into it, and the scenes, one a minute, come up out of the bar
-// as if pulled: the one nearest the pointer first, then its neighbors on
-// either side, one after another (vpChain), as far as the pull has gone.
+// a finger scrubbing), pulling up off it grows the preview's dark gray
+// card out sideways into the strip, the video's colors bleeding faintly
+// into its top. The preview stays where it is, as the strip's scene for
+// its minute (it's already that size and in that place), and the other
+// scenes, one a minute, come up out of the bar as if pulled: its
+// neighbors on either side first, then theirs, one after another
+// (vpChain), as far as the pull has gone.
 // It follows the pull with some resistance (vpPull) and, past a point,
 // snaps open, the rest of the chain coming up; let go before that and
 // it springs back into the bar, the chain run backward, the press a
@@ -17,8 +19,9 @@
 // timeline plays in. A scene picked (a click, a tap, Enter) grows out to
 // fill the video, which goes there and plays (the dock does that part:
 // opts.pick). Swiping or dragging it down folds it back into the bar, as
-// do Escape and a press elsewhere: the scenes sink back in the reverse
-// of the chain, the farthest first and the nearest last.
+// do pulling the held timeline back down, Escape and a press elsewhere:
+// the scenes sink back in the reverse of the chain, the farthest first
+// and the nearest last.
 //
 // A long video has many scenes, so only the ones in view and a few to
 // either side are in the page (vpSceneWindow), and only those ask for
@@ -41,6 +44,15 @@ var VP_PULL_OPEN = 110;
 var VP_PULL_GIVE = 0.8;
 // How many scenes either side of those in view are kept in the page.
 var VP_SCENE_EXTRA = 3;
+
+// A scene's size, and the preview's: compact (the compact dock) or not,
+// for a video aspect wide over high. A tall video's scenes are cut
+// square rather than towering.
+function vpSceneSize(compact, aspect) {
+  var w = compact ? 112 : 160;
+  if (!(aspect > 0)) aspect = 16 / 9;
+  return { w: w, h: Math.round(Math.max(w * 0.42, Math.min(w, w / aspect))) };
+}
 
 // The time between scenes for a video lasting dur seconds (0 for none).
 function vpSceneStep(dur) {
@@ -141,6 +153,9 @@ function vpCover(sw, sh, dw, dh) {
 //   label(t)          the chapter at time t, or ''
 //   glow(canvas)      draws the video's bottom edge into canvas (its
 //                     colors bleed into the strip's top), or doesn't
+//   seed(canvas)      draws what the preview shows now into canvas, for
+//                     the scene it becomes until that scene's own frame
+//                     is in; true when it did
 //   paint(t, canvas, done)  draws the scene at t into canvas, now or
 //                     later, and calls done once it has; refresh() asks
 //                     again for the ones still waiting
@@ -165,7 +180,7 @@ function SceneStrip(host, tl, opts) {
   var GAP = 12, PAD = 16, TOP = 14, BELOW = 6;
   var state = 'closed'; // closed, pulling, open, closing
   var n = 0, step = 0, fw = 0, fh = 0, pitch = 0, sel = -1;
-  var base = 0, full = 0, anchorX = NaN, lastScroll = 0;
+  var base = 0, full = 0, width = 0, anchorX = NaN, lastScroll = 0;
   var mounted = new Map(); // index -> frame element
   var closeTimer = 0, settleTimer = 0, rafPending = false;
   var drag = null, dragged = false;
@@ -179,11 +194,9 @@ function SceneStrip(host, tl, opts) {
   // timeline's, its sides the timeline's, as tall as the bar (base)
   // when folded and the scenes over the bar (full) when open.
   function measure() {
-    fw = opts.compact() ? 112 : 160;
-    var a = opts.aspect();
-    if (!(a > 0)) a = 16 / 9;
-    // A tall video's scenes are cut square rather than towering.
-    fh = Math.round(Math.max(fw * 0.42, Math.min(fw, fw / a)));
+    var size = vpSceneSize(opts.compact(), opts.aspect());
+    fw = size.w;
+    fh = size.h;
     pitch = fw + GAP;
     var tlH = tl.offsetHeight || 26;
     base = tlH + BELOW * 2;
@@ -194,6 +207,7 @@ function SceneStrip(host, tl, opts) {
     var bw = tl.offsetWidth || tl.getBoundingClientRect().width;
     el.style.left = (tl.offsetLeft - BELOW) + 'px';
     el.style.width = (bw + BELOW * 2) + 'px';
+    width = bw + BELOW * 2;
     el.style.bottom = Math.max(0, (host.clientHeight || host.offsetHeight || 0) - tl.offsetTop - tlH - BELOW) + 'px';
     rail.style.width = (PAD * 2 + Math.max(0, n - 1) * pitch + fw) + 'px';
   }
@@ -248,13 +262,17 @@ function SceneStrip(host, tl, opts) {
 
   // Each scene's rise (--p) for the strip r open, and when eased, its
   // wait (--cd), the chain run out or back.
+  // Going out, the lit scene (the preview, already up) doesn't move: the
+  // chain starts with its neighbors, a step out. Coming back, it sinks
+  // last.
   function chain(r, eased) {
     var far = 0;
     mounted.forEach(function (f) { far = Math.max(far, Math.min(f._d || 0, 8)); });
     mounted.forEach(function (f) {
-      var d = f._d || 0;
-      f.style.setProperty('--p', String(eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, d) * 1000) / 1000));
-      f.style.setProperty('--cd', (eased ? vpChainDelay(d, r > 0, far) : 0) + 'ms');
+      var d = f._d || 0, lit = f._i === sel && state !== 'closing';
+      var up = eased ? (r > 0 ? 1 : 0) : Math.round(vpChain(r, Math.max(0, d - 1)) * 1000) / 1000;
+      f.style.setProperty('--p', lit ? '1' : String(up));
+      f.style.setProperty('--cd', (lit || !eased ? 0 : vpChainDelay(d, r > 0, far)) + 'ms');
     });
   }
 
@@ -306,13 +324,18 @@ function SceneStrip(host, tl, opts) {
   }
 
   // ---- Stretching and folding ----
-  // How far stretched: r (0 to 1) of the way from the bar to open, at
-  // once (with the pull) or eased. The strip makes room a little ahead
-  // of the scenes, which come up into it in their chain.
+  // How far out: r (0 to 1) of the way from the preview's card to open,
+  // at once (with the pull) or eased. The strip is the card grown out
+  // sideways (its clip, from the lit scene's card to the whole strip),
+  // a little ahead of the scenes, which come up into it in their chain.
   function show(r, eased) {
     el.classList.toggle('eased', !!eased);
     el.style.setProperty('--u', String(Math.round(r * 1000) / 1000));
-    el.style.height = Math.round(base + (full - base) * Math.min(1, r * 1.5)) + 'px';
+    el.style.height = full + 'px';
+    var e = eased ? (r > 0 ? 1 : 0) : Math.min(1, r * 1.6);
+    var left = PAD + sel * pitch - view.scrollLeft - 6, right = width - (left + fw + 12);
+    var c = function (x) { return Math.max(0, Math.round(x * (1 - e))) + 'px'; };
+    el.style.clipPath = 'inset(' + c(TOP - 6) + ' ' + c(right) + ' 0px ' + c(left) + ' round 14px)';
     chain(r, eased);
   }
 
@@ -328,7 +351,7 @@ function SceneStrip(host, tl, opts) {
     clearMounted();
     sel = vpSceneNearest(t, step, n);
     el.hidden = false;
-    el.classList.remove('open', 'settled', 'eased');
+    el.classList.remove('open', 'settled', 'eased', 'gone');
     el.dataset.count = String(n);
     el.dataset.step = String(step);
     opts.glow(glow);
@@ -341,6 +364,10 @@ function SceneStrip(host, tl, opts) {
     lastScroll = view.scrollLeft;
     state = 'pulling';
     render();
+    // The lit scene is the preview, picture and all, until its own
+    // frame is in.
+    var lit = mounted.get(sel), c = lit && lit.querySelector('canvas');
+    if (c && opts.seed && opts.seed(c)) lit.classList.add('ready');
     show(0, false);
     return true;
   }
@@ -358,6 +385,7 @@ function SceneStrip(host, tl, opts) {
     if (state !== 'pulling') return;
     state = 'closing';
     show(0, true);
+    el.classList.add('gone');
     closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
     if (opts.closed) opts.closed('back');
   }
@@ -414,6 +442,7 @@ function SceneStrip(host, tl, opts) {
       finish();
     } else {
       show(0, true);
+      el.classList.add('gone');
       closeTimer = setTimeout(finish, reducedMotion.matches ? 0 : VP_CLOSE_MS);
     }
     if (opts.closed) opts.closed(why);
@@ -423,7 +452,7 @@ function SceneStrip(host, tl, opts) {
     clearTimeout(closeTimer);
     state = 'closed';
     clearMounted();
-    el.classList.remove('open', 'settled', 'eased');
+    el.classList.remove('open', 'settled', 'eased', 'gone');
     el.hidden = true;
     el.dataset.mounted = '0';
   }
@@ -494,12 +523,12 @@ function SceneStrip(host, tl, opts) {
   }, { passive: false });
   // A mouse drags it along (a finger scrolls it natively); either one
   // swiping it down folds it back into the bar.
-  view.addEventListener('pointerdown', function (e) {
+  el.addEventListener('pointerdown', function (e) {
     if (state !== 'open' || e.button > 0) return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: view.scrollLeft, moved: false, mouse: e.pointerType === 'mouse' };
     dragged = false;
   });
-  view.addEventListener('pointermove', function (e) {
+  el.addEventListener('pointermove', function (e) {
     if (!drag || drag.id !== e.pointerId) return;
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (dy > 40 && dy > Math.abs(dx) * 1.5) {
@@ -512,7 +541,7 @@ function SceneStrip(host, tl, opts) {
     if (!drag.moved && Math.abs(dx) > 4) {
       drag.moved = true;
       el.classList.add('dragging');
-      try { view.setPointerCapture(e.pointerId); } catch (err) { }
+      try { el.setPointerCapture(e.pointerId); } catch (err) { }
     }
     if (drag.moved) {
       view.scrollLeft = drag.left - dx;
@@ -525,8 +554,8 @@ function SceneStrip(host, tl, opts) {
     drag = null;
     el.classList.remove('dragging');
   }
-  view.addEventListener('pointerup', endDrag);
-  view.addEventListener('pointercancel', endDrag);
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
   rail.addEventListener('click', function (e) {
     if (dragged) { dragged = false; return; }
     var f = e.target.closest && e.target.closest('.vd-scene');

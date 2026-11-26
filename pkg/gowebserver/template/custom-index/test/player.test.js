@@ -474,8 +474,13 @@ test('the preview never shows an empty box: the sprite once it has loaded, the t
   assert.equal(h.img, true);
   assert.equal(h.kind, 'image');
   const img = t.$('ss-stage').querySelector('.vd-pop-img');
-  assert.equal(img.style.backgroundPosition, '0px -540px', 'frame 60: first column, seventh row');
-  assert.equal(img.style.backgroundSize, '1600px 1080px', 'the whole sheet behind the box');
+  // The box is a scene's size (the stand-in has no mouse: the compact
+  // dock's, 112 wide), the sheet scaled to it.
+  assert.equal(img.style.backgroundPosition, '0px -378px', 'frame 60: first column, seventh row');
+  assert.equal(img.style.backgroundSize, '1120px 756px', 'the whole sheet behind the box');
+  const frame = t.$('ss-stage').querySelector('.vd-pop-frame');
+  assert.deepEqual([frame.style.width, frame.style.height], ['112px', '63px'], 'as big as its scene in the strip');
+  assert.equal(t.$('ss-stage').querySelector('.vd-pop').style.getPropertyValue('--vd-pop-h'), '63px', 'the card over the bar by as much');
   assert.equal(t.images.length, 1, 'loaded once');
 });
 

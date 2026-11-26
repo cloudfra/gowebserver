@@ -75,9 +75,12 @@ const layout = (p) => p.evaluate(() => {
   const r = v.getBoundingClientRect(), s = document.getElementById('ss-strip').getBoundingClientRect();
   const tl = document.querySelector('.vd-tl').getBoundingClientRect();
   const row = document.querySelector('.vd-row').getBoundingClientRect();
+  const lc = document.querySelector('.vd-left').getBoundingClientRect(), rc = document.querySelector('.vd-right').getBoundingClientRect();
   return {
     left: r.left, top: r.top, right: r.right, bottom: r.bottom, x: r.left + r.width / 2,
-    stripTop: s.top, tlBottom: tl.bottom, rowTop: row.top, rowBottom: row.bottom,
+    stripTop: s.top, stripBottom: s.bottom, stripLeft: s.left, stripRight: s.right, tlTop: tl.top, tlBottom: tl.bottom,
+    rowTop: row.top, rowBottom: row.bottom, leftEnd: lc.right, rightStart: rc.left,
+    inline: document.getElementById('ss').classList.contains('strip-inline'),
     vw: innerWidth, vh: innerHeight,
     on: document.getElementById('ss').classList.contains('strip-on'),
     opacity: getComputedStyle(document.querySelector('.ss-bottom')).opacity,
@@ -93,22 +96,24 @@ async function mouseTo(p, x, y) {
   return layout(p);
 }
 
-// The video covers the screen. The mouse on the dock leaves the strip
-// down; at the screen's bottom edge it comes up, and the dock moves up
-// above it, still the video's.
+// The video covers the screen. The strip is in the dock's own row,
+// between the play button and time and the controls at the right; the
+// screen's bottom edge doesn't bring it up from there, and nothing moves
+// the dock or its bar up.
 async function coversScreen(p, mode) {
   let g = await layout(p);
   assert.ok(g, mode + ': the video is on screen');
   assert.ok(g.left <= 0.5 && g.top <= 0.5 && g.right >= g.vw - 0.5 && g.bottom >= g.vh - 0.5,
     mode + ': the video covers the screen: ' + JSON.stringify(g));
   g = await mouseTo(p, g.vw - 60, (g.rowTop + g.rowBottom) / 2);
-  assert.equal(g.on, false, mode + ': the mouse on the dock\'s buttons leaves the strip down');
-  assert.equal(g.opacity, '0', mode);
+  assert.equal(g.inline, true, mode + ': the strip is in the row');
+  assert.equal(g.opacity, '1', mode + ': there with the dock');
+  assert.ok(g.stripTop >= g.rowTop - 4 && g.stripBottom <= g.rowBottom + 4 && g.stripLeft >= g.leftEnd && g.stripRight <= g.rightStart,
+    mode + ': between the time and the controls: ' + JSON.stringify(g));
+  const tlTop = g.tlTop;
   g = await mouseTo(p, g.x, g.vh - 1);
-  assert.equal(g.on, true, mode + ': the bottom edge brings it up');
-  assert.equal(g.opacity, '1', mode);
-  assert.ok(g.tlBottom <= g.stripTop + 1 && g.rowBottom <= g.stripTop + 1,
-    mode + ': and the dock moves up above it: ' + JSON.stringify(g));
+  assert.equal(g.on, false, mode + ': the bottom edge doesn\'t bring it up from there');
+  assert.ok(Math.abs(g.tlTop - tlTop) < 1, mode + ': and the bar stays where it was: ' + JSON.stringify(g));
   const hit = await p.evaluate(() => {
     const b = document.querySelector('.vd-play').getBoundingClientRect();
     return !!document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2).closest('.vd-play');
@@ -117,7 +122,7 @@ async function coversScreen(p, mode) {
   await mouseTo(p, g.x, g.vh / 2);
 }
 
-test('in full screen a video covers the screen, and the filmstrip comes up from its bottom edge', async () => {
+test('in full screen a video covers the screen, and the filmstrip sits in the dock\'s row', async () => {
   const p = b.page;
   await p.locator('.tile[aria-label="clip-1.webm"]').click();
   await p.waitForSelector('dialog#ss[open]');
